@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neve Bot</title>
+  <style>
+    /* ── Reset & Variáveis ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0e0f13;
+      --surface:  #16181f;
+      --card:     #1d1f29;
+      --border:   #2a2d3a;
+      --accent:   #7c6fcd;
+      --accent2:  #5865f2;
+      --text:     #e2e4ed;
+      --muted:    #8b8fa8;
+      --success:  #3ba55c;
+      --error:    #ed4245;
+      --radius:   10px;
+      --shadow:   0 4px 20px rgba(0,0,0,.4);
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .header-logo .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .btn-save-top {
+      padding: .45rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      background: var(--accent2);
+      color: #fff;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s, transform .1s;
+    }
+    .btn-save-top:hover { opacity: .85; }
+    .btn-save-top:active { transform: scale(.97); }
+
+    .btn-shutdown {
+      padding: .45rem 1.2rem;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--error);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--error);
+      transition: background .15s, transform .1s;
+    }
+    .btn-shutdown:hover { background: rgba(237,66,69,.12); }
+    .btn-shutdown:active { transform: scale(.97); }
+
+    main { flex: 1; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem 4rem; width: 100%; }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem; right: 1.5rem;
+      padding: .75rem 1.4rem;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.ok  { background: var(--success); color: #fff; }
+    #toast.err { background: var(--error);   color: #fff; }
+
+    /* ── Seção Geral ─────────────────────────────────────────────────────── */
+    .section-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .75rem;
+      margin-top: 2rem;
+    }
+
+    .general-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.4rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .general-card label { font-size: .9rem; color: var(--muted); white-space: nowrap; }
+
+    .input-prefix {
+      width: 80px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .45rem .7rem;
+      color: var(--text);
+      font-size: 1rem;
+      font-family: monospace;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .input-prefix:focus { border-color: var(--accent); }
+
+    /* ── Grid de comandos ────────────────────────────────────────────────── */
+    .cmd-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    /* ── Card de comando ─────────────────────────────────────────────────── */
+    .cmd-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .cmd-header {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .9rem 1.2rem;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color .15s;
+    }
+    .cmd-card.open .cmd-header { border-bottom-color: var(--border); }
+
+    .cmd-tag {
+      font-size: .72rem;
+      font-weight: 700;
+      font-family: monospace;
+      letter-spacing: .05em;
+      background: rgba(124, 111, 205, .18);
+      color: var(--accent);
+      padding: .2rem .55rem;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .cmd-desc { font-size: .85rem; color: var(--muted); flex: 1; }
+
+    .chevron {
+      width: 16px; height: 16px;
+      color: var(--muted);
+      transition: transform .2s;
+      flex-shrink: 0;
+    }
+    .cmd-card.open .chevron { transform: rotate(180deg); }
+
+    .cmd-body { display: none; padding: 1.1rem 1.2rem; }
+    .cmd-card.open .cmd-body { display: block; }
+
+    /* ── Campos dentro do card ───────────────────────────────────────────── */
+    .field { margin-bottom: 1rem; }
+    .field:last-child { margin-bottom: 0; }
+
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .78rem;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: .35rem;
+    }
+
+    .badge-name {
+      background: rgba(88, 101, 242, .2);
+      color: var(--accent2);
+      font-size: .68rem;
+      padding: .1rem .4rem;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+
+    .badge-msg {
+      background: rgba(59, 165, 92, .15);
+      color: #3ba55c;
+      font-size: .68rem;
+      padding: .1rem .4rem;
+      border-radius: 3px;
+      font-weight: 700;
+    }
+
+    .input-name, textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .5rem .75rem;
+      color: var(--text);
+      font-size: .9rem;
+      font-family: monospace;
+      outline: none;
+      transition: border-color .15s;
+      resize: vertical;
+    }
+    .input-name:focus, textarea:focus { border-color: var(--accent); }
+
+    textarea { min-height: 56px; line-height: 1.4; }
+
+    .hint {
+      font-size: .73rem;
+      color: var(--muted);
+      margin-top: .3rem;
+      font-style: italic;
+    }
+
+    /* ── Vars disponíveis ────────────────────────────────────────────────── */
+    .vars {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .3rem;
+      margin-top: .3rem;
+    }
+
+    .var-chip {
+      font-family: monospace;
+      font-size: .73rem;
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .1rem .4rem;
+      color: var(--muted);
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: .9rem 0;
+    }
+
+    /* ── Loading ─────────────────────────────────────────────────────────── */
+    .loading {
+      text-align: center;
+      color: var(--muted);
+      padding: 4rem 2rem;
+      font-size: .95rem;
+    }
+
+    /* ── Seção Voz ───────────────────────────────────────────────────────── */
+    .voz-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.3rem 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+
+    .voz-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .voz-label {
+      font-size: .82rem;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      min-width: 130px;
+    }
+
+    .voz-section-title {
+      font-size: .75rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      margin-bottom: .4rem;
+    }
+
+    /* Botão microfone */
+    .mic-btn {
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent2);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 16px rgba(88,101,242,.35);
+    }
+    .mic-btn svg { width: 32px; height: 32px; }
+    .mic-btn:hover { background: #4752c4; transform: scale(1.06); }
+    .mic-btn:active { transform: scale(.96); }
+    .mic-btn.recording {
+      background: var(--error);
+      box-shadow: 0 0 0 6px rgba(237,66,69,.25), 0 4px 16px rgba(237,66,69,.4);
+      animation: pulse-rec .9s infinite;
+    }
+    .mic-btn.processing {
+      background: #555;
+      box-shadow: none;
+      cursor: default;
+    }
+    @keyframes pulse-rec {
+      0%,100% { box-shadow: 0 0 0 6px rgba(237,66,69,.25), 0 4px 16px rgba(237,66,69,.4); }
+      50%      { box-shadow: 0 0 0 12px rgba(237,66,69,.1), 0 4px 16px rgba(237,66,69,.4); }
+    }
+
+    .voz-status {
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .voz-transcript, .voz-response {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .65rem .9rem;
+      font-size: .9rem;
+      color: var(--text);
+      min-height: 2.4rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .voz-transcript { color: var(--muted); font-style: italic; }
+    .voz-response { color: var(--text); }
+
+    /* Toggle switch */
+    .toggle-wrap { display: flex; align-items: center; gap: .75rem; }
+    .toggle { position: relative; width: 46px; height: 26px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0;
+      background: #3a3d4e;
+      border-radius: 26px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--success); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* Sliders */
+    .voz-slider-wrap { display: flex; align-items: center; gap: .7rem; flex: 1; min-width: 200px; }
+    .voz-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+      cursor: pointer;
+    }
+    .voz-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .voz-slider:hover::-webkit-slider-thumb { background: var(--accent2); }
+    .voz-slider-val {
+      font-size: .82rem;
+      font-family: monospace;
+      color: var(--text);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* Select de voz */
+    .voz-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .4rem .7rem;
+      color: var(--text);
+      font-size: .88rem;
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .voz-select:focus { border-color: var(--accent); }
+
+    .voz-save-btn {
+      padding: .38rem 1rem;
+      border-radius: 6px;
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+      white-space: nowrap;
+      align-self: flex-end;
+    }
+    .voz-save-btn:hover { opacity: .82; }
+    .voz-save-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+    .voz-save-btn.gravando {
+      background: var(--error);
+      animation: pulso-rec .9s ease-in-out infinite alternate;
+    }
+    @keyframes pulso-rec {
+      from { box-shadow: 0 0 0px var(--error); }
+      to   { box-shadow: 0 0 10px var(--error); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-logo">
+      <span class="dot"></span>
+      Neve Bot
+    </div>
+    <div style="display:flex;gap:.6rem;">
+      <button class="btn-shutdown" onclick="desligar()">Desligar</button>
+      <button class="btn-save-top" onclick="salvar()">Salvar alterações</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="content" class="loading">Carregando configurações...</div>
+  </main>
+
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── Labels humanos para cada chave de mensagem ──────────────────────────────
+const MSG_LABELS = {
+  ja_ativo:      "Resposta quando já está ativo",
+  ativado:       "Resposta ao ativar",
+  ja_desligado:  "Resposta quando já está desligado",
+  desligado:     "Resposta ao desligar",
+  apagado:       "Resposta ao apagar histórico",
+  info:          "Texto de informação",
+  pong:          "Resposta do ping",
+  sem_msgs:      "Sem mensagens para processar",
+  erro:          "Mensagem de erro",
+  resultado:     "Template do resultado",
+  sem_mencao:    "Sem menção de usuário",
+  poucas_msgs:   "Poucas mensagens encontradas",
+  cabecalho:     "Cabeçalho do resultado",
+  auto_bloqueio: "Tentativa de auto-bloqueio",
+  bloquear_bot:  "Tentativa de bloquear o bot",
+  bloqueado:     "Usuário bloqueado com sucesso",
+  desbloqueado:  "Usuário desbloqueado com sucesso",
+  nao_bloqueado: "Usuário não estava bloqueado",
+  sem_canal:     "Usuário não está em canal de voz",
+  ja_conectado:  "Bot já está no canal",
+  mudado:        "Bot mudou de canal",
+  conectado:     "Bot entrou no canal",
+  erro_conexao:  "Falha ao conectar ao canal",
+  nao_conectado: "Bot não está em nenhum canal",
+  desconectado:  "Bot saiu do canal",
+  so_servidores: "Comando só funciona em servidores",
+  desativado:    "Modo fofoca desativado",
+  ativado:       "Modo fofoca ativado",
+  sem_pergunta:  "Fofoca: mensagem sem pergunta",
+  sem_info:      "Fofoca: sem informações encontradas",
+};
+
+// Variáveis disponíveis por mensagem
+const MSG_VARS = {
+  pong:          ["{ms}"],
+  resultado:     ["{n}", "{resumo}"],
+  poucas_msgs:   ["{nome}"],
+  cabecalho:     ["{nome}", "{n}"],
+  bloqueado:     ["{nome}"],
+  desbloqueado:  ["{nome}"],
+  nao_bloqueado: ["{nome}"],
+  ja_conectado:  ["{canal}"],
+  mudado:        ["{canal}"],
+  conectado:     ["{canal}"],
+  erro_conexao:  ["{erro}"],
+  desconectado:  ["{canal}"],
+  ativado:       ["{hora}"],
+  info:          ["{nome}"],
+};
+
+// Estado atual da config
+let _config = null;
+let _vozConfig = null;
+let _guilds = [];
+
+// ── Carrega config do servidor ──────────────────────────────────────────────
+async function carregar() {
+  try {
+    const [rCfg, rVoz, rGuilds] = await Promise.all([
+      fetch('/api/config'),
+      fetch('/api/voz'),
+      fetch('/api/guilds'),
+    ]);
+    _config = await rCfg.json();
+    _vozConfig = await rVoz.json();
+    _guilds = await rGuilds.json().catch(() => []);
+    renderizar(_config, _vozConfig);
+  } catch(e) {
+    document.getElementById('content').innerHTML =
+      '<div class="loading">Erro ao conectar ao servidor local. Verifique se o bot está rodando.</div>';
+  }
+}
+
+// ── Renderiza o formulário ──────────────────────────────────────────────────
+function renderizar(cfg, vozCfg) {
+  const el = document.getElementById('content');
+  el.className = '';
+  el.innerHTML = '';
+
+  // ── Configurações Gerais ─────────────────────────
+  el.innerHTML += `<div class="section-title">Configurações Gerais</div>
+  <div class="general-card">
+    <label for="inp-prefix">Prefixo dos comandos</label>
+    <input id="inp-prefix" class="input-prefix" type="text"
+           value="${esc(cfg.prefix)}" maxlength="5" />
+    <span style="color:var(--muted);font-size:.85rem;">
+      Exemplo: <code style="color:var(--accent)">!</code> → <code style="color:var(--accent)">!assistente</code>
+    </span>
+  </div>`;
+
+  // ── Voz ──────────────────────────────────────────
+  if (vozCfg) {
+    el.innerHTML += renderizarVoz(vozCfg);
+    if (_guilds && _guilds.length) setTimeout(carregarCanaisVoz, 100);
+  }
+
+  // ── Comandos ─────────────────────────────────────
+  el.innerHTML += `<div class="section-title" style="margin-top:2rem">Comandos</div>
+  <div class="cmd-grid" id="cmd-grid"></div>`;
+
+  const grid = el.querySelector('#cmd-grid');
+
+  for (const [cmdKey, cmdData] of Object.entries(cfg.commands)) {
+    const card = document.createElement('div');
+    card.className = 'cmd-card';
+    card.dataset.key = cmdKey;
+
+    // Cabeçalho do card
+    card.innerHTML = `
+      <div class="cmd-header" onclick="toggleCard(this.parentElement)">
+        <span class="cmd-tag">${esc(cfg.prefix)}${esc(cmdData.name)}</span>
+        <span class="cmd-desc">${esc(cmdData.descricao || '')}</span>
+        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </div>
+      <div class="cmd-body">${buildBody(cmdKey, cmdData)}</div>`;
+
+    grid.appendChild(card);
+  }
+
+}
+
+// ── Seção Voz ───────────────────────────────────────────────────────────────
+let _mediaRecorder = null;
+let _audioChunks = [];
+let _isRecording = false;
+let _gravendoCall = false;
+
+function renderizarVoz(voz) {
+  const vozes = (voz.vozes_disponiveis || [])
+    .map(v => `<option value="${esc(v.id)}" ${voz.voz === v.id ? 'selected' : ''}>${esc(v.label)}</option>`)
+    .join('');
+  const guildsHtml = _guilds && _guilds.length
+    ? _guilds.map(g => `<option value="${esc(g.id)}" ${g.em_voz ? 'selected' : ''}>${esc(g.name)}${g.em_voz ? ' 🔊' : ''}</option>`).join('')
+    : '';
+  // Bot já está em voz? Habilita botão de gravação desde o início se sim
+  const emVozInicial = (_guilds || []).some(g => g.em_voz);
+
+  return `
+  <div class="section-title" style="margin-top:2rem">Voz da Neve</div>
+  <div class="voz-card" id="voz-card">
+
+    <!-- Botão microfone -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:.5rem 0">
+      <button class="mic-btn" id="mic-btn" onclick="toggleGravacao()" title="Clique para falar">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
+        </svg>
+      </button>
+      <span class="voz-status" id="mic-status">Clique para falar</span>
+    </div>
+
+    <!-- Transcrição -->
+    <div>
+      <div class="voz-section-title">Você disse</div>
+      <div class="voz-transcript" id="voz-transcript">…</div>
+    </div>
+
+    <!-- Resposta -->
+    <div>
+      <div class="voz-section-title">Neve respondeu</div>
+      <div class="voz-response" id="voz-response">…</div>
+    </div>
+
+    <div style="height:1px;background:var(--border);margin:.2rem 0"></div>
+
+    <!-- Configs TTS -->
+    <div class="voz-row">
+      <span class="voz-label">Voz TTS</span>
+      <select class="voz-select" id="voz-nome">${vozes}</select>
+    </div>
+
+    <div class="voz-row">
+      <span class="voz-label">Velocidade</span>
+      <div class="voz-slider-wrap">
+        <input type="range" class="voz-slider" id="voz-velocidade"
+               min="0.5" max="2.0" step="0.05" value="${voz.velocidade}"
+               oninput="document.getElementById('voz-velocidade-val').textContent=parseFloat(this.value).toFixed(2)">
+        <span class="voz-slider-val" id="voz-velocidade-val">${parseFloat(voz.velocidade).toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="voz-row">
+      <span class="voz-label">Volume</span>
+      <div class="voz-slider-wrap">
+        <input type="range" class="voz-slider" id="voz-volume"
+               min="0.1" max="2.0" step="0.05" value="${voz.volume}"
+               oninput="document.getElementById('voz-volume-val').textContent=parseFloat(this.value).toFixed(2)">
+        <span class="voz-slider-val" id="voz-volume-val">${parseFloat(voz.volume).toFixed(2)}</span>
+      </div>
+    </div>
+
+    <div class="voz-row">
+      <span class="voz-label">Tom (pitch)</span>
+      <div class="voz-slider-wrap">
+        <input type="range" class="voz-slider" id="voz-pitch"
+               min="-12" max="12" step="1" value="${voz.pitch != null ? voz.pitch : 0}"
+               oninput="document.getElementById('voz-pitch-val').textContent=(this.value>0?'+':'')+this.value">
+        <span class="voz-slider-val" id="voz-pitch-val">${(voz.pitch > 0 ? '+' : '') + (voz.pitch || 0)}</span>
+      </div>
+    </div>
+
+    <div class="voz-row">
+      <span class="voz-label">Falar no Discord</span>
+      <label class="toggle">
+        <input type="checkbox" id="voz-falar-discord" ${voz.falar_discord !== false ? 'checked' : ''}>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    ${guildsHtml ? `
+    <div class="voz-row">
+      <span class="voz-label">Servidor</span>
+      <select class="voz-select" id="voz-guild" onchange="carregarCanaisVoz()">${guildsHtml}</select>
+    </div>
+    <div class="voz-row">
+      <span class="voz-label">Canal de Voz</span>
+      <select class="voz-select" id="voz-canal"><option value="">Carregando...</option></select>
+    </div>
+    <div class="voz-row" style="justify-content:flex-end;gap:.5rem">
+      <button class="voz-save-btn" id="voz-btn-conectar" onclick="conectarVoz()">Conectar</button>
+      <button class="voz-save-btn" id="voz-btn-desconectar" onclick="desconectarVoz()"
+              style="background:#ed4245;display:none">Desconectar</button>
+    </div>
+    <div class="voz-row" style="justify-content:flex-end">
+      <button class="voz-save-btn" id="voz-btn-gravar"
+              onclick="toggleGravacaoCall()"
+              style="background:var(--success)"
+              ${emVozInicial ? '' : 'disabled'}>
+        ● Gravar Call
+      </button>
+    </div>` : ''}
+
+    <div class="voz-row" style="justify-content:flex-end">
+      <button class="voz-save-btn" onclick="salvarVoz()">Aplicar configurações de voz</button>
+    </div>
+
+  </div>`;
+}
+
+async function toggleGravacao() {
+  if (_isRecording) { pararGravacao(); } else { await iniciarGravacao(); }
+}
+
+async function iniciarGravacao() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _audioChunks = [];
+    _mediaRecorder = new MediaRecorder(stream);
+    _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
+    _mediaRecorder.onstop = enviarAudio;
+    _mediaRecorder.start();
+    _isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+    const s = document.getElementById('mic-status');
+    s.textContent = '● Gravando… (clique para parar)';
+    s.style.color = 'var(--error)';
+  } catch(e) {
+    toast('Erro ao acessar microfone: ' + e.message, 'err');
+  }
+}
+
+function pararGravacao() {
+  if (_mediaRecorder && _isRecording) {
+    _isRecording = false;
+    _mediaRecorder.stop();
+    _mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    const btn = document.getElementById('mic-btn');
+    btn.classList.remove('recording');
+    btn.classList.add('processing');
+    const s = document.getElementById('mic-status');
+    s.textContent = '⏳ Processando…';
+    s.style.color = 'var(--muted)';
+  }
+}
+
+async function enviarAudio() {
+  const blob = new Blob(_audioChunks, { type: 'audio/webm' });
+  _audioChunks = [];
+  try {
+    // 1. STT
+    const rT = await fetch('/api/voz/transcrever', {
+      method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob,
+    });
+    const { texto } = await rT.json();
+    const trEl = document.getElementById('voz-transcript');
+    trEl.textContent = texto || '(não reconhecido)';
+    trEl.style.fontStyle = texto ? 'normal' : 'italic';
+    trEl.style.color = texto ? 'var(--text)' : 'var(--muted)';
+
+    if (!texto || texto.trim().length < 2) { _resetMic('Clique para falar'); return; }
+
+    // 2. LLM + TTS
+    const guildEl = document.getElementById('voz-guild');
+    const guild_id = guildEl ? guildEl.value : null;
+    const rC = await fetch('/api/voz/conversar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texto, guild_id }),
+    });
+    const { resposta, erro } = await rC.json();
+    if (erro) { toast('Erro: ' + erro, 'err'); _resetMic('Clique para falar'); return; }
+    document.getElementById('voz-response').textContent = resposta || '';
+    _resetMic('Clique para falar');
+  } catch(e) {
+    toast('Erro ao processar voz: ' + e.message, 'err');
+    _resetMic('Clique para falar');
+  }
+}
+
+function _resetMic(msg) {
+  const btn = document.getElementById('mic-btn');
+  const s   = document.getElementById('mic-status');
+  if (btn) { btn.classList.remove('recording', 'processing'); }
+  if (s)   { s.textContent = msg; s.style.color = ''; }
+}
+
+async function salvarVoz() {
+  const payload = {
+    falar_discord: document.getElementById('voz-falar-discord')?.checked ?? true,
+    voz:           document.getElementById('voz-nome').value,
+    velocidade:    parseFloat(document.getElementById('voz-velocidade').value),
+    volume:        parseFloat(document.getElementById('voz-volume').value),
+    pitch:         parseInt(document.getElementById('voz-pitch')?.value || '0'),
+  };
+  try {
+    const r = await fetch('/api/voz', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const res = await r.json();
+    if (res.ok) { _vozConfig = { ..._vozConfig, ...payload }; toast('Configurações de voz salvas!', 'ok'); }
+    else { toast('Erro ao salvar voz: ' + (res.erro || '?'), 'err'); }
+  } catch(e) { toast('Falha de conexão ao salvar voz.', 'err'); }
+}
+async function carregarCanaisVoz() {
+  const guildSel = document.getElementById('voz-guild');
+  const canalSel = document.getElementById('voz-canal');
+  if (!guildSel || !canalSel) return;
+  const guildId = guildSel.value;
+  if (!guildId) return;
+  canalSel.innerHTML = '<option value="">Carregando...</option>';
+  try {
+    const r = await fetch(`/api/voz/canais?guild_id=${guildId}`);
+    const canais = await r.json();
+    if (!canais.length) {
+      canalSel.innerHTML = '<option value="">Nenhum canal de voz</option>';
+    } else {
+      canalSel.innerHTML = canais.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    }
+    // Reflete estado atual (bot já conectado?)
+    const guild = (_guilds || []).find(g => g.id === guildId);
+    const btnCon = document.getElementById('voz-btn-conectar');
+    const btnDis = document.getElementById('voz-btn-desconectar');
+    if (guild?.canal_id) {
+      const opt = [...canalSel.options].find(o => o.value === guild.canal_id);
+      if (opt) canalSel.value = guild.canal_id;
+      if (btnCon) btnCon.style.display = 'none';
+      if (btnDis) btnDis.style.display = '';
+    } else {
+      if (btnCon) btnCon.style.display = '';
+      if (btnDis) btnDis.style.display = 'none';
+    }
+  } catch(e) {
+    canalSel.innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
+
+async function conectarVoz() {
+  const guildId   = document.getElementById('voz-guild')?.value;
+  const channelId = document.getElementById('voz-canal')?.value;
+  if (!guildId || !channelId) { toast('Selecione um canal de voz.', 'err'); return; }
+  const btn = document.getElementById('voz-btn-conectar');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/voz/conectar', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guild_id: guildId, channel_id: channelId }),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      const g = (_guilds || []).find(g => g.id === guildId);
+      if (g) { g.em_voz = true; g.canal_id = channelId; }
+      if (btn) { btn.style.display = 'none'; btn.disabled = false; }
+      const dis = document.getElementById('voz-btn-desconectar');
+      if (dis) dis.style.display = '';
+      // Habilita botão de gravação
+      const gr = document.getElementById('voz-btn-gravar');
+      if (gr) gr.disabled = false;
+      toast('Bot conectado ao canal de voz!', 'ok');
+    } else {
+      toast('Erro: ' + (res.erro || '?'), 'err');
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    toast('Falha ao conectar: ' + e.message, 'err');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function desconectarVoz() {
+  const guildId = document.getElementById('voz-guild')?.value;
+  if (!guildId) return;
+  const btn = document.getElementById('voz-btn-desconectar');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/voz/desconectar', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guild_id: guildId }),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      const g = (_guilds || []).find(g => g.id === guildId);
+      if (g) { g.em_voz = false; g.canal_id = null; }
+      if (btn) { btn.style.display = 'none'; btn.disabled = false; }
+      const con = document.getElementById('voz-btn-conectar');
+      if (con) con.style.display = '';
+      // Desabilita e reseta botão de gravação
+      const gr = document.getElementById('voz-btn-gravar');
+      if (gr) {
+        gr.disabled = true;
+        gr.classList.remove('gravando');
+        gr.textContent = '● Gravar Call';
+        gr.style.background = 'var(--success)';
+      }
+      _gravendoCall = false;
+      toast('Bot desconectado do canal de voz.', 'ok');
+    } else {
+      toast('Erro: ' + (res.erro || '?'), 'err');
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    toast('Falha ao desconectar: ' + e.message, 'err');
+    if (btn) btn.disabled = false;
+  }
+}
+// ── Gravação de Call (Discord) ────────────────────────────────────────────────
+async function toggleGravacaoCall() {
+  if (_gravendoCall) { await pararGravacaoCall(); }
+  else { await iniciarGravacaoCall(); }
+}
+
+async function iniciarGravacaoCall() {
+  const guildId = document.getElementById('voz-guild')?.value;
+  if (!guildId) { toast('Nenhum servidor selecionado.', 'err'); return; }
+  const btn = document.getElementById('voz-btn-gravar');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/voz/gravar/iniciar', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guild_id: guildId }),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      _gravendoCall = true;
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.add('gravando');
+        btn.style.background = '';
+        btn.textContent = '⏹ Parar Gravação';
+      }
+      toast('Gravando a call...', 'ok');
+    } else {
+      toast('Erro ao iniciar gravação: ' + (res.erro || '?'), 'err');
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    toast('Falha ao iniciar gravação: ' + e.message, 'err');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function pararGravacaoCall() {
+  const guildId = document.getElementById('voz-guild')?.value;
+  if (!guildId) return;
+  const btn = document.getElementById('voz-btn-gravar');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Processando...'; }
+  _gravendoCall = false;
+  try {
+    const r = await fetch('/api/voz/gravar/parar', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guild_id: guildId }),
+    });
+    const res = await r.json();
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('gravando');
+      btn.style.background = 'var(--success)';
+      btn.textContent = '● Gravar Call';
+    }
+    if (res.ok && res.arquivo) {
+      toast('Gravação salva: gravacoes/' + res.arquivo, 'ok');
+    } else if (res.erro) {
+      toast('Erro ao parar gravação: ' + res.erro, 'err');
+    } else {
+      toast('Gravação parada (nenhum áudio capturado).', 'err');
+    }
+  } catch(e) {
+    toast('Falha ao parar gravação: ' + e.message, 'err');
+    if (btn) { btn.disabled = false; btn.textContent = '● Gravar Call'; }
+  }
+}
+
+// ── Cards de comando ─────────────────────────────────────────────────────────
+function buildBody(cmdKey, cmdData) {
+  let html = '';
+
+  // Campo do nome do comando
+  html += `
+    <div class="field">
+      <div class="field-label">
+        Nome do comando
+        <span class="badge-name">NOME</span>
+      </div>
+      <input class="input-name" type="text"
+             data-cmd="${esc(cmdKey)}" data-field="name"
+             value="${esc(cmdData.name)}" />
+      <div class="hint">Texto que os usuários digitam após o prefixo. Reinício aplica ao Discord.</div>
+    </div>`;
+
+  if (Object.keys(cmdData.messages || {}).length > 0) {
+    html += '<div class="divider"></div>';
+  }
+
+  // Campos de mensagem
+  for (const [msgKey, msgVal] of Object.entries(cmdData.messages || {})) {
+    const label = MSG_LABELS[msgKey] || msgKey;
+    const vars  = MSG_VARS[msgKey] || [];
+    const varHtml = vars.length
+      ? `<div class="vars">${vars.map(v => `<span class="var-chip">${esc(v)}</span>`).join('')}</div>`
+      : '';
+
+    html += `
+      <div class="field">
+        <div class="field-label">
+          ${esc(label)}
+          <span class="badge-msg">MENSAGEM</span>
+        </div>
+        <textarea data-cmd="${esc(cmdKey)}" data-field="msg_${esc(msgKey)}"
+                  rows="2">${esc(msgVal)}</textarea>
+        ${varHtml ? `<div class="hint">Variáveis: ${varHtml}</div>` : ''}
+      </div>`;
+  }
+
+  return html;
+}
+
+// ── Coleta os valores do formulário ────────────────────────────────────────
+function coletar() {
+  const nova = JSON.parse(JSON.stringify(_config)); // deep clone
+
+  // Prefixo
+  const pInput = document.getElementById('inp-prefix');
+  if (pInput) nova.prefix = pInput.value.trim() || '!';
+
+  // Campos dos cards
+  document.querySelectorAll('[data-cmd]').forEach(el => {
+    const cmdKey = el.dataset.cmd;
+    const field  = el.dataset.field;
+
+    if (field === 'name') {
+      nova.commands[cmdKey].name = el.value.trim() || cmdKey;
+    } else if (field.startsWith('msg_')) {
+      const msgKey = field.slice(4);
+      nova.commands[cmdKey].messages[msgKey] = el.value;
+    }
+  });
+
+  return nova;
+}
+
+// ── Salva no servidor ──────────────────────────────────────────────────────
+async function salvar() {
+  const nova = coletar();
+  try {
+    const r = await fetch('/api/config', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(nova),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      _config = nova;
+      // Atualiza os tags de prefixo/nome nos headers sem re-renderizar tudo
+      atualizarTags(nova);
+      toast('Configurações salvas com sucesso!', 'ok');
+    } else {
+      toast('Erro ao salvar: ' + (res.erro || 'desconhecido'), 'err');
+    }
+  } catch(e) {
+    toast('Falha de conexão com o servidor.', 'err');
+  }
+}
+
+function atualizarTags(cfg) {
+  document.querySelectorAll('.cmd-card').forEach(card => {
+    const key = card.dataset.key;
+    const tag = card.querySelector('.cmd-tag');
+    if (tag && cfg.commands[key]) {
+      tag.textContent = cfg.prefix + cfg.commands[key].name;
+    }
+  });
+}
+
+// ── Toggle card ────────────────────────────────────────────────────────────
+function toggleCard(card) {
+  card.classList.toggle('open');
+}
+
+// ── Desligar bot ───────────────────────────────────────────────────────────
+async function desligar() {
+  if (!confirm('Tem certeza que deseja desligar o bot?')) return;
+  try {
+    await fetch('/api/shutdown', { method: 'POST' });
+    toast('Bot desligado.', 'err');
+    document.querySelector('.dot').style.background = 'var(--error)';
+    document.querySelector('.dot').style.boxShadow = '0 0 8px var(--error)';
+  } catch(e) {
+    toast('Falha ao desligar.', 'err');
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let _toastTimer = null;
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ── Escape HTML ────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── Suporte a Ctrl+S ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    salvar();
+  }
+});
+
+// Inicia
+carregar();
+</script>
+</body>
+</html>

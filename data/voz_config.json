@@ -1,0 +1,10 @@
+{
+  "falar_discord": true,
+  "voz": "af_heart",
+  "velocidade": 1,
+  "volume": 1,
+  "pitch": 1,
+  "whisper_modelo": "medium",
+  "ativa": false,
+  "silencio_s": 1.5
+}

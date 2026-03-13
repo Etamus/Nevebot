@@ -1,0 +1,25 @@
+# Ambiente virtual
+venv/
+.venv/
+
+# Variáveis de ambiente (contém o token)
+.env
+
+# Modelos (arquivos GGUF são muito grandes para commitar)
+models/*.gguf
+models/*.bin
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDEs
+.vscode/
+.idea/
+*.swp

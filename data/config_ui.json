@@ -1,0 +1,84 @@
+{
+  "prefix": "!",
+  "commands": {
+    "lou": {
+      "name": "casual",
+      "descricao": "Ativa o modo Lou (conversa casual) neste canal.",
+      "messages": {
+        "ja_ativo": "Já tô no modo Lou aqui.",
+        "ativado": "Modo casual ativado."
+      }
+    },
+    "assistente": {
+      "name": "assistente",
+      "descricao": "Ativa o modo assistente neste canal.",
+      "messages": {
+        "ja_ativo": "Já estou no modo assistente aqui.",
+        "ativado": "Modo assistente ativado."
+      }
+    },
+    "terapeuta": {
+      "name": "terapeuta",
+      "descricao": "Ativa o modo terapeuta neste canal.",
+      "messages": {
+        "ja_ativo": "Já estou em modo terapeuta aqui.",
+        "ativado": "Modo terapeuta ativado. Pode falar."
+      }
+    },
+    "fofoca": {
+      "name": "auditoria",
+      "descricao": "Ativa/desativa o modo fofoca neste canal.",
+      "messages": {
+        "so_servidores": "Este comando só funciona em servidores.",
+        "desativado": "Modo fofoca desativado.",
+        "ativado": "Modo fofoca ativado neste canal desde **{hora}**.",
+        "sem_pergunta": "Pode perguntar — to de olho em tudo aqui.",
+        "erro": "Não consegui buscar as informações.",
+        "sem_info": "Não vi nada sobre isso ainda."
+      }
+    },
+    "limpar": {
+      "name": "limpar",
+      "descricao": "Apaga o histórico de conversa deste canal.",
+      "messages": {
+        "apagado": "Histórico apagado."
+      }
+    },
+    "desligar": {
+      "name": "desligar",
+      "descricao": "Desativa o bot neste canal.",
+      "messages": {
+        "ja_desligado": "Já estou desligada neste canal.",
+        "desligado": "Desligada neste canal."
+      }
+    },
+    "resumir": {
+      "name": "resumir",
+      "descricao": "Resume as últimas N mensagens do canal.",
+      "messages": {
+        "sem_msgs": "Não encontrei mensagens para resumir.",
+        "erro": "Ocorreu um erro ao gerar o resumo.",
+        "resultado": "**Resumo das últimas {n} mensagens:**\n{resumo}"
+      }
+    },
+    "limitar": {
+      "name": "bloquear",
+      "descricao": "[Apenas pai] Bloqueia um usuário de receber respostas.",
+      "messages": {
+        "sem_mencao": "Mencione um usuário. Ex: `!limitar @alguem`",
+        "auto_bloqueio": "Você não pode se bloquear.",
+        "bloquear_bot": "Não posso me bloquear.",
+        "bloqueado": "**{nome}** não receberá mais respostas minhas."
+      }
+    },
+    "desbloquear": {
+      "name": "desbloquear",
+      "descricao": "[Apenas pai] Remove o bloqueio de um usuário.",
+      "messages": {
+        "sem_mencao": "Mencione um usuário. Ex: `!desbloquear @alguem`",
+        "desbloqueado": "**{nome}** voltou a receber respostas.",
+        "nao_bloqueado": "**{nome}** não estava bloqueado."
+      }
+    }
+  }
+}
