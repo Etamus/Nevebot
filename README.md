@@ -115,6 +115,3 @@ Consulte `requirements.txt` para a lista completa e versões testadas.
 - Default do STT é configurável; recomendamos `small` para bom equilíbrio entre velocidade e qualidade em PT-BR. `medium` melhora qualidade, com latência maior.
 - O pipeline de TTS usa voice-clone com uma referência persistente (`data/voz_referencia.wav`) para voz consistente entre gerações.
 - Implementamos alinhamento de frames e flush no final do PCM para evitar cortes no final da fala.
-
-## Licença
-Projeto pessoal; adapte conforme sua necessidade e respeite as licenças das bibliotecas utilizadas.
