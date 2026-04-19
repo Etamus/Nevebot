@@ -5,7 +5,7 @@
       "name": "casual",
       "descricao": "Ativa o modo Lou (conversa casual) neste canal.",
       "messages": {
-        "ja_ativo": "Já tô no modo Lou aqui.",
+        "ja_ativo": "Já estou no modo casual.",
         "ativado": "Modo casual ativado."
       }
     },
@@ -13,7 +13,7 @@
       "name": "assistente",
       "descricao": "Ativa o modo assistente neste canal.",
       "messages": {
-        "ja_ativo": "Já estou no modo assistente aqui.",
+        "ja_ativo": "Já estou no modo assistente.",
         "ativado": "Modo assistente ativado."
       }
     },
@@ -21,20 +21,8 @@
       "name": "terapeuta",
       "descricao": "Ativa o modo terapeuta neste canal.",
       "messages": {
-        "ja_ativo": "Já estou em modo terapeuta aqui.",
-        "ativado": "Modo terapeuta ativado. Pode falar."
-      }
-    },
-    "fofoca": {
-      "name": "auditoria",
-      "descricao": "Ativa/desativa o modo fofoca neste canal.",
-      "messages": {
-        "so_servidores": "Este comando só funciona em servidores.",
-        "desativado": "Modo fofoca desativado.",
-        "ativado": "Modo fofoca ativado neste canal desde **{hora}**.",
-        "sem_pergunta": "Pode perguntar — to de olho em tudo aqui.",
-        "erro": "Não consegui buscar as informações.",
-        "sem_info": "Não vi nada sobre isso ainda."
+        "ja_ativo": "Já estou em modo terapeuta.",
+        "ativado": "Modo terapeuta ativado."
       }
     },
     "limpar": {
@@ -50,15 +38,6 @@
       "messages": {
         "ja_desligado": "Já estou desligada neste canal.",
         "desligado": "Desligada neste canal."
-      }
-    },
-    "resumir": {
-      "name": "resumir",
-      "descricao": "Resume as últimas N mensagens do canal.",
-      "messages": {
-        "sem_msgs": "Não encontrei mensagens para resumir.",
-        "erro": "Ocorreu um erro ao gerar o resumo.",
-        "resultado": "**Resumo das últimas {n} mensagens:**\n{resumo}"
       }
     },
     "limitar": {

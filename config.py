@@ -1,5 +1,5 @@
 """
-Configurações centrais do NêveBot.
+Configuracoes centrais do Nevebot.
 Lê variáveis de ambiente do arquivo .env (ou do ambiente do sistema).
 """
 
@@ -38,9 +38,13 @@ def encontrar_modelo() -> str:
 
 # Parâmetros do LLM
 LLM_MODEL_PATH: str = encontrar_modelo()
-LLM_N_CTX: int       = int(os.getenv("LLM_N_CTX", 2048))
-LLM_MAX_TOKENS: int  = int(os.getenv("LLM_MAX_TOKENS", 180))
+LLM_N_CTX: int        = int(os.getenv("LLM_N_CTX", 2048))
+LLM_MAX_TOKENS: int   = int(os.getenv("LLM_MAX_TOKENS", 512))
 LLM_N_GPU_LAYERS: int = int(os.getenv("LLM_N_GPU_LAYERS", -1))  # -1 = toda a GPU
+LLM_N_BATCH: int      = int(os.getenv("LLM_N_BATCH", 1024))     # tokens por batch no prefill
+
+# Limite de tokens para respostas de voz (respostas curtas = resposta rápida)
+LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 150))
 
 # Parâmetros de qualidade / controle de repetição
 LLM_TEMPERATURE: float        = float(os.getenv("LLM_TEMPERATURE",        0.7))

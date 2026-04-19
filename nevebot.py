@@ -1,6 +1,6 @@
 """
-NêveBot — Entry Point
-Carrega configurações, registra os cogs e inicia o bot.
+Nevebot — Entry Point
+Carrega configuracoes, registra os cogs e inicia o bot.
 """
 
 import os
@@ -8,6 +8,7 @@ import sys
 import socket
 import asyncio
 import logging
+import webbrowser
 from pathlib import Path
 
 # ── Garante que é o venv DESTE projeto (porta única, impede instâncias duplicadas)
@@ -34,6 +35,9 @@ for _dll_dir in [
 ]:
     if _dll_dir.is_dir():
         _dll_cookies.append(os.add_dll_directory(str(_dll_dir)))
+        # Também adiciona ao PATH — llama_cpp usa winmode=0 no LoadLibraryExW,
+        # que ignora AddDllDirectory e só busca no PATH.
+        os.environ["PATH"] = str(_dll_dir) + os.pathsep + os.environ.get("PATH", "")
 
 import discord
 from discord.ext import commands
@@ -44,11 +48,18 @@ from config_loader import cfg as _bot_cfg
 import web_server
 
 # ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+_log_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                             datefmt="%H:%M:%S")
+
+_console_handler = logging.StreamHandler(sys.stdout)
+_console_handler.setLevel(logging.INFO)
+_console_handler.setFormatter(_log_fmt)
+
+_file_handler = logging.FileHandler("logs/nevebot_error.log", encoding="utf-8")
+_file_handler.setLevel(logging.WARNING)
+_file_handler.setFormatter(_log_fmt)
+
+logging.basicConfig(level=logging.INFO, handlers=[_console_handler, _file_handler])
 log = logging.getLogger("nevebot")
 
 # ── Bot ───────────────────────────────────────────────────────────────────────
@@ -69,6 +80,7 @@ async def on_ready() -> None:
     log.info("Modelo carregado: %s", config.LLM_MODEL_PATH)
     web_server.start(bot, loop=asyncio.get_event_loop())
     log.info("Interface web iniciada em http://127.0.0.1:5000")
+    webbrowser.open("http://127.0.0.1:5000")
 
 
 async def main() -> None:

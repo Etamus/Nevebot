@@ -1,10 +1,12 @@
 {
   "falar_discord": true,
-  "voz": "af_heart",
+  "voz_instruct": "female, teenager, low pitch",
+  "voz_language": "Portuguese",
   "velocidade": 1,
   "volume": 1,
-  "pitch": 1,
-  "whisper_modelo": "medium",
+  "whisper_modelo": "small",
   "ativa": false,
-  "silencio_s": 1.5
+  "silencio_s": 1.5,
+  "voz_seed": 42,
+  "pitch": -2
 }

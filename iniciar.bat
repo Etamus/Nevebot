@@ -1,7 +1,7 @@
 @echo off
 :: ─────────────────────────────────────────────────────────────────
-::  Launcher do NêveBot
-::  Sempre usa o Python do venv e garante instância única.
+::  Launcher do Nevebot
+::  Sempre usa o Python do venv e garante instancia unica.
 :: ─────────────────────────────────────────────────────────────────
 cd /d "%~dp0"
 
@@ -17,6 +17,17 @@ for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python3.exe" /FO CSV ^| fi
 :: Aguarda portas liberarem
 timeout /t 2 /nobreak >nul
 
-echo Iniciando NêveBot... (Ctrl+C para desligar)
+:: Variáveis para melhor compatibilidade CUDA e relatório de erros
+set PYTHONFAULTHANDLER=1
+set GGML_CUDA_NO_PINNED=1
+set PYTHONUTF8=1
+
+mkdir logs >nul 2>&1
+
+echo Iniciando Nevebot... (Ctrl+C para desligar)
 echo.
 venv\Scripts\python.exe -u nevebot.py
+
+echo.
+echo Bot encerrado. Erros salvos em logs\nevebot_error.log
+pause

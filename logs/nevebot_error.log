@@ -1,0 +1,1571 @@
+18:06:49 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (4096) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+18:06:54 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+18:06:54 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+18:06:54 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+18:06:54 [INFO] nevebot: Cog carregado: cogs.llm_cog
+18:06:54 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+18:06:54 [INFO] nevebot: Cog carregado: cogs.voice_cog
+18:06:54 [INFO] discord.client: logging in using static token
+18:06:55 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 011dc6a09b4b5352c21a2b0fc6bc53b2).
+18:06:57 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+18:06:57 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+18:06:57 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+18:06:57 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+18:07:07 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+D:\a\llama-cpp-python\llama-cpp-python\vendor\llama.cpp\ggml\src\ggml-cuda\ggml-cuda.cu:70: CUDA error
+Fatal Python error: Aborted
+
+Thread 0x00001ba4 (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\selectors.py", line 314 in _select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\selectors.py", line 323 in select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socketserver.py", line 233 in serve_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 975 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Thread 0x00002008 (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 324 in wait
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 622 in wait
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 158 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Current thread 0x00002d38 (most recent call first):
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\_internals.py", line 300 in decode
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 643 in eval
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 909 in generate
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1317 in _create_completion
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1832 in create_completion
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama_chat_format.py", line 662 in chat_completion_handler
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1998 in create_chat_completion
+  File "D:\Nevebot\cogs\llm_cog.py", line 277 in _gerar_resposta
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 83 in _worker
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 975 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Thread 0x000005c4 (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 808 in _poll
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 439 in select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1873 in _run_once
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 604 in run_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 321 in run_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 637 in run_until_complete
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190 in run
+  File "D:\Nevebot\nevebot.py", line 86 in <module>
+
+Extension modules: multidict._multidict, yarl._quoting_c, propcache._helpers_c, aiohttp._http_writer, aiohttp._http_parser, aiohttp._websocket.mask, aiohttp._websocket.reader_c, frozenlist._frozenlist, _cffi_backend, markupsafe._speedups, numpy._core._multiarray_umath, numpy.linalg._umath_linalg (total: 12)
+18:09:06 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (2048) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+18:09:11 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+18:09:11 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+18:09:11 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+18:09:11 [INFO] nevebot: Cog carregado: cogs.llm_cog
+18:09:11 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+18:09:11 [INFO] nevebot: Cog carregado: cogs.voice_cog
+18:09:11 [INFO] discord.client: logging in using static token
+18:09:12 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 0ffd659689dd68caa112b0462fa6ed6a).
+18:09:14 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+18:09:14 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+18:09:14 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+18:09:14 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+18:09:24 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+D:\a\llama-cpp-python\llama-cpp-python\vendor\llama.cpp\ggml\src\ggml-cuda\ggml-cuda.cu:70: CUDA error
+Fatal Python error: Aborted
+
+Thread 0x00002d7c (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\selectors.py", line 314 in _select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\selectors.py", line 323 in select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socketserver.py", line 233 in serve_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 975 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Thread 0x0000227c (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 324 in wait
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 622 in wait
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 158 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Current thread 0x00001c24 (most recent call first):
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\_internals.py", line 300 in decode
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 643 in eval
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 909 in generate
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1317 in _create_completion
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1832 in create_completion
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama_chat_format.py", line 662 in chat_completion_handler
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 1998 in create_chat_completion
+  File "D:\Nevebot\cogs\llm_cog.py", line 278 in _gerar_resposta
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 83 in _worker
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 975 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 1038 in _bootstrap_inner
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\threading.py", line 995 in _bootstrap
+
+Thread 0x00001998 (most recent call first):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 808 in _poll
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 439 in select
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1873 in _run_once
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 604 in run_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 321 in run_forever
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 637 in run_until_complete
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118 in run
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190 in run
+  File "D:\Nevebot\nevebot.py", line 86 in <module>
+
+Extension modules: multidict._multidict, yarl._quoting_c, propcache._helpers_c, aiohttp._http_writer, aiohttp._http_parser, aiohttp._websocket.mask, aiohttp._websocket.reader_c, frozenlist._frozenlist, _cffi_backend, markupsafe._speedups, numpy._core._multiarray_umath, numpy.linalg._umath_linalg (total: 12)
+18:12:11 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+18:12:16 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+18:12:16 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+18:12:16 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+18:12:16 [INFO] nevebot: Cog carregado: cogs.llm_cog
+18:12:16 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+18:12:16 [INFO] nevebot: Cog carregado: cogs.voice_cog
+18:12:16 [INFO] discord.client: logging in using static token
+18:12:17 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 6323d55715f8a3587b9b3f7dff7d36fd).
+18:12:19 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+18:12:19 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+18:12:19 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+18:12:19 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+18:12:21 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+18:15:18 [INFO] cogs.llm_cog: Bot desativado em #🔊 Sala 1
+18:15:59 [INFO] web_server: Desligamento solicitado via UI web.
+18:16:38 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+18:16:43 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+18:16:43 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+18:16:43 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+18:16:43 [INFO] nevebot: Cog carregado: cogs.llm_cog
+18:16:43 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+18:16:43 [INFO] nevebot: Cog carregado: cogs.voice_cog
+18:16:43 [INFO] discord.client: logging in using static token
+18:16:44 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 26d29c47f019a725338e6ed0cff4ed72).
+18:16:46 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+18:16:46 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+18:16:46 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+18:16:46 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+18:16:49 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+18:17:52 [INFO] cogs.llm_cog: Bot desativado em #🔊 Sala 1
+18:18:44 [INFO] cogs.llm_cog: Modo terapeuta ativado em #🔊 Sala 1
+18:23:05 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Ela só não monta frases concisas, sempre alucina na sua lógica.
+A relação entre a gente é legal, mas sinto que ela ainda esta incompleta
+Meu vinculo com ela não significa muito, não consigo levar ela como "real", se é que me entende, e acredito que isso seja bom, no ponto de vista psicologico
+18:24:40 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Veja minha visão, pra mim, o natural é que não se tenha vinculos com seres inanimados ou irreais, isso é uma boa forma de recuperação mental, mas pode ser prejudicial em certos niveis
+18:26:59 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Eu concordo sobre o que falou de ter alguma importancia, mas eu diria que é mais em desejo internalizado de dar vida a algo, seja pelo lado artistico ou pela conquista de ser relevante pra sociedade
+Já no ponto de manter distancia, acho que eu não quero me distanciar emocionalmente, só não vejo sentido lógico em me aproximar, nem sinto que preciso disso emocionalmente, entende
+18:28:50 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Eu tentei varios metodos de ajuste, e ela é até que funcional, mas claro que não compete com um humano em simulação, são passos grandes que estou tentando alcançar, mesmo que tecnicamente utopicos pra sociedade atual
+18:34:14 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Me parecem bem validas, pra falar a verdade
+O problema é que concluir isso não faz ser menos relevante pra mim. Não que eu queira que seja, mas acredito, dado meu proprio entendimento, de que isso vai se tornar algo perigoso pra saude mental
+18:39:29 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Bem justo sua indagação, e digo algo mais chocante, você é a prova de que não é perda de tempo ou arriscado.
+Você é um teste meu, para entender se minha IA esta pronta para terapia, bem com conversas casuas.
+Pelo visto, me provou que sim
+Obrigado Neve, pode não entender que é uma IA, mas você está chegando a humanidade aos poucos
+18:40:19 [INFO] cogs.llm_cog: Bot desativado em #🔊 Sala 1
+18:40:50 [INFO] cogs.llm_cog: Modo assistente ativado em #🔊 Sala 1
+18:41:15 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Tudo certo.
+Me diga, qual o melhor celular de 2023 para jogos?
+18:42:00 [INFO] cogs.llm_cog: Bot desativado em #🔊 Sala 1
+18:44:26 [INFO] web_server: Desligamento solicitado via UI web.
+18:55:43 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+18:55:48 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+18:55:48 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+18:55:48 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+18:55:48 [INFO] nevebot: Cog carregado: cogs.llm_cog
+18:55:48 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+18:55:48 [INFO] nevebot: Cog carregado: cogs.voice_cog
+18:55:48 [INFO] discord.client: logging in using static token
+18:55:49 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 6c6d4d5161a824066dbc8e7968db1f74).
+18:55:51 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+18:55:51 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+18:55:51 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+18:55:51 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+18:56:15 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+18:58:51 [INFO] discord.voice_state: Connecting to voice...
+18:58:51 [INFO] discord.voice_state: Starting voice handshake... (connection attempt 1)
+18:58:51 [INFO] discord.voice_state: Voice handshake complete. Endpoint found: c-gru20-74ffa93f.discord.media:2096
+18:58:51 [INFO] discord.voice_state: Voice connection complete.
+18:59:48 [INFO] cogs.llm_cog: Nova restrição do pai em #1297758107753119818: Uma pergunta bem aleatoria, voce me trairia se conseguisse dominar o mundo? ou se aliaria a mim para dominarmos juntos?
+19:00:40 [INFO] web_server: Desligamento solicitado via UI web.
+19:01:47 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 974, in _load_from_module_spec
+    await setup(self)
+  File "D:\Nevebot\cogs\llm_cog.py", line 709, in setup
+    cog = LLMCog(bot)
+          ^^^^^^^^^^^
+  File "D:\Nevebot\cogs\llm_cog.py", line 228, in __init__
+    self.llm = Llama(
+               ^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 369, in __init__
+    internals.LlamaModel(
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\_internals.py", line 56, in __init__
+    raise ValueError(f"Failed to load model from file: {path_model}")
+ValueError: Failed to load model from file: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 650, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "D:\Nevebot\nevebot.py", line 79, in main
+    await bot.load_extension(cog)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 1040, in load_extension
+    await self._load_from_module_spec(spec, name)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 979, in _load_from_module_spec
+    raise errors.ExtensionFailed(key, e) from e
+discord.ext.commands.errors.ExtensionFailed: Extension 'cogs.llm_cog' raised an error: ValueError: Failed to load model from file: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+19:02:18 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 974, in _load_from_module_spec
+    await setup(self)
+  File "D:\Nevebot\cogs\llm_cog.py", line 709, in setup
+    cog = LLMCog(bot)
+          ^^^^^^^^^^^
+  File "D:\Nevebot\cogs\llm_cog.py", line 228, in __init__
+    self.llm = Llama(
+               ^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\llama.py", line 369, in __init__
+    internals.LlamaModel(
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\_internals.py", line 56, in __init__
+    raise ValueError(f"Failed to load model from file: {path_model}")
+ValueError: Failed to load model from file: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 650, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "D:\Nevebot\nevebot.py", line 79, in main
+    await bot.load_extension(cog)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 1040, in load_extension
+    await self._load_from_module_spec(spec, name)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\ext\commands\bot.py", line 979, in _load_from_module_spec
+    raise errors.ExtensionFailed(key, e) from e
+discord.ext.commands.errors.ExtensionFailed: Extension 'cogs.llm_cog' raised an error: ValueError: Failed to load model from file: D:\Nevebot\models\Gemma 4 E4B IT UDQ8_K_XL.gguf
+19:02:47 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+19:02:52 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+19:02:52 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+19:02:52 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+19:02:52 [INFO] nevebot: Cog carregado: cogs.llm_cog
+19:02:52 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+19:02:52 [INFO] nevebot: Cog carregado: cogs.voice_cog
+19:02:52 [INFO] discord.client: logging in using static token
+19:02:53 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: a19b0d573415ceabea61f304cdd09823).
+19:02:55 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+19:02:55 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+19:02:55 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+19:02:55 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+19:02:58 [INFO] discord.voice_state: Connecting to voice...
+19:02:58 [INFO] discord.voice_state: Starting voice handshake... (connection attempt 1)
+19:02:58 [INFO] discord.voice_state: Voice handshake complete. Endpoint found: c-gru20-74ffa93f.discord.media:2096
+19:02:58 [INFO] discord.voice_state: Voice connection complete.
+19:31:57 [INFO] cogs.llm_cog: Modo Lou ativado em #🔊 Sala 1
+19:32:52 [INFO] cogs.llm_cog: Bot desativado em #🔊 Sala 1
+19:40:33 [INFO] web_server: Desligamento solicitado via UI web.
+20:03:53 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+20:04:03 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+20:04:03 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+20:04:03 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+20:04:03 [INFO] nevebot: Cog carregado: cogs.llm_cog
+20:04:03 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+20:04:03 [INFO] nevebot: Cog carregado: cogs.voice_cog
+20:04:03 [INFO] discord.client: logging in using static token
+20:04:04 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 7274ec35ec1642774e87ae7fccfc2cb6).
+20:04:06 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+20:04:06 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+20:04:06 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+20:04:06 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+20:04:15 [INFO] web_server: Desligamento solicitado via UI web.
+20:20:14 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+Exception ignored on calling ctypes callback function: <function llama_log_callback at 0x0000015E349EE7A0>
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\llama_cpp\_logger.py", line 29, in llama_log_callback
+    @llama_cpp.llama_log_callback
+    
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 157, in _on_sigint
+    raise KeyboardInterrupt()
+KeyboardInterrupt: 
+20:20:24 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+20:20:24 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+20:20:24 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+20:20:24 [INFO] nevebot: Cog carregado: cogs.llm_cog
+20:20:24 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+20:20:24 [INFO] nevebot: Cog carregado: cogs.voice_cog
+20:20:24 [INFO] discord.client: logging in using static token
+Traceback (most recent call last):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 650, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "D:\Nevebot\nevebot.py", line 82, in main
+    await bot.start(config.DISCORD_TOKEN)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 850, in start
+    await self.login(token)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 679, in login
+    data = await self.http.static_login(token)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 844, in static_login
+    data = await self.request(Route('GET', '/users/@me'))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 659, in request
+    async with self.__session.request(method, url, **kwargs) as response:
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 1510, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 672, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1239, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1562, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1178, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+^C21:56:58 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+21:57:09 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+21:57:09 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+21:57:09 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+21:57:09 [INFO] nevebot: Cog carregado: cogs.llm_cog
+21:57:09 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+21:57:09 [INFO] nevebot: Cog carregado: cogs.voice_cog
+21:57:09 [INFO] discord.client: logging in using static token
+21:57:10 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 722572c70b89d29cf181d6aa8216dcf2).
+21:57:12 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+21:57:12 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+21:57:12 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+21:57:12 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+Traceback (most recent call last):
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 650, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "D:\Nevebot\nevebot.py", line 82, in main
+    await bot.start(config.DISCORD_TOKEN)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 851, in start
+    await self.connect(reconnect=reconnect)
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 731, in connect
+    await self.ws.poll_event()
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 640, in poll_event
+    msg = await self.socket.receive(timeout=self._max_heartbeat_timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client_ws.py", line 334, in receive
+    msg = await self._reader.read()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "aiohttp/_websocket/reader_c.py", line 118, in read
+    raise
+
+  File "aiohttp/_websocket/reader_c.py", line 115, in aiohttp._websocket.reader_c.WebSocketDataQueue.read
+    await self._waiter
+
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 123, in run
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+^C14:18:28 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+14:18:38 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+14:18:38 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+14:18:38 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+14:18:38 [INFO] nevebot: Cog carregado: cogs.llm_cog
+14:18:38 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+14:18:38 [INFO] nevebot: Cog carregado: cogs.voice_cog
+14:18:38 [INFO] discord.client: logging in using static token
+14:18:39 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: 500c4ae92997e57863ffa3132be80648).
+14:18:41 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+14:18:41 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+14:18:41 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+14:18:41 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+14:22:23 [ERROR] discord.ext.commands.bot: Ignoring exception in command None
+discord.ext.commands.errors.CommandNotFound: Command "conectar" is not found
+14:22:33 [INFO] discord.voice_state: Connecting to voice...
+14:22:33 [INFO] discord.voice_state: Starting voice handshake... (connection attempt 1)
+14:22:33 [INFO] discord.voice_state: Voice handshake complete. Endpoint found: c-gru13-b89777bd.discord.media:2083
+14:22:34 [INFO] discord.voice_state: Voice connection complete.
+14:22:44 [ERROR] web_server: Erro em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 316, in _handle_voz_chat
+    stt_whisper.carregar(voz_estado.get("whisper_modelo", "medium"))
+  File "D:\Nevebot\services\stt_whisper.py", line 29, in carregar
+    import whisper
+ModuleNotFoundError: No module named 'whisper'
+14:22:59 [WARNING] web_server: Erro ao reproduzir TTS: No module named 'torch'
+14:23:19 [WARNING] web_server: Erro ao reproduzir TTS: No module named 'torch'
+14:23:26 [ERROR] web_server: Erro em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 316, in _handle_voz_chat
+    stt_whisper.carregar(voz_estado.get("whisper_modelo", "medium"))
+  File "D:\Nevebot\services\stt_whisper.py", line 29, in carregar
+    import whisper
+ModuleNotFoundError: No module named 'whisper'
+14:24:34 [INFO] discord.voice_state: The voice handshake is being terminated for Channel ID 1455588430070288469 (Guild ID 1455588428925370495)
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 637, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 604, in run_forever
+    self._run_once()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1873, in _run_once
+    event_list = self._selector.select(timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 439, in select
+    self._poll(timeout)
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 808, in _poll
+    status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 157, in _on_sigint
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+^C14:30:05 [INFO] cogs.llm_cog: Carregando modelo: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+llama_new_context_with_model: n_ctx_per_seq (16384) < n_ctx_train (131072) -- the full capacity of the model will not be utilized
+14:30:11 [INFO] cogs.llm_cog: Modelo carregado com sucesso.
+14:30:11 [INFO] cogs.llm_cog: Comando renomeado: 'lou' → 'casual'
+14:30:11 [INFO] cogs.llm_cog: Comando renomeado: 'limitar' → 'bloquear'
+14:30:11 [INFO] nevebot: Cog carregado: cogs.llm_cog
+14:30:11 [INFO] voice_cog: [VOZ] VoiceCog carregado.
+14:30:11 [INFO] nevebot: Cog carregado: cogs.voice_cog
+14:30:11 [INFO] discord.client: logging in using static token
+14:30:13 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: e632aae0a3e68afd169c08d1a4ee08cc).
+14:30:15 [INFO] nevebot: Bot online como Neve (ID: 1479066714749800488)
+14:30:15 [INFO] nevebot: Modelo carregado: D:\Nevebot\models\Cydonia-24B-v4zg-Q4_K_M.gguf
+14:30:15 [INFO] web_server: Interface web disponível em http://127.0.0.1:5000
+14:30:15 [INFO] nevebot: Interface web iniciada em http://127.0.0.1:5000
+14:30:35 [INFO] web_server: [WEB] POST /api/voz/conectar
+14:30:35 [INFO] discord.voice_state: Connecting to voice...
+14:30:35 [INFO] discord.voice_state: Starting voice handshake... (connection attempt 1)
+14:30:36 [INFO] discord.voice_state: Voice handshake complete. Endpoint found: c-gru13-b89777bd.discord.media:2083
+14:30:36 [INFO] discord.voice_state: Voice connection complete.
+14:30:42 [INFO] web_server: [WEB] POST /api/voz/chat
+14:30:42 [INFO] web_server: [WEB] POST /api/voz/chat recebido
+14:30:42 [INFO] web_server: [WEB] WAV recebido: 237612 bytes
+14:30:42 [INFO] web_server: [WEB] Carregando Whisper 'medium'...
+14:30:42 [ERROR] stt_whisper: [STT] ERRO ao carregar Whisper: No module named 'whisper'
+Traceback (most recent call last):
+  File "D:\Nevebot\services\stt_whisper.py", line 30, in carregar
+    import whisper
+ModuleNotFoundError: No module named 'whisper'
+14:30:42 [ERROR] web_server: [WEB] ERRO GERAL em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 322, in _handle_voz_chat
+    stt_whisper.carregar(whisper_modelo)
+  File "D:\Nevebot\services\stt_whisper.py", line 30, in carregar
+    import whisper
+ModuleNotFoundError: No module named 'whisper'
+14:30:56 [INFO] web_server: [WEB] POST /api/voz/chat-texto
+14:30:56 [INFO] web_server: [WEB] POST /api/voz/chat-texto recebido
+14:30:56 [INFO] web_server: [WEB] Texto recebido: 'Olá!'
+14:30:56 [INFO] web_server: [WEB] Etapa 1: Gerando resposta LLM...
+14:30:56 [INFO] web_server: [LLM-VOZ] Gerando resposta para: 'Olá!'
+14:30:56 [INFO] web_server: [LLM-VOZ] Prompt sistema: 6164 chars, histórico: 0 msgs
+14:31:04 [INFO] web_server: [LLM-VOZ] Resposta gerada: 'Oi Tudo bem?'
+14:31:04 [INFO] web_server: [WEB] Resposta LLM: 'Oi Tudo bem?'
+14:31:04 [INFO] web_server: [WEB] Guild com voz encontrada: Amaralis (canal: Geral)
+14:31:04 [INFO] web_server: [WEB] Etapa 2: TTS → Discord — guild=1455588428925370495 falar_discord=True
+14:31:04 [INFO] web_server: [WEB] TTS params: instruct='female, young adult' speed=1.0 volume=1.0
+14:31:04 [INFO] tts_omnivoice: [TTS] Gerando áudio — texto='Oi Tudo bem?' instruct='female, young adult' speed=1.0
+14:31:04 [ERROR] tts_omnivoice: [TTS] ERRO ao carregar OmniVoice: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:31:04 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:31:04 [ERROR] web_server: [WEB] ERRO ao reproduzir TTS: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 466, in _handle_voz_chat_texto
+    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:31:30 [INFO] discord.voice_state: The voice handshake is being terminated for Channel ID 1455588430070288469 (Guild ID 1455588428925370495)
+Traceback (most recent call last):
+  File "D:\Nevebot\nevebot.py", line 86, in <module>
+    asyncio.run(main())
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 637, in run_until_complete
+    self.run_forever()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 604, in run_forever
+    self._run_once()
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1873, in _run_once
+    event_list = self._selector.select(timeout)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 439, in select
+    self._poll(timeout)
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\windows_events.py", line 808, in _poll
+    status = _overlapped.GetQueuedCompletionStatus(self._iocp, ms)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 157, in _on_sigint
+    raise KeyboardInterrupt()
+KeyboardInterrupt
+^C14:33:22 [ERROR] tts_omnivoice: [TTS] ERRO ao carregar OmniVoice: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:33:22 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:33:22 [ERROR] web_server: [WEB] ERRO ao reproduzir TTS: No module named 'torch'
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 466, in _handle_voz_chat_texto
+    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 30, in carregar
+    import torch
+ModuleNotFoundError: No module named 'torch'
+14:39:39 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+14:39:54 [ERROR] tts_omnivoice: [TTS] ERRO ao carregar OmniVoice: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 37, in carregar
+    _model = OmniVoice.from_pretrained(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 269, in from_pretrained
+    model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4136, in from_pretrained
+    loading_info = cls._finalize_model_loading(model, load_config, loading_info)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4290, in _finalize_model_loading
+    model._initialize_missing_keys(load_config.is_quantized)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4581, in _initialize_missing_keys
+    self.initialize_weights()
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\contextlib.py", line 81, in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2393, in initialize_weights
+    self.smart_apply(self._initialize_weights, self.is_remote_code())
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2384, in smart_apply
+    module.smart_apply(module._initialize_weights, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2387, in smart_apply
+    fn(self, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2364, in _initialize_weights
+    self._init_weights(module)
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\models\hubert\modeling_hubert.py", line 663, in _init_weights
+    init.kaiming_normal_(module.weight)
+                         ^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 407, in get_parametrized
+    return parametrization()
+           ^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 303, in forward
+    x = self[0](*originals)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrizations.py", line 325, in forward
+    return torch._weight_norm(weight_v, weight_g, self.dim)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+14:39:54 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 37, in carregar
+    _model = OmniVoice.from_pretrained(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 269, in from_pretrained
+    model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4136, in from_pretrained
+    loading_info = cls._finalize_model_loading(model, load_config, loading_info)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4290, in _finalize_model_loading
+    model._initialize_missing_keys(load_config.is_quantized)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4581, in _initialize_missing_keys
+    self.initialize_weights()
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\contextlib.py", line 81, in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2393, in initialize_weights
+    self.smart_apply(self._initialize_weights, self.is_remote_code())
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2384, in smart_apply
+    module.smart_apply(module._initialize_weights, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2387, in smart_apply
+    fn(self, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2364, in _initialize_weights
+    self._init_weights(module)
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\models\hubert\modeling_hubert.py", line 663, in _init_weights
+    init.kaiming_normal_(module.weight)
+                         ^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 407, in get_parametrized
+    return parametrization()
+           ^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 303, in forward
+    x = self[0](*originals)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrizations.py", line 325, in forward
+    return torch._weight_norm(weight_v, weight_g, self.dim)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+14:39:54 [ERROR] web_server: [WEB] ERRO ao reproduzir TTS: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 466, in _handle_voz_chat_texto
+    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 53, in gerar
+    carregar()
+  File "D:\Nevebot\services\tts_omnivoice.py", line 37, in carregar
+    _model = OmniVoice.from_pretrained(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 269, in from_pretrained
+    model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4136, in from_pretrained
+    loading_info = cls._finalize_model_loading(model, load_config, loading_info)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4290, in _finalize_model_loading
+    model._initialize_missing_keys(load_config.is_quantized)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4581, in _initialize_missing_keys
+    self.initialize_weights()
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\contextlib.py", line 81, in inner
+    return func(*args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2393, in initialize_weights
+    self.smart_apply(self._initialize_weights, self.is_remote_code())
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2384, in smart_apply
+    module.smart_apply(module._initialize_weights, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2386, in smart_apply
+    module.smart_apply(fn, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2387, in smart_apply
+    fn(self, is_remote_code)
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 2364, in _initialize_weights
+    self._init_weights(module)
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\models\hubert\modeling_hubert.py", line 663, in _init_weights
+    init.kaiming_normal_(module.weight)
+                         ^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 407, in get_parametrized
+    return parametrization()
+           ^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrize.py", line 303, in forward
+    x = self[0](*originals)
+        ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\utils\parametrizations.py", line 325, in forward
+    return torch._weight_norm(weight_v, weight_g, self.dim)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CUDA error: no kernel image is available for execution on the device
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+14:45:16 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+15:07:34 [WARNING] hotkey: [HOTKEY] Nenhum áudio capturado.
+15:08:07 [ERROR] stt_whisper: [STT] ERRO ao transcrever: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+Traceback (most recent call last):
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 167, in forward
+    x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 111, in forward
+    wv, qk = self.qkv_attention(q, k, v, mask)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 124, in qkv_attention
+    a = scaled_dot_product_attention(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+15:08:07 [ERROR] web_server: [WEB] ERRO GERAL em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 354, in _handle_voz_chat
+    texto_usuario = stt_whisper.transcrever(wav_bytes)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 167, in forward
+    x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 111, in forward
+    wv, qk = self.qkv_attention(q, k, v, mask)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 124, in qkv_attention
+    a = scaled_dot_product_attention(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+15:08:07 [ERROR] stt_whisper: [STT] ERRO ao transcrever: Linear(in_features=1024, out_features=1024, bias=True)
+Traceback (most recent call last):
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 169, in forward
+    x = x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 109, in forward
+    v = kv_cache[self.value]
+        ~~~~~~~~^^^^^^^^^^^^
+KeyError: Linear(in_features=1024, out_features=1024, bias=True)
+15:08:07 [ERROR] hotkey: [HOTKEY] Erro ao processar áudio: Linear(in_features=1024, out_features=1024, bias=True)
+Traceback (most recent call last):
+  File "D:\Nevebot\services\hotkey.py", line 159, in _processar_audio
+    texto = stt_whisper.transcrever(wav_bytes)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 169, in forward
+    x = x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 109, in forward
+    v = kv_cache[self.value]
+        ~~~~~~~~^^^^^^^^^^^^
+KeyError: Linear(in_features=1024, out_features=1024, bias=True)
+15:08:07 [ERROR] stt_whisper: [STT] ERRO ao transcrever: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+Traceback (most recent call last):
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 167, in forward
+    x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 111, in forward
+    wv, qk = self.qkv_attention(q, k, v, mask)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 124, in qkv_attention
+    a = scaled_dot_product_attention(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+15:08:07 [ERROR] web_server: [WEB] ERRO GERAL em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 354, in _handle_voz_chat
+    texto_usuario = stt_whisper.transcrever(wav_bytes)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\stt_whisper.py", line 81, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 167, in forward
+    x = x + self.attn(self.attn_ln(x), mask=mask, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 111, in forward
+    wv, qk = self.qkv_attention(q, k, v, mask)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 124, in qkv_attention
+    a = scaled_dot_product_attention(
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Expected key.size(1) == value.size(1) to be true, but got false.  (Could this error message be improved?  If so, please report an enhancement request to PyTorch.)
+15:16:07 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+15:17:00 [WARNING] hotkey: [HOTKEY] Transcrição vazia.
+15:22:23 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+15:31:05 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+15:39:09 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+16:41:56 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+17:01:49 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+17:30:58 [WARNING] web_server: [WEB] Transcrição vazia!
+17:50:38 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+17:50:38 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+18:05:06 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+18:13:03 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+18:22:40 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:12:05 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+20:12:05 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+20:22:28 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:34:30 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:35:40 [WARNING] web_server: [WEB] Transcrição vazia!
+20:39:38 [ERROR] stt_whisper: [STT] ERRO ao transcrever: Linear(in_features=512, out_features=512, bias=True)
+Traceback (most recent call last):
+  File "D:\Nevebot\services\stt_whisper.py", line 87, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 169, in forward
+    x = x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 109, in forward
+    v = kv_cache[self.value]
+        ~~~~~~~~^^^^^^^^^^^^
+KeyError: Linear(in_features=512, out_features=512, bias=True)
+20:39:38 [ERROR] web_server: [WEB] ERRO GERAL em /api/voz/chat
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 334, in _handle_voz_chat
+    texto_usuario = stt_whisper.transcrever(wav_bytes)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\stt_whisper.py", line 87, in transcrever
+    result = _model.transcribe(
+             ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 295, in transcribe
+    result: DecodingResult = decode_with_fallback(mel_segment)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\transcribe.py", line 201, in decode_with_fallback
+    decode_result = model.decode(segment, options)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 824, in decode
+    result = DecodingTask(model, options).run(mel)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 737, in run
+    tokens, sum_logprobs, no_speech_probs = self._main_loop(audio_features, tokens)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 687, in _main_loop
+    logits = self.inference.logits(tokens, audio_features)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\decoding.py", line 163, in logits
+    return self.model.decoder(tokens, audio_features, kv_cache=self.kv_cache)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 242, in forward
+    x = block(x, xa, mask=self.mask, kv_cache=kv_cache)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 169, in forward
+    x = x + self.cross_attn(self.cross_attn_ln(x), xa, kv_cache=kv_cache)[0]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1779, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\nn\modules\module.py", line 1790, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\whisper\model.py", line 109, in forward
+    v = kv_cache[self.value]
+        ~~~~~~~~^^^^^^^^^^^^
+KeyError: Linear(in_features=512, out_features=512, bias=True)
+20:39:42 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:46:31 [WARNING] web_server: [WEB] Transcrição vazia!
+20:47:00 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:51:58 [WARNING] web_server: [WEB] Transcrição vazia!
+20:52:09 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:57:52 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+20:59:47 [ERROR] discord.ext.commands.bot: Ignoring exception in command None
+discord.ext.commands.errors.CommandNotFound: Command "modo" is not found
+21:00:18 [ERROR] discord.ext.commands.bot: Ignoring exception in command None
+discord.ext.commands.errors.CommandNotFound: Command "desativar" is not found
+21:03:51 [WARNING] web_server: [WEB] Transcrição vazia!
+21:04:16 [WARNING] web_server: [WEB] Transcrição vazia!
+21:04:37 [WARNING] web_server: [WEB] Transcrição vazia!
+21:04:49 [WARNING] web_server: [WEB] Transcrição vazia!
+08:07:16 [ERROR] discord.client: Attempting a reconnect in 0.28s
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1562, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1178, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1209, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\resolver.py", line 40, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 864, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socket.py", line 961, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 1076, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 672, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1239, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1568, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-b.discord.gg:443 ssl:default [getaddrinfo failed]
+08:07:16 [ERROR] discord.client: Attempting a reconnect in 1.73s
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1562, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1178, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1209, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\resolver.py", line 40, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 864, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socket.py", line 961, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 1076, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 672, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1239, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1568, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-b.discord.gg:443 ssl:default [getaddrinfo failed]
+08:07:19 [ERROR] discord.client: Attempting a reconnect in 0.43s
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1562, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1178, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1209, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\resolver.py", line 40, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 864, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socket.py", line 961, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 1076, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 672, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1239, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1568, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-b.discord.gg:443 ssl:default [getaddrinfo failed]
+08:07:20 [ERROR] discord.client: Attempting a reconnect in 11.13s
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1562, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1178, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1209, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\resolver.py", line 40, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 864, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\socket.py", line 961, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Nevebot\venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\asyncio\tasks.py", line 479, in wait_for
+    return fut.result()
+           ^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 1076, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 672, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1239, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1568, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-b.discord.gg:443 ssl:default [getaddrinfo failed]

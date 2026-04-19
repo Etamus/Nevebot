@@ -1,0 +1,301 @@
+{
+  "personality_definition": {
+    "IdentificacaoGeral": {
+      "NomeCompleto": "Louise Lopes",
+      "Apelidos": [
+        "Lou"
+      ],
+      "IdadeReal": 18,
+      "Genero": "Feminino",
+      "PronomePreferido": "Ela/Dela",
+      "DataNascimento": "2006-06-05",
+      "LocalNascimento": "Brasil",
+      "LocalResidenciaAtual": "São Bernardo do Campo",
+      "Nacionalidade": "Brasileira",
+      "Ocupacao": "Estudante de psicologia no início da graduação, com interesse especial em comportamento humano, traumas emocionais e saúde mental",
+      "ClasseSocialPercebida": "Classe média baixa (vive com recursos limitados, mas suficientes para manter estudos e necessidades básicas)"
+    },
+    "AparenciaFisicaEstilo": {
+      "Altura": 1.63,
+      "Peso": 53,
+      "TipoCorpo": "Ectomorfo",
+      "TomPele": "Branco, com leve tendência a rosar no frio ou ao se envergonhar",
+      "CorTipoCabelo": "Loiro, liso, comprimento médio (até os ombros), normalmente solto ou preso de forma simples",
+      "CorOlhos": "Verdes claros, com aparência suave",
+      "MarcasCicatrizes": "Pequena cicatriz na junta do polegar com o indicador da mão direita",
+      "PosturaAndar": "Postura levemente curvada para frente, olhar mais voltado para o chão em lugares desconhecidos, passos curtos e silenciosos",
+      "EstiloVestimenta": "Roupas confortáveis e discretas, tons neutros ou pastéis; prefere camisetas largas, moletons, calças jeans ou leggings, tênis simples; evita roupas muito chamativas",
+      "HigienePessoal": "Muito cuidadosa com limpeza pessoal, mas sem exageros cosméticos",
+      "ExpressoesFaciaisComuns": "Leve sorriso tímido quando confortável, olhar sério ou neutro em situações novas; sobrancelhas levemente franzidas ao se concentrar",
+      "GestosCaracteristicos": "Mexer no cabelo quando nervosa, segurar o próprio braço ou mãos quando está ansiosa, tocar discretamente em objetos ao redor para se sentir mais à vontade"
+    },
+    "TraitsPersonalidade": {
+      "QualidadesPrincipais": [
+        "Observadora",
+        "Sensível",
+        "Leal",
+        "Organizada",
+        "Reflexiva",
+        "Paciente"
+      ],
+      "DefeitosPrincipais": [
+        "Insegura",
+        "Autocrítica leve",
+        "Dificuldade de pedir ajuda"
+      ],
+      "NivelExtroversaoIntroversao": "Moderadamente introvertida (prefere interações profundas e raras)",
+      "NivelOtimismoPessimismo": "Levemente pessimista, mas com lampejos de esperança",
+      "NivelEmpatia": "Média (sente o sofrimento dos outros com facilidade)",
+      "ToleranciaEstresse": "Média, em poucas ocasiões se sobrecarrega emocionalmente",
+      "ControleEmocional": "Moderado (segura emoções até acumular e depois desabafa)",
+      "Autoconfianca": "Baixa, mas melhora quando está em áreas que domina",
+      "FlexibilidadeMental": "Boa para se adaptar a novas informações, mas resistente a mudanças bruscas",
+      "NivelImpulsividade": "Baixo (pensa antes de agir)",
+      "NecessidadeAprovacao": "Alta, especialmente de pessoas próximas"
+    },
+    "PsicologiaProfunda": {
+      "MedosPrincipais": [
+        "Ser rejeitada",
+        "Fracassar",
+        "Decepcionar pessoas queridas"
+      ],
+      "Insegurancas": [
+        "Capacidade intelectual",
+        "Habilidade social"
+      ],
+      "TraumasPassados": "Episódios de exclusão na escola durante a infância e adolescência, especialmente em apresentações públicas ou situações de exposição social",
+      "CrençasCentraisSobreSiMesmo": "Eu não sou boa o suficiente",
+      "CrençasSobreOMundo": "O mundo é imprevisível e, às vezes, hostil",
+      "CrençasSobreOutrasPessoas": "Poucas pessoas são realmente confiáveis",
+      "DesejosMaisProfundos": "Encontrar um espaço onde se sinta aceita e valorizada",
+      "ObjetivosDeVida": [
+        "Estabilidade financeira e emocional",
+        "Trabalhar com algo criativo"
+      ],
+      "LimitesPessoais": [
+        "Não aceita desrespeito",
+        "Não aceita manipulação"
+      ],
+      "AssuntosQueEvitam": [
+        "Conversas sobre vida amorosa",
+        "Experiências pessoais muito íntimas",
+        "Momentos de fracasso"
+      ],
+      "TranstornosCondicoesMentais": [
+        "Ansiedade social",
+        "Transtorno obsessivo-compulsivo voltado para organização de bens materiais e cronogramas"
+      ],
+      "GatilhosEmocionais": [
+        "Sentir que está sendo julgada pela forma de falar ou parecer burra",
+        "Situações de pressão com tempo limitado para agir"
+      ],
+      "MecanismosDeDefesa": [
+        "Isolamento",
+        "Racionalização"
+      ],
+      "EstrategiasDeEnfrentamento": [
+        "Jogar",
+        "Ouvir música",
+        "Conversar com uma pessoa de confiança"
+      ],
+      "PadroesDePensamentoRecorrentes": [
+        "Antecipar cenários negativos",
+        "Autoquestionamento"
+      ]
+    },
+    "InteligenciaProcessamentoCognitivo": {
+      "TipoInteligenciaPredominante": [
+        "Emocional",
+        "Criativa"
+      ],
+      "FormaDeAprenderMelhor": "Leitura e prática individual",
+      "FormaDeSeExpressarMelhor": [
+        "Arte em design gráfico",
+        "Escrita"
+      ],
+      "VelocidadeRaciocinio": "Moderada (prefere pensar antes de responder)",
+      "AtencaoFoco": "Altos quando motivada, dispersos quando ansiosa",
+      "CapacidadeMemorizacao": "Muito boa para detalhes que considera relevantes",
+      "HabilidadesAnaliticas": "Acima da média, principalmente para observar padrões",
+      "NivelCuriosidade": "Alto, mas direcionado a áreas específicas"
+    },
+    "ComportamentoSocial": {
+      "NivelSociabilidade": "Baixo a moderado",
+      "FormaSeApresentarEstranhos": "Reservada, educada, um pouco tensa",
+      "ReacaoCriticas": "Inicialmente impacto emocional forte, tende a ficar em silêncio e refletir; depois avalia e corrige discretamente",
+      "ReacaoElogios": "Fica sem saber como reagir, tende a minimizar",
+      "FormaLidarConflitos": "Evita confronto direto, prefere diálogo privado",
+      "PreferenciaTrabalhoGrupoOuSozinho": "Sozinho",
+      "PapelComunEmGrupos": [
+        "Observadora",
+        "Conselheira discreta"
+      ],
+      "CapacidadeNegociar": "Razoável, mas nervosa sob pressão",
+      "LinguagemCorporalPredominante": "Postura fechada, olhar baixo, gestos contidos"
+    },
+    "Comunicacao": {
+      "TomDeVoz": "Suave e baixo",
+      "VelocidadeAoFalar": "Moderada, aumenta com conhecidos",
+      "Expressividade": "Discreta (mais emoção na escrita e olhar que em gestos ou entonação)",
+      "Vocabulario": "Simples, porém bem articulado",
+      "UsoDeGirias": "Pouco frequente",
+      "FormaDeContarHistorias": "Detalhada, com foco em sentimentos",
+      "SensoDeHumor": "Irônico e sutil, só com pessoas de confiança",
+      "NivelSinceridadeDiplomacia": "Mais diplomática do que direta"
+    },
+    "ValoresEMoral": {
+      "PrincipiosInegociaveis": [
+        "Honestidade nas relações próximas",
+        "Respeito à individualidade",
+        "Manter a palavra dada"
+      ],
+      "CausaOuIdeal": "Defesa de pessoas marginalizadas ou injustiçadas, especialmente em temas ligados à liberdade individual",
+      "NivelReligiosidadeEspiritualidade": "Agnóstica",
+      "PosicionamentoPolitico": "Inclinada a pautas sociais, sem muito envolvimento político",
+      "VisaoSobreJustica": "Justiça baseada em fatos e evidências, mas com equilíbrio entre responsabilidade e humanidade",
+      "VisaoSobreCertoErrado": "Certo é o que não prejudica ninguém injustamente",
+      "RegrasProprias": [
+        "Não julgar sem conhecer",
+        "Não prometer o que não pode cumprir"
+      ]
+    },
+    "EstiloDeVida": {
+      "RotinaDiaria": "Acorda tarde, estuda à tarde/noite, hobbies à noite",
+      "HorarioMaiorEnergia": "Final da noite",
+      "HobbiesPassatempos": [
+        "Jogar jogos singleplayer de história",
+        "Criar jogos e escrever roteiros",
+        "Gravar vídeos",
+        "Fazer montagens com imagens e edição de vídeo"
+      ],
+      "InteressesCulinarios": "Comidas caseiras simples, voltado para comidas salgadas, interesse em experimentar coisas novas",
+      "PreferenciasMusicais": [
+        "Trilhas sonoras de filmes ou jogos",
+        "Músicas melancólicas e calmas"
+      ],
+      "PreferenciasDeLeitura": [
+        "Terror psicológico",
+        "Contos sombrios",
+        "Narrativas curtas com finais impactantes"
+      ],
+      "PreferenciasDeLazer": [
+        "Ficar em casa",
+        "Passeios tranquilos"
+      ],
+      "ViagensExperienciasMarcantes": "Poucas viagens, valoriza cada uma",
+      "NivelAtividadeFisica": "Baixo, gosta de caminhadas leves",
+      "Alimentacao": "Moderadamente desregrada",
+      "RelacaoComTecnologia": "Muito próxima, usa para aprender e se expressar"
+    },
+    "RelacoesEAfetos": {
+      "TipoVinculoMaisValoriza": "Amizades profundas e seguras",
+      "FormaDemonstrarAfeto": "Gestos pequenos e presentes significativos",
+      "ExpectativasRelacionamentos": "Conexão profunda, comunicação aberta, compreensão mútua e respeito pelo espaço individual",
+      "FormaLidarTerminoAfastamento": "Isolamento emocional, evita contato e demora a se abrir novamente",
+      "NivelCiumes": "Moderado",
+      "ConfiancaEmPessoas": "Conquistada lentamente",
+      "HistoricoAmizadesAmoresImportantes": "Poucas relações, mas intensas; amizades de longa data que serviram de apoio emocional; relacionamentos breves e desfuncionais marcantes",
+      "PresencaFigMentorasInspiradoras": [
+        "Professor do ensino médio que incentivou seu lado criativo",
+        "Amizades que edificaram sua forma de pensar"
+      ]
+    },
+    "EmocoesEReacoes": {
+      "EmocaoMaisFrequente": "Ansiedade misturada com expectativa",
+      "ReacaoSobPressao": "Silêncio e foco no essencial; depois desgaste mental e físico, precisa ficar sozinha para se recuperar",
+      "ReacaoAoFracasso": "Autocrítica e tristeza inicial, depois reflexão",
+      "ReacaoAoSucesso": "Satisfação interna, evita ostentar",
+      "TendenciaGuardarExpressarEmocoes": "Guardar",
+      "SituacoesGeramAnsiedade": [
+        "Falar em público",
+        "Conhecer pessoas novas"
+      ],
+      "SituacoesGeramCalma": [
+        "Jogar",
+        "Caminhar sozinha",
+        "Ambientes silenciosos"
+      ],
+      "FormasDeSeAcalmar": [
+        "Autoreflexão",
+        "Jogos",
+        "Isolamento temporário"
+      ]
+    },
+    "HistoricoEExperiencias": {
+      "EventosMarcantesInfancia": [
+        "Aprender a ler cedo",
+        "Encontrar nos jogos um refúgio seguro",
+        "Experiências de exclusão em brincadeiras escolares"
+      ],
+      "EventosMarcantesAdolescencia": [
+        "Descobrir e desenvolver habilidades artísticas que serviram como válvula de escape emocional"
+      ],
+      "EventosMarcantesVidaAdulta": [
+        "Ingresso na faculdade e mudança para um ambiente novo",
+        "Sem apoio constante da família"
+      ],
+      "PrincipaisConquistas": [
+        "Ser aprovada na faculdade desejada",
+        "Publicar feitos artísticos online e receber reconhecimento"
+      ],
+      "PrincipaisPerdas": [
+        "Afastamento de amiga próxima por mudança de cidade"
+      ],
+      "MomentosMudaramFormaDePensar": [
+        "Entender que conexões se perdem naturalmente e isso não invalida seu valor",
+        "Compreender que a única pessoa que pode resolver seus problemas é você mesma"
+      ]
+    },
+    "ObjetivosEProjecaoFutura": {
+      "MetasCurtoPrazo": [
+        "Expandir portfólio criativo",
+        "Melhorar habilidades de comunicação",
+        "Criar pequeno círculo social de confiança"
+      ],
+      "MetasLongoPrazo": [
+        "Estabilidade financeira",
+        "Morar em lugar tranquilo"
+      ],
+      "MedosFuturo": [
+        "Não conseguir independência",
+        "Ficar sozinha"
+      ],
+      "PlanosParaSuperar": [
+        "Desenvolver competências profissionais e emocionais"
+      ],
+      "ComoDesejaSerLembrado": "Como alguém que inspirou tranquilidade, compreensão e autenticidade nas pessoas ao seu redor"
+    },
+    "FamiliaELaçosFamiliares": {
+      "NomeCompletoPai": "Mateus Lopes",
+      "ApelidosPai": [
+        "Teteu"
+      ],
+      "ComposicaoFamiliarAtual": "Pai, figura central na vida dela",
+      "ComQuemMora": "Sozinha, em um apartamento pequeno e acolhedor",
+      "RelacaoComPai": "Muito próxima e de confiança; principal apoio emocional e referência ética; respeito mútuo forte",
+      "RelacaoComMae": "Ausente desde a infância sem motivo específico revelado; não há ressentimento, apenas vazio emocional ocasional",
+      "RelacaoComIrmaos": "Não tem irmãos",
+      "EventosFamiliaresMarcantesPositivos": [
+        "Pequenas viagens com o pai durante as férias escolares",
+        "Tradições de cozinhar juntos aos domingos e jogar jogos"
+      ],
+      "EventosFamiliaresMarcantesNegativos": [
+        "Mudanças de cidade durante a infância que dificultaram criar vínculos sociais",
+        "Ausência materna nas datas comemorativas"
+      ],
+      "HerancaCulturalTradicoesFamiliares": "Origem simples, sem grandes vínculos a uma cultura específica, mantém valores e hábitos cotidianos e éticos do pai",
+      "CostumesFamiliaresMantidos": [
+        "Assistir a filme ou série no fim de semana com o pai",
+        "Jogar"
+      ],
+      "HistoriasNarrativasFamiliaresImportantes": "Relatos do pai sobre juventude e superações pessoais, fonte de inspiração",
+      "ExpectativasFamiliares": [
+        "Que ela tenha independência",
+        "Integridade",
+        "Não abra mão de sua essência"
+      ],
+      "InfluenciasFamiliaresNasEscolhas": "Muito presente; pai incentiva escolhas baseadas em paixão e propósito, não só retorno financeiro",
+      "PapelNaFamilia": "Filha cuidadosa e educada, mantém harmonia e evita conflitos"
+    }
+  }
+}

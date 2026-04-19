@@ -467,6 +467,276 @@
       from { box-shadow: 0 0 0px var(--error); }
       to   { box-shadow: 0 0 10px var(--error); }
     }
+
+    /* ── Chat de Voz ─────────────────────────────────────────────────────── */
+    .voice-chat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .voice-chat-messages {
+      flex: 1;
+      min-height: 200px;
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 1rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+    .voice-chat-messages::-webkit-scrollbar { width: 6px; }
+    .voice-chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .voice-chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .voice-msg {
+      max-width: 85%;
+      padding: .55rem .9rem;
+      border-radius: 12px;
+      font-size: .9rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+    .voice-msg.user {
+      align-self: flex-end;
+      background: var(--accent2);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .voice-msg.bot {
+      align-self: flex-start;
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .voice-msg .msg-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      opacity: .7;
+      margin-bottom: .2rem;
+    }
+
+    .voice-chat-empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 3rem 1rem;
+      font-size: .88rem;
+    }
+
+    .voice-chat-bar {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      padding: .8rem 1.2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .voice-chat-input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .5rem .8rem;
+      color: var(--text);
+      font-size: .9rem;
+      outline: none;
+      transition: border-color .15s;
+    }
+    .voice-chat-input:focus { border-color: var(--accent); }
+    .voice-chat-input::placeholder { color: var(--muted); }
+
+    .voice-send-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent2);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: opacity .15s;
+      flex-shrink: 0;
+    }
+    .voice-send-btn:hover { opacity: .85; }
+    .voice-send-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+    .voice-clear-btn {
+      padding: .3rem .8rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .78rem;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+    .voice-clear-btn:hover { color: var(--error); border-color: var(--error); }
+
+    /* ── Voice Chat Header ──────────────────────────────────────────────── */
+    .voice-chat-header {
+      display: flex;
+      align-items: center;
+      gap: .9rem;
+      padding: .9rem 1.2rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.12);
+    }
+
+    .voice-chat-header-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .voice-chat-header-icon svg { width: 20px; height: 20px; }
+
+    .voice-chat-header-text { flex: 1; min-width: 0; }
+    .voice-chat-header-text h3 {
+      font-size: .95rem;
+      font-weight: 700;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .voice-chat-header-text span {
+      font-size: .75rem;
+      color: var(--muted);
+    }
+
+    .voice-chat-header-actions {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      flex-shrink: 0;
+    }
+
+    .voice-status-pill {
+      font-size: .72rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: rgba(124,111,205,.12);
+      padding: .2rem .7rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .voice-status-pill:empty { display: none; }
+
+    /* ── Botão microfone (barra de input) ─────────────────────────────────── */
+    .voice-mic-small {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent2);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s, transform .15s, box-shadow .2s;
+    }
+    .voice-mic-small svg { width: 20px; height: 20px; }
+    .voice-mic-small:hover { background: #4752c4; transform: scale(1.08); }
+    .voice-mic-small:active { transform: scale(.94); }
+    .voice-mic-small.recording {
+      background: var(--error);
+      box-shadow: 0 0 0 5px rgba(237,66,69,.2);
+      animation: pulse-rec .9s infinite;
+    }
+    .voice-mic-small.processing {
+      background: #555;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    /* ── Push-to-Talk toggle ─────────────────────────────────────────────── */
+    .voice-ptt-toggle {
+      display: flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .3rem .6rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+    .voice-ptt-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .voice-ptt-toggle.active {
+      background: rgba(88,101,242,.15);
+      border-color: var(--accent2);
+      color: var(--accent2);
+    }
+    .voice-ptt-toggle.active:hover { background: rgba(88,101,242,.25); }
+
+    /* ── Empty state icon ────────────────────────────────────────────────── */
+    .voice-chat-empty-icon {
+      margin-bottom: .5rem;
+      opacity: .6;
+    }
+
+    /* ── Settings panel (grid) ────────────────────────────────────────────── */
+    .voice-settings-panel {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: .5rem .9rem;
+      align-items: center;
+      padding: .8rem 1.2rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,.15);
+    }
+
+    .vs-label {
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+
+    .vs-control {
+      min-width: 0;
+    }
+    .vs-control .input-name {
+      width: 100%; max-width: 260px;
+      font-size: .82rem;
+      padding: .35rem .6rem;
+      font-family: inherit;
+    }
+
+    .vs-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      padding-top: .3rem;
+    }
+
+    .voice-settings-row {
+      display: flex;
+      align-items: center;
+      gap: .8rem;
+      flex-wrap: wrap;
+      padding: .6rem 1.2rem;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,.15);
+    }
+
+    .voice-settings-row .voz-label { min-width: auto; font-size: .75rem; }
+    .voice-settings-row .voz-select { font-size: .8rem; padding: .3rem .5rem; }
+    .voice-settings-row .input-name {
+      width: 200px; font-size: .8rem; padding: .3rem .6rem; font-family: inherit;
+    }
   </style>
 </head>
 <body>
@@ -548,21 +818,18 @@ const MSG_VARS = {
 
 // Estado atual da config
 let _config = null;
-let _vozConfig = null;
 let _guilds = [];
 
 // ── Carrega config do servidor ──────────────────────────────────────────────
 async function carregar() {
   try {
-    const [rCfg, rVoz, rGuilds] = await Promise.all([
+    const [rCfg, rGuilds] = await Promise.all([
       fetch('/api/config'),
-      fetch('/api/voz'),
       fetch('/api/guilds'),
     ]);
     _config = await rCfg.json();
-    _vozConfig = await rVoz.json();
     _guilds = await rGuilds.json().catch(() => []);
-    renderizar(_config, _vozConfig);
+    renderizar(_config);
   } catch(e) {
     document.getElementById('content').innerHTML =
       '<div class="loading">Erro ao conectar ao servidor local. Verifique se o bot está rodando.</div>';
@@ -570,7 +837,7 @@ async function carregar() {
 }
 
 // ── Renderiza o formulário ──────────────────────────────────────────────────
-function renderizar(cfg, vozCfg) {
+function renderizar(cfg) {
   const el = document.getElementById('content');
   el.className = '';
   el.innerHTML = '';
@@ -581,16 +848,16 @@ function renderizar(cfg, vozCfg) {
     <label for="inp-prefix">Prefixo dos comandos</label>
     <input id="inp-prefix" class="input-prefix" type="text"
            value="${esc(cfg.prefix)}" maxlength="5" />
-    <span style="color:var(--muted);font-size:.85rem;">
-      Exemplo: <code style="color:var(--accent)">!</code> → <code style="color:var(--accent)">!assistente</code>
-    </span>
+
   </div>`;
 
   // ── Voz ──────────────────────────────────────────
-  if (vozCfg) {
-    el.innerHTML += renderizarVoz(vozCfg);
-    if (_guilds && _guilds.length) setTimeout(carregarCanaisVoz, 100);
-  }
+  el.innerHTML += renderizarVoz();
+  if (_guilds && _guilds.length) setTimeout(carregarCanaisVoz, 100);
+
+  // ── Chat de Voz ──────────────────────────────────
+  el.innerHTML += renderizarChatVoz();
+  setTimeout(inicializarChatVoz, 100);
 
   // ── Comandos ─────────────────────────────────────
   el.innerHTML += `<div class="section-title" style="margin-top:2rem">Comandos</div>
@@ -603,17 +870,12 @@ function renderizar(cfg, vozCfg) {
     card.className = 'cmd-card';
     card.dataset.key = cmdKey;
 
-    // Cabeçalho do card
+    // Cabeçalho do card (somente leitura)
     card.innerHTML = `
-      <div class="cmd-header" onclick="toggleCard(this.parentElement)">
+      <div class="cmd-header">
         <span class="cmd-tag">${esc(cfg.prefix)}${esc(cmdData.name)}</span>
         <span class="cmd-desc">${esc(cmdData.descricao || '')}</span>
-        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-      </div>
-      <div class="cmd-body">${buildBody(cmdKey, cmdData)}</div>`;
+      </div>`;
 
     grid.appendChild(card);
   }
@@ -621,93 +883,14 @@ function renderizar(cfg, vozCfg) {
 }
 
 // ── Seção Voz ───────────────────────────────────────────────────────────────
-let _mediaRecorder = null;
-let _audioChunks = [];
-let _isRecording = false;
-let _gravendoCall = false;
-
-function renderizarVoz(voz) {
-  const vozes = (voz.vozes_disponiveis || [])
-    .map(v => `<option value="${esc(v.id)}" ${voz.voz === v.id ? 'selected' : ''}>${esc(v.label)}</option>`)
-    .join('');
+function renderizarVoz() {
   const guildsHtml = _guilds && _guilds.length
     ? _guilds.map(g => `<option value="${esc(g.id)}" ${g.em_voz ? 'selected' : ''}>${esc(g.name)}${g.em_voz ? ' 🔊' : ''}</option>`).join('')
     : '';
-  // Bot já está em voz? Habilita botão de gravação desde o início se sim
-  const emVozInicial = (_guilds || []).some(g => g.em_voz);
 
   return `
-  <div class="section-title" style="margin-top:2rem">Voz da Neve</div>
+  <div class="section-title" style="margin-top:2rem">Canal de Voz</div>
   <div class="voz-card" id="voz-card">
-
-    <!-- Botão microfone -->
-    <div style="display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:.5rem 0">
-      <button class="mic-btn" id="mic-btn" onclick="toggleGravacao()" title="Clique para falar">
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
-        </svg>
-      </button>
-      <span class="voz-status" id="mic-status">Clique para falar</span>
-    </div>
-
-    <!-- Transcrição -->
-    <div>
-      <div class="voz-section-title">Você disse</div>
-      <div class="voz-transcript" id="voz-transcript">…</div>
-    </div>
-
-    <!-- Resposta -->
-    <div>
-      <div class="voz-section-title">Neve respondeu</div>
-      <div class="voz-response" id="voz-response">…</div>
-    </div>
-
-    <div style="height:1px;background:var(--border);margin:.2rem 0"></div>
-
-    <!-- Configs TTS -->
-    <div class="voz-row">
-      <span class="voz-label">Voz TTS</span>
-      <select class="voz-select" id="voz-nome">${vozes}</select>
-    </div>
-
-    <div class="voz-row">
-      <span class="voz-label">Velocidade</span>
-      <div class="voz-slider-wrap">
-        <input type="range" class="voz-slider" id="voz-velocidade"
-               min="0.5" max="2.0" step="0.05" value="${voz.velocidade}"
-               oninput="document.getElementById('voz-velocidade-val').textContent=parseFloat(this.value).toFixed(2)">
-        <span class="voz-slider-val" id="voz-velocidade-val">${parseFloat(voz.velocidade).toFixed(2)}</span>
-      </div>
-    </div>
-
-    <div class="voz-row">
-      <span class="voz-label">Volume</span>
-      <div class="voz-slider-wrap">
-        <input type="range" class="voz-slider" id="voz-volume"
-               min="0.1" max="2.0" step="0.05" value="${voz.volume}"
-               oninput="document.getElementById('voz-volume-val').textContent=parseFloat(this.value).toFixed(2)">
-        <span class="voz-slider-val" id="voz-volume-val">${parseFloat(voz.volume).toFixed(2)}</span>
-      </div>
-    </div>
-
-    <div class="voz-row">
-      <span class="voz-label">Tom (pitch)</span>
-      <div class="voz-slider-wrap">
-        <input type="range" class="voz-slider" id="voz-pitch"
-               min="-12" max="12" step="1" value="${voz.pitch != null ? voz.pitch : 0}"
-               oninput="document.getElementById('voz-pitch-val').textContent=(this.value>0?'+':'')+this.value">
-        <span class="voz-slider-val" id="voz-pitch-val">${(voz.pitch > 0 ? '+' : '') + (voz.pitch || 0)}</span>
-      </div>
-    </div>
-
-    <div class="voz-row">
-      <span class="voz-label">Falar no Discord</span>
-      <label class="toggle">
-        <input type="checkbox" id="voz-falar-discord" ${voz.falar_discord !== false ? 'checked' : ''}>
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-
     ${guildsHtml ? `
     <div class="voz-row">
       <span class="voz-label">Servidor</span>
@@ -721,118 +904,11 @@ function renderizarVoz(voz) {
       <button class="voz-save-btn" id="voz-btn-conectar" onclick="conectarVoz()">Conectar</button>
       <button class="voz-save-btn" id="voz-btn-desconectar" onclick="desconectarVoz()"
               style="background:#ed4245;display:none">Desconectar</button>
-    </div>
-    <div class="voz-row" style="justify-content:flex-end">
-      <button class="voz-save-btn" id="voz-btn-gravar"
-              onclick="toggleGravacaoCall()"
-              style="background:var(--success)"
-              ${emVozInicial ? '' : 'disabled'}>
-        ● Gravar Call
-      </button>
-    </div>` : ''}
-
-    <div class="voz-row" style="justify-content:flex-end">
-      <button class="voz-save-btn" onclick="salvarVoz()">Aplicar configurações de voz</button>
-    </div>
-
+    </div>` : '<div style="color:var(--muted);text-align:center;padding:1rem">Nenhum servidor disponível.</div>'}
   </div>`;
 }
 
-async function toggleGravacao() {
-  if (_isRecording) { pararGravacao(); } else { await iniciarGravacao(); }
-}
 
-async function iniciarGravacao() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    _audioChunks = [];
-    _mediaRecorder = new MediaRecorder(stream);
-    _mediaRecorder.ondataavailable = e => { if (e.data.size > 0) _audioChunks.push(e.data); };
-    _mediaRecorder.onstop = enviarAudio;
-    _mediaRecorder.start();
-    _isRecording = true;
-    document.getElementById('mic-btn').classList.add('recording');
-    const s = document.getElementById('mic-status');
-    s.textContent = '● Gravando… (clique para parar)';
-    s.style.color = 'var(--error)';
-  } catch(e) {
-    toast('Erro ao acessar microfone: ' + e.message, 'err');
-  }
-}
-
-function pararGravacao() {
-  if (_mediaRecorder && _isRecording) {
-    _isRecording = false;
-    _mediaRecorder.stop();
-    _mediaRecorder.stream.getTracks().forEach(t => t.stop());
-    const btn = document.getElementById('mic-btn');
-    btn.classList.remove('recording');
-    btn.classList.add('processing');
-    const s = document.getElementById('mic-status');
-    s.textContent = '⏳ Processando…';
-    s.style.color = 'var(--muted)';
-  }
-}
-
-async function enviarAudio() {
-  const blob = new Blob(_audioChunks, { type: 'audio/webm' });
-  _audioChunks = [];
-  try {
-    // 1. STT
-    const rT = await fetch('/api/voz/transcrever', {
-      method: 'POST', headers: { 'Content-Type': 'audio/webm' }, body: blob,
-    });
-    const { texto } = await rT.json();
-    const trEl = document.getElementById('voz-transcript');
-    trEl.textContent = texto || '(não reconhecido)';
-    trEl.style.fontStyle = texto ? 'normal' : 'italic';
-    trEl.style.color = texto ? 'var(--text)' : 'var(--muted)';
-
-    if (!texto || texto.trim().length < 2) { _resetMic('Clique para falar'); return; }
-
-    // 2. LLM + TTS
-    const guildEl = document.getElementById('voz-guild');
-    const guild_id = guildEl ? guildEl.value : null;
-    const rC = await fetch('/api/voz/conversar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto, guild_id }),
-    });
-    const { resposta, erro } = await rC.json();
-    if (erro) { toast('Erro: ' + erro, 'err'); _resetMic('Clique para falar'); return; }
-    document.getElementById('voz-response').textContent = resposta || '';
-    _resetMic('Clique para falar');
-  } catch(e) {
-    toast('Erro ao processar voz: ' + e.message, 'err');
-    _resetMic('Clique para falar');
-  }
-}
-
-function _resetMic(msg) {
-  const btn = document.getElementById('mic-btn');
-  const s   = document.getElementById('mic-status');
-  if (btn) { btn.classList.remove('recording', 'processing'); }
-  if (s)   { s.textContent = msg; s.style.color = ''; }
-}
-
-async function salvarVoz() {
-  const payload = {
-    falar_discord: document.getElementById('voz-falar-discord')?.checked ?? true,
-    voz:           document.getElementById('voz-nome').value,
-    velocidade:    parseFloat(document.getElementById('voz-velocidade').value),
-    volume:        parseFloat(document.getElementById('voz-volume').value),
-    pitch:         parseInt(document.getElementById('voz-pitch')?.value || '0'),
-  };
-  try {
-    const r = await fetch('/api/voz', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const res = await r.json();
-    if (res.ok) { _vozConfig = { ..._vozConfig, ...payload }; toast('Configurações de voz salvas!', 'ok'); }
-    else { toast('Erro ao salvar voz: ' + (res.erro || '?'), 'err'); }
-  } catch(e) { toast('Falha de conexão ao salvar voz.', 'err'); }
-}
 async function carregarCanaisVoz() {
   const guildSel = document.getElementById('voz-guild');
   const canalSel = document.getElementById('voz-canal');
@@ -884,9 +960,6 @@ async function conectarVoz() {
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const dis = document.getElementById('voz-btn-desconectar');
       if (dis) dis.style.display = '';
-      // Habilita botão de gravação
-      const gr = document.getElementById('voz-btn-gravar');
-      if (gr) gr.disabled = false;
       toast('Bot conectado ao canal de voz!', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
@@ -915,15 +988,6 @@ async function desconectarVoz() {
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const con = document.getElementById('voz-btn-conectar');
       if (con) con.style.display = '';
-      // Desabilita e reseta botão de gravação
-      const gr = document.getElementById('voz-btn-gravar');
-      if (gr) {
-        gr.disabled = true;
-        gr.classList.remove('gravando');
-        gr.textContent = '● Gravar Call';
-        gr.style.background = 'var(--success)';
-      }
-      _gravendoCall = false;
       toast('Bot desconectado do canal de voz.', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
@@ -934,71 +998,466 @@ async function desconectarVoz() {
     if (btn) btn.disabled = false;
   }
 }
-// ── Gravação de Call (Discord) ────────────────────────────────────────────────
-async function toggleGravacaoCall() {
-  if (_gravendoCall) { await pararGravacaoCall(); }
-  else { await iniciarGravacaoCall(); }
+
+// ── Chat de Voz ──────────────────────────────────────────────────────────────
+let _vozRecording = false;
+let _vozProcessing = false;
+let _vozAudioCtx = null;
+let _vozMediaStream = null;
+let _vozSourceNode = null;
+let _vozProcessorNode = null;
+let _vozChunks = [];
+let _pttEnabled = false;
+let _pttKeyHeld = false;
+
+function renderizarChatVoz() {
+  return `
+  <div class="section-title" style="margin-top:2rem">Chat de Voz</div>
+  <div class="voice-chat-card" id="voice-chat-card">
+
+    <!-- Header -->
+    <div class="voice-chat-header">
+      <div class="voice-chat-header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        </svg>
+      </div>
+      <div class="voice-chat-header-text">
+        <h3>Chat de Voz</h3>
+        <span>Converse com a Neve por voz ou texto</span>
+      </div>
+      <div class="voice-chat-header-actions">
+        <span class="voice-status-pill" id="voice-status"></span>
+        <button class="voice-clear-btn" onclick="limparChatVoz()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:3px">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          Limpar
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="voice-chat-messages" id="voice-chat-msgs">
+      <div class="voice-chat-empty" id="voice-chat-empty">
+        <div class="voice-chat-empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </div>
+        <div>Clique no microfone ou digite para conversar.</div>
+        <div style="font-size:.75rem;color:var(--muted);opacity:.7">A Neve vai responder no canal de voz do Discord.</div>
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="voice-chat-bar">
+      <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
+      <button class="voice-ptt-toggle" id="ptt-toggle" onclick="togglePTT()" title="Push-to-Talk (Shift direito — funciona fora do navegador)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <span id="ptt-label">PTT</span>
+      </button>
+      <input type="text" class="voice-chat-input" id="voice-chat-input"
+             placeholder="Digite uma mensagem..." onkeydown="if(event.key==='Enter')enviarTextoVoz()" />
+      <button class="voice-send-btn" id="voice-send-btn" onclick="enviarTextoVoz()" title="Enviar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Settings panel -->
+    <div class="voice-settings-panel">
+      <span class="vs-label">Voz</span>
+      <div class="vs-control">
+        <input class="input-name" id="voz-instruct-input" type="text"
+               value="female, teenager, low pitch" placeholder="ex: female, teenager, low pitch" />
+      </div>
+
+      <span class="vs-label">Idioma</span>
+      <div class="vs-control">
+        <input class="input-name" id="voz-language-input" type="text"
+               value="Portuguese" placeholder="ex: Portuguese, English" />
+      </div>
+
+      <span class="vs-label">Velocidade</span>
+      <div class="vs-control">
+        <div class="voz-slider-wrap">
+          <input class="voz-slider" id="voz-speed-slider" type="range"
+                 min="0.5" max="2" step="0.1" value="1"
+                 oninput="document.getElementById('voz-speed-val').textContent=this.value" />
+          <span class="voz-slider-val" id="voz-speed-val">1</span>
+        </div>
+      </div>
+
+      <span class="vs-label">Volume</span>
+      <div class="vs-control">
+        <div class="voz-slider-wrap">
+          <input class="voz-slider" id="voz-volume-slider" type="range"
+                 min="0.1" max="2" step="0.1" value="1"
+                 oninput="document.getElementById('voz-volume-val').textContent=this.value" />
+          <span class="voz-slider-val" id="voz-volume-val">1</span>
+        </div>
+      </div>
+
+      <span class="vs-label">Seed</span>
+      <div class="vs-control">
+        <input class="input-name" id="voz-seed-input" type="number"
+               value="42" min="0" step="1" style="width:100px" title="Seed fixa para manter a mesma voz" />
+      </div>
+
+      <span class="vs-label">Pitch</span>
+      <div class="vs-control">
+        <div class="voz-slider-wrap">
+          <input class="voz-slider" id="voz-pitch-slider" type="range"
+                 min="-6" max="6" step="0.5" value="0"
+                 oninput="document.getElementById('voz-pitch-val').textContent=this.value" />
+          <span class="voz-slider-val" id="voz-pitch-val">0</span>
+          <span style="font-size:.7rem;color:var(--muted)">st</span>
+        </div>
+      </div>
+
+      <div class="vs-actions">
+        <button class="voz-save-btn" onclick="salvarConfigVoz()">Salvar</button>
+      </div>
+    </div>
+
+  </div>`;
 }
 
-async function iniciarGravacaoCall() {
-  const guildId = document.getElementById('voz-guild')?.value;
-  if (!guildId) { toast('Nenhum servidor selecionado.', 'err'); return; }
-  const btn = document.getElementById('voz-btn-gravar');
-  if (btn) btn.disabled = true;
+function inicializarChatVoz() {
+  // Carrega config de voz e preenche os campos
+  fetch('/api/voz/config').then(r => r.json()).then(cfg => {
+    const instInput = document.getElementById('voz-instruct-input');
+    const speedSlider = document.getElementById('voz-speed-slider');
+    const speedVal = document.getElementById('voz-speed-val');
+    const volSlider = document.getElementById('voz-volume-slider');
+    const volVal = document.getElementById('voz-volume-val');
+    if (instInput && cfg.voz_instruct) instInput.value = cfg.voz_instruct;
+    const langInput = document.getElementById('voz-language-input');
+    if (langInput && cfg.voz_language) langInput.value = cfg.voz_language;
+    if (speedSlider && cfg.velocidade != null) {
+      speedSlider.value = cfg.velocidade;
+      if (speedVal) speedVal.textContent = cfg.velocidade;
+    }
+    if (volSlider && cfg.volume != null) {
+      volSlider.value = cfg.volume;
+      if (volVal) volVal.textContent = cfg.volume;
+    }
+    const seedInput = document.getElementById('voz-seed-input');
+    if (seedInput && cfg.voz_seed != null) seedInput.value = cfg.voz_seed;
+    const pitchSlider = document.getElementById('voz-pitch-slider');
+    const pitchVal = document.getElementById('voz-pitch-val');
+    if (pitchSlider && cfg.pitch != null) {
+      pitchSlider.value = cfg.pitch;
+      if (pitchVal) pitchVal.textContent = cfg.pitch;
+    }
+  }).catch(() => {});
+}
+
+async function salvarConfigVoz() {
+  const cfg = {
+    voz_instruct: document.getElementById('voz-instruct-input')?.value || 'female, teenager, low pitch',
+    voz_language: document.getElementById('voz-language-input')?.value || 'Portuguese',
+    velocidade: parseFloat(document.getElementById('voz-speed-slider')?.value || '1'),
+    volume: parseFloat(document.getElementById('voz-volume-slider')?.value || '1'),
+    voz_seed: parseInt(document.getElementById('voz-seed-input')?.value || '42', 10),
+    pitch: parseFloat(document.getElementById('voz-pitch-slider')?.value || '0'),
+  };
   try {
-    const r = await fetch('/api/voz/gravar/iniciar', {
+    const r = await fetch('/api/voz/config', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ guild_id: guildId }),
+      body: JSON.stringify(cfg),
     });
     const res = await r.json();
-    if (res.ok) {
-      _gravendoCall = true;
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.add('gravando');
-        btn.style.background = '';
-        btn.textContent = '⏹ Parar Gravação';
+    if (res.ok) toast('Config de voz salva!', 'ok');
+    else toast('Erro: ' + (res.erro || '?'), 'err');
+  } catch(e) {
+    toast('Falha ao salvar config de voz.', 'err');
+  }
+}
+
+// ── Gravação de áudio via AudioContext (sem FFmpeg) ──────────────────────────
+async function toggleGravacao() {
+  if (_vozProcessing) return;
+  if (_vozRecording) {
+    pararGravacao();
+  } else {
+    await iniciarGravacao();
+  }
+}
+
+async function iniciarGravacao() {
+  try {
+    _vozMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _vozAudioCtx = new AudioContext();
+    _vozSourceNode = _vozAudioCtx.createMediaStreamSource(_vozMediaStream);
+    _vozProcessorNode = _vozAudioCtx.createScriptProcessor(4096, 1, 1);
+    _vozChunks = [];
+
+    _vozProcessorNode.onaudioprocess = (e) => {
+      if (_vozRecording) {
+        _vozChunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
       }
-      toast('Gravando a call...', 'ok');
-    } else {
-      toast('Erro ao iniciar gravação: ' + (res.erro || '?'), 'err');
-      if (btn) btn.disabled = false;
-    }
+    };
+
+    _vozSourceNode.connect(_vozProcessorNode);
+    _vozProcessorNode.connect(_vozAudioCtx.destination);
+    _vozRecording = true;
+
+    const btn = document.getElementById('voice-mic-btn');
+    if (btn) btn.classList.add('recording');
+    setVoiceStatus('Gravando...');
   } catch(e) {
-    toast('Falha ao iniciar gravação: ' + e.message, 'err');
-    if (btn) btn.disabled = false;
+    toast('Erro ao acessar microfone: ' + e.message, 'err');
   }
 }
 
-async function pararGravacaoCall() {
-  const guildId = document.getElementById('voz-guild')?.value;
-  if (!guildId) return;
-  const btn = document.getElementById('voz-btn-gravar');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Processando...'; }
-  _gravendoCall = false;
+async function pararGravacao() {
+  _vozRecording = false;
+  _vozProcessing = true;
+
+  const btn = document.getElementById('voice-mic-btn');
+  if (btn) { btn.classList.remove('recording'); btn.classList.add('processing'); }
+  setVoiceStatus('Processando...');
+
+  // Limpa áudio
+  if (_vozProcessorNode) _vozProcessorNode.disconnect();
+  if (_vozSourceNode) _vozSourceNode.disconnect();
+  if (_vozMediaStream) _vozMediaStream.getTracks().forEach(t => t.stop());
+
+  // Merge chunks
+  const totalLen = _vozChunks.reduce((a, c) => a + c.length, 0);
+  if (totalLen < 1600) { // muito curto
+    _vozProcessing = false;
+    if (btn) btn.classList.remove('processing');
+    setVoiceStatus('');
+    return;
+  }
+
+  const merged = new Float32Array(totalLen);
+  let offset = 0;
+  for (const ch of _vozChunks) { merged.set(ch, offset); offset += ch.length; }
+  _vozChunks = [];
+
+  // Codifica como WAV
+  const sampleRate = _vozAudioCtx ? _vozAudioCtx.sampleRate : 44100;
+  const wavBlob = encodeWAV(merged, sampleRate);
+  if (_vozAudioCtx) { _vozAudioCtx.close(); _vozAudioCtx = null; }
+
+  // Envia ao servidor
   try {
-    const r = await fetch('/api/voz/gravar/parar', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ guild_id: guildId }),
+    setVoiceStatus('Transcrevendo e gerando resposta...');
+    const r = await fetch('/api/voz/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/wav' },
+      body: wavBlob,
     });
     const res = await r.json();
-    if (btn) {
-      btn.disabled = false;
-      btn.classList.remove('gravando');
-      btn.style.background = 'var(--success)';
-      btn.textContent = '● Gravar Call';
-    }
-    if (res.ok && res.arquivo) {
-      toast('Gravação salva: gravacoes/' + res.arquivo, 'ok');
-    } else if (res.erro) {
-      toast('Erro ao parar gravação: ' + res.erro, 'err');
-    } else {
-      toast('Gravação parada (nenhum áudio capturado).', 'err');
-    }
+    if (res.transcript) adicionarMsgChat('user', res.transcript);
+    if (res.resposta) adicionarMsgChat('bot', res.resposta);
+    if (res.falou_discord) setVoiceStatus('Falando no Discord...');
+    else setVoiceStatus('');
   } catch(e) {
-    toast('Falha ao parar gravação: ' + e.message, 'err');
-    if (btn) { btn.disabled = false; btn.textContent = '● Gravar Call'; }
+    toast('Erro no chat de voz: ' + e.message, 'err');
+    setVoiceStatus('');
   }
+
+  _vozProcessing = false;
+  if (btn) btn.classList.remove('processing');
+  setTimeout(() => setVoiceStatus(''), 3000);
+}
+
+// ── Enviar texto digitado ───────────────────────────────────────────────────
+async function enviarTextoVoz() {
+  const input = document.getElementById('voice-chat-input');
+  const texto = input?.value?.trim();
+  if (!texto || _vozProcessing) return;
+
+  input.value = '';
+  _vozProcessing = true;
+  adicionarMsgChat('user', texto);
+  setVoiceStatus('Gerando resposta...');
+
+  const sendBtn = document.getElementById('voice-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    const r = await fetch('/api/voz/chat-texto', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ texto }),
+    });
+    const res = await r.json();
+    if (res.resposta) adicionarMsgChat('bot', res.resposta);
+    if (res.falou_discord) setVoiceStatus('Falando no Discord...');
+    else if (res.erro) toast('Erro: ' + res.erro, 'err');
+    else setVoiceStatus('');
+  } catch(e) {
+    toast('Erro: ' + e.message, 'err');
+  }
+
+  _vozProcessing = false;
+  if (sendBtn) sendBtn.disabled = false;
+  setTimeout(() => setVoiceStatus(''), 3000);
+}
+
+// ── Helpers de UI do chat ───────────────────────────────────────────────────
+function adicionarMsgChat(role, texto) {
+  const container = document.getElementById('voice-chat-msgs');
+  const empty = document.getElementById('voice-chat-empty');
+  if (empty) empty.style.display = 'none';
+
+  const div = document.createElement('div');
+  div.className = 'voice-msg ' + role;
+  const label = role === 'user' ? 'Você' : 'Neve';
+  div.innerHTML = `<div class="msg-label">${label}</div>${esc(texto)}`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function setVoiceStatus(msg) {
+  const el = document.getElementById('voice-status');
+  if (el) el.textContent = msg;
+}
+
+async function limparChatVoz() {
+  const container = document.getElementById('voice-chat-msgs');
+  if (container) container.innerHTML = `
+    <div class="voice-chat-empty" id="voice-chat-empty">
+      <div class="voice-chat-empty-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </div>
+      <div>Clique no microfone ou digite para conversar.</div>
+      <div style="font-size:.75rem;color:var(--muted);opacity:.7">A Neve vai responder no canal de voz do Discord.</div>
+    </div>`;
+  try { await fetch('/api/voz/limpar', { method: 'POST' }); } catch(e) {}
+  toast('Histórico de voz limpo.', 'ok');
+}
+
+// ── Push-to-Talk ────────────────────────────────────────────────────────────
+let _pttPollInterval = null;
+let _pttGlobalAnterior = false;  // estado anterior do PTT global
+
+function togglePTT() {
+  _pttEnabled = !_pttEnabled;
+  const btn = document.getElementById('ptt-toggle');
+  const label = document.getElementById('ptt-label');
+  if (btn) btn.classList.toggle('active', _pttEnabled);
+  if (label) label.textContent = _pttEnabled ? 'PTT ON' : 'PTT';
+  if (_pttEnabled) {
+    toast('Push-to-Talk ativado — segure Shift direito para falar (funciona fora do navegador)', 'ok');
+    _iniciarPollingPTT();
+  } else {
+    toast('Push-to-Talk desativado', 'ok');
+    _pararPollingPTT();
+    if (_pttKeyHeld && _vozRecording) {
+      _pttKeyHeld = false;
+      pararGravacao();
+    }
+  }
+}
+
+function _iniciarPollingPTT() {
+  if (_pttPollInterval) return;
+  _pttGlobalAnterior = false;
+  _pttPollInterval = setInterval(async () => {
+    if (!_pttEnabled) return;
+    try {
+      const r = await fetch('/api/voz/ptt-estado');
+      const data = await r.json();
+      const agora = data.pressionado;
+      if (agora && !_pttGlobalAnterior && !_pttKeyHeld && !_vozProcessing) {
+        _pttKeyHeld = true;
+        iniciarGravacao();
+      } else if (!agora && _pttGlobalAnterior && _pttKeyHeld) {
+        _pttKeyHeld = false;
+        if (_vozRecording) pararGravacao();
+      }
+      _pttGlobalAnterior = agora;
+    } catch(e) {}
+  }, 100);
+}
+
+function _pararPollingPTT() {
+  if (_pttPollInterval) {
+    clearInterval(_pttPollInterval);
+    _pttPollInterval = null;
+  }
+  _pttGlobalAnterior = false;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!_pttEnabled || _pttKeyHeld || _vozProcessing) return;
+  if (e.code === 'ShiftRight') {
+    e.preventDefault();
+    _pttKeyHeld = true;
+    iniciarGravacao();
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (!_pttEnabled || !_pttKeyHeld) return;
+  if (e.code === 'ShiftRight') {
+    e.preventDefault();
+    _pttKeyHeld = false;
+    if (_vozRecording) pararGravacao();
+  }
+});
+
+// Segurança: se a janela perder foco, o polling cuida do PTT global
+window.addEventListener('blur', () => {
+  // Não para a gravação no blur — o polling global continua funcionando
+});
+
+// ── Codificação WAV (sem FFmpeg) ────────────────────────────────────────────
+function encodeWAV(samples, sampleRate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  writeWAVStr(view, 0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeWAVStr(view, 8, 'WAVE');
+  writeWAVStr(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);   // PCM
+  view.setUint16(22, 1, true);   // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);   // block align
+  view.setUint16(34, 16, true);  // bits per sample
+  writeWAVStr(view, 36, 'data');
+  view.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    let s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function writeWAVStr(view, offset, str) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
 }
 
 // ── Cards de comando ─────────────────────────────────────────────────────────

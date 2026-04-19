@@ -38,18 +38,6 @@ _DEFAULT: dict = {
                 "ativado": "Modo terapeuta ativado. Pode falar."
             }
         },
-        "fofoca": {
-            "name": "auditoria",
-            "descricao": "Ativa/desativa o modo fofoca neste canal.",
-            "messages": {
-                "so_servidores": "Este comando só funciona em servidores.",
-                "desativado": "🔇 Modo fofoca desativado. Não to mais de olho.",
-                "ativado": "👁‍🗨️ Modo fofoca ativado neste canal desde **{hora}**. Pode perguntar qualquer coisa — to de olho nos canais e no registro do servidor.",
-                "sem_pergunta": "Pode perguntar — to de olho em tudo aqui.",
-                "erro": "Deu ruim aqui, não consegui buscar as informações.",
-                "sem_info": "Não vi nada sobre isso ainda."
-            }
-        },
         "limpar": {
             "name": "limpar",
             "descricao": "Apaga o histórico de conversa deste canal.",
@@ -63,15 +51,6 @@ _DEFAULT: dict = {
             "messages": {
                 "ja_desligado": "Já estou desligada neste canal.",
                 "desligado": "Desligada neste canal."
-            }
-        },
-        "resumir": {
-            "name": "resumir",
-            "descricao": "Resume as últimas N mensagens do canal.",
-            "messages": {
-                "sem_msgs": "Não encontrei mensagens para resumir.",
-                "erro": "Ocorreu um erro ao gerar o resumo.",
-                "resultado": "**Resumo das últimas {n} mensagens:**\n{resumo}"
             }
         },
         "limitar": {

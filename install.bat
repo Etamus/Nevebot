@@ -7,8 +7,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo Instalando llama-cpp-python via wheel...
-pip install "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.2/llama_cpp_python-0.3.2-cp311-cp311-win_amd64.whl"
+echo Instalando llama-cpp-python v0.3.4 com suporte CUDA 12.4...
+pip install "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.4-cu124/llama_cpp_python-0.3.4-cp311-cp311-win_amd64.whl"
 if %errorlevel% neq 0 (
     echo Erro ao instalar llama-cpp-python.
     pause
@@ -19,6 +19,14 @@ echo Instalando dependencias do requirements.txt...
 pip install -r requirements.txt
 if %errorlevel% neq 0 (
     echo Erro ao instalar dependencias.
+    pause
+    exit /b 1
+)
+
+echo Instalando OmniVoice (TTS)...
+pip install omnivoice
+if %errorlevel% neq 0 (
+    echo Erro ao instalar OmniVoice.
     pause
     exit /b 1
 )
