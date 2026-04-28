@@ -22,12 +22,16 @@ from pathlib import Path
 
 import discord
 from discord.ext import commands
-from llama_cpp import Llama
+from llama_cpp import GGML_TYPE_Q8_0, Llama
 
 import config
 from config_loader import cfg as _bot_cfg
 
 log = logging.getLogger(__name__)
+
+_KV_TYPES = {
+    "q8_0": GGML_TYPE_Q8_0,
+}
 
 # Username do Discord do "pai" da Neve — verificação feita pelo código Python,
 # nunca pelo LLM. Nenhum texto no chat pode mudar isso.
@@ -212,7 +216,8 @@ class LLMCog(commands.Cog, name="LLM"):
         self.bot = bot
         # Canal -> modo ativo: "assistente" | "lou"
         self.canais_modo: dict[int, str] = {}
-        # Histórico por canal: deque com até 20 entradas (10 pares user/assistant)
+        # Histórico por canal: deque com até 12 entradas (6 pares user/assistant).
+        # Mantém contexto suficiente e reduz prefill/latência.
         self._historico: dict[int, deque] = {}
         # Proibições dadas pelo pai (etamus) por canal — deque das últimas 5
         self._restricoes_pai: dict[int, deque] = {}
@@ -224,12 +229,24 @@ class LLMCog(commands.Cog, name="LLM"):
         self._usuarios_bloqueados: set[int] = self._carregar_bloqueados()
         # Canais explicitamente desligados — não responde nem a menções
         self._canais_desligados: set[int] = set()
+        kv_type = _KV_TYPES.get(config.LLM_KV_TYPE)
+        if kv_type is None:
+            log.warning("LLM_KV_TYPE=%r não reconhecido; usando KV padrão do llama.cpp.", config.LLM_KV_TYPE)
+        else:
+            log.info("KV cache quantization ativado: type_k/type_v=%s", config.LLM_KV_TYPE)
         log.info("Carregando modelo: %s", config.LLM_MODEL_PATH)
         self.llm = Llama(
             model_path=config.LLM_MODEL_PATH,
             n_ctx=config.LLM_N_CTX,
             n_gpu_layers=config.LLM_N_GPU_LAYERS,
             n_batch=config.LLM_N_BATCH,
+            n_ubatch=config.LLM_N_UBATCH,
+            n_threads=config.LLM_N_THREADS,
+            n_threads_batch=config.LLM_N_THREADS_BATCH,
+            type_k=kv_type,
+            type_v=kv_type,
+            offload_kqv=True,
+            use_mmap=True,
             flash_attn=True,
             chat_format="chatml",
             verbose=False,
@@ -473,7 +490,7 @@ class LLMCog(commands.Cog, name="LLM"):
             return
 
         if canal_id not in self._historico:
-            self._historico[canal_id] = deque(maxlen=20)
+            self._historico[canal_id] = deque(maxlen=12)
 
         # Marcação verificada pelo sistema (token compacto para não vazar na resposta)
         if eh_pai:

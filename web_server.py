@@ -35,7 +35,7 @@ _bot_ref = None        # discord.ext.commands.Bot
 _loop_ref = None       # asyncio event loop do bot
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
-_voz_historico: deque = deque(maxlen=20)
+_voz_historico: deque = deque(maxlen=8)
 _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
@@ -103,6 +103,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._respond(200, "application/json", payload)
         elif self.path.startswith("/api/voz/canais"):
             self._handle_get_voz_canais()
+        elif self.path.startswith("/api/texto/canais"):
+            self._handle_get_texto_canais()
         elif self.path == "/api/voz/config":
             self._handle_get_voz_config()
         elif self.path == "/api/voz/ptt-estado":
@@ -167,6 +169,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._respond(200, "application/json", b'{"ok": true}')
             return
 
+        if self.path == "/api/texto/enviar":
+            self._handle_texto_enviar()
+            return
+
         if self.path != "/api/config":
             self._respond(404, "text/plain", b"Not found")
             return
@@ -222,6 +228,83 @@ class _Handler(BaseHTTPRequestHandler):
         )
         self._respond(200, "application/json",
                       json.dumps(canais, ensure_ascii=False).encode("utf-8"))
+
+    def _handle_get_texto_canais(self) -> None:
+        """GET /api/texto/canais?guild_id=... — lista canais de texto onde o bot pode falar."""
+        from urllib.parse import urlparse, parse_qs
+        import discord as _discord
+        qs = parse_qs(urlparse(self.path).query)
+        guild_id_str = (qs.get("guild_id") or [None])[0]
+        if not guild_id_str or _bot_ref is None:
+            self._respond(400, "application/json", b'{"erro": "guild_id obrigatorio"}')
+            return
+        guild = _bot_ref.get_guild(int(guild_id_str))
+        if not guild:
+            self._respond(404, "application/json", b'{"erro": "guild nao encontrada"}')
+            return
+
+        canais = []
+        member = guild.me
+        for c in guild.channels:
+            if not isinstance(c, _discord.TextChannel):
+                continue
+            perms = c.permissions_for(member) if member else None
+            if perms and not (perms.view_channel and perms.send_messages):
+                continue
+            canais.append({
+                "id": str(c.id),
+                "name": c.name,
+                "category": c.category.name if c.category else "Sem categoria",
+            })
+
+        canais.sort(key=lambda c: (c["category"].lower(), c["name"].lower()))
+        self._respond(200, "application/json",
+                      json.dumps(canais, ensure_ascii=False).encode("utf-8"))
+
+    def _handle_texto_enviar(self) -> None:
+        """POST /api/texto/enviar — body: {guild_id, channel_id, texto}."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+        except Exception as exc:
+            self._respond(400, "application/json",
+                          json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
+
+        guild_id = int(data.get("guild_id", 0))
+        channel_id = int(data.get("channel_id", 0))
+        texto = str(data.get("texto", "")).strip()
+        if not guild_id or not channel_id or not texto or _bot_ref is None or _loop_ref is None:
+            self._respond(400, "application/json",
+                          b'{"erro": "guild_id, channel_id e texto obrigatorios"}')
+            return
+        if len(texto) > 2000:
+            self._respond(400, "application/json", b'{"erro": "texto excede 2000 caracteres"}')
+            return
+
+        async def _enviar():
+            import discord as _discord
+            guild = _bot_ref.get_guild(guild_id)
+            if not guild:
+                raise ValueError("Guild não encontrada")
+            channel = guild.get_channel(channel_id)
+            if not channel or not isinstance(channel, _discord.TextChannel):
+                raise ValueError("Canal de texto não encontrado")
+            member = guild.me
+            perms = channel.permissions_for(member) if member else None
+            if perms and not (perms.view_channel and perms.send_messages):
+                raise PermissionError("Bot sem permissão para enviar mensagens neste canal")
+            msg = await channel.send(texto)
+            return msg.id
+
+        try:
+            msg_id = asyncio.run_coroutine_threadsafe(_enviar(), _loop_ref).result(timeout=10)
+            payload = json.dumps({"ok": True, "message_id": str(msg_id)}).encode("utf-8")
+            self._respond(200, "application/json", payload)
+        except Exception as exc:
+            log.exception("Erro em /api/texto/enviar")
+            self._respond(500, "application/json",
+                          json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"))
 
     def _handle_voz_conectar(self) -> None:
         """POST /api/voz/conectar — body: {guild_id, channel_id}."""

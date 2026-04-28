@@ -1569,3 +1569,31 @@ Traceback (most recent call last):
   File "D:\Nevebot\venv\Lib\site-packages\aiohttp\connector.py", line 1568, in _create_direct_connection
     raise ClientConnectorDNSError(req.connection_key, exc) from exc
 aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-b.discord.gg:443 ssl:default [getaddrinfo failed]
+16:45:32 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+16:45:32 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+16:45:41 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+16:45:41 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+16:45:47 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+16:45:47 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+19:37:26 [ERROR] web_server: Erro em /api/texto/enviar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 301, in _handle_texto_enviar
+    msg_id = asyncio.run_coroutine_threadsafe(_enviar(), _loop_ref).result(timeout=10)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "D:\Nevebot\web_server.py", line 297, in _enviar
+    msg = await channel.send(texto)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\abc.py", line 1706, in send
+    data = await state.http.send_message(channel.id, params=params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\discord\http.py", line 776, in request
+    raise DiscordServerError(response, data)
+discord.errors.DiscordServerError: 503 Service Unavailable (error code: 0): upstream connect error or disconnect/reset before headers. reset reason: remote connection failure, transport failure reason: immediate connect error: No such file or directory
+19:38:04 [ERROR] discord.ext.commands.bot: Ignoring exception in command None
+discord.ext.commands.errors.CommandNotFound: Command "desativar" is not found
+19:40:43 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
