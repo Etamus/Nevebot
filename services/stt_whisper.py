@@ -19,6 +19,51 @@ _model = None
 _lock = threading.Lock()
 
 
+def _normalizar_rms(samples: np.ndarray, alvo_rms: float = 0.08) -> np.ndarray:
+    """Normaliza fala baixa por RMS sem clipar."""
+    if samples.size == 0:
+        return samples
+    rms = float(np.sqrt(np.mean(samples.astype(np.float32) ** 2)))
+    peak = float(np.max(np.abs(samples)))
+    if rms <= 1e-6 or peak <= 1e-6:
+        return samples
+    ganho = min(alvo_rms / rms, 0.95 / peak, 8.0)
+    if ganho > 1.05:
+        log.info("[STT] Normalização RMS aplicada: rms=%.4f ganho=%.2fx", rms, ganho)
+        return np.clip(samples * ganho, -1.0, 1.0).astype(np.float32)
+    return samples.astype(np.float32)
+
+
+def _trim_silencio_vad(samples: np.ndarray, sr: int = 16000) -> np.ndarray:
+    """Remove silêncio inicial/final com VAD simples por energia em frames."""
+    if samples.size < int(sr * 0.15):
+        return samples
+    frame = int(sr * 0.03)  # 30ms
+    hop = int(sr * 0.01)    # 10ms
+    if len(samples) < frame:
+        return samples
+    rms_vals = []
+    for start in range(0, len(samples) - frame + 1, hop):
+        trecho = samples[start:start + frame]
+        rms_vals.append(float(np.sqrt(np.mean(trecho * trecho))))
+    if not rms_vals:
+        return samples
+    rms_arr = np.asarray(rms_vals, dtype=np.float32)
+    noise = float(np.percentile(rms_arr, 20))
+    threshold = max(0.012, noise * 3.0)
+    voiced = np.where(rms_arr > threshold)[0]
+    if voiced.size == 0:
+        log.info("[STT] VAD local descartou áudio sem fala clara.")
+        return np.asarray([], dtype=np.float32)
+    pre = int(sr * 0.18)
+    post = int(sr * 0.25)
+    ini = max(0, int(voiced[0] * hop) - pre)
+    fim = min(len(samples), int(voiced[-1] * hop + frame) + post)
+    if ini > 0 or fim < len(samples):
+        log.info("[STT] Silêncio cortado: %.2fs → %.2fs", len(samples) / sr, (fim - ini) / sr)
+    return samples[ini:fim].astype(np.float32)
+
+
 def carregar(modelo: str = "medium") -> None:
     """Carrega o modelo faster-whisper (lazy, thread-safe)."""
     global _model
@@ -78,11 +123,14 @@ def transcrever(wav_bytes: bytes) -> str:
             tensor = torch.from_numpy(samples).float().unsqueeze(0)
             samples = F.resample(tensor, sr, 16000).squeeze(0).numpy()
 
-        # Normaliza volume do áudio para melhorar transcrição
-        peak = np.abs(samples).max()
-        if peak > 0 and peak < 0.1:
-            samples = samples / peak * 0.95
-            log.info("[STT] Áudio normalizado (peak original=%.4f)", peak)
+        # VAD/trim local antes do Whisper: reduz silêncio e melhora latência.
+        samples = _trim_silencio_vad(samples, 16000)
+        if samples.size < int(16000 * 0.20):
+            log.info("[STT] Áudio útil muito curto após VAD local; ignorando.")
+            return ""
+
+        # Normaliza volume do áudio para melhorar transcrição sem distorcer.
+        samples = _normalizar_rms(samples)
 
         log.info("[STT] Transcrevendo %d amostras (%.2fs)...", len(samples), len(samples) / 16000)
         segments, info = _model.transcribe(

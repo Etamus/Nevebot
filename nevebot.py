@@ -77,7 +77,8 @@ COGS = [
 @bot.event
 async def on_ready() -> None:
     log.info("Bot online como %s (ID: %s)", bot.user.name, bot.user.id)
-    log.info("Modelo carregado: %s", config.LLM_MODEL_PATH)
+    log.info("Modelo LLM: %s", config.LLM_MODEL_PATH)
+    log.info("OmniVoice: %s", config.OMNIVOICE_MODEL_PATH)
     web_server.start(bot, loop=asyncio.get_event_loop())
     log.info("Interface web iniciada em http://127.0.0.1:5000")
     webbrowser.open("http://127.0.0.1:5000")

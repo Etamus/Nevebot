@@ -17,11 +17,24 @@ import asyncio
 import json
 import logging
 import re
+import threading
 from collections import deque
 from pathlib import Path
 
 import discord
 from discord.ext import commands
+
+_BASE_DIR = Path(__file__).resolve().parent.parent
+for _dll_dir in (
+    _BASE_DIR / "venv" / "Lib" / "site-packages" / "nvidia" / "cublas" / "bin",
+    _BASE_DIR / "venv" / "Lib" / "site-packages" / "nvidia" / "cuda_runtime" / "bin",
+):
+    if _dll_dir.is_dir():
+        try:
+            import os
+            os.add_dll_directory(str(_dll_dir))
+        except (AttributeError, OSError):
+            pass
 from llama_cpp import GGML_TYPE_Q8_0, Llama
 
 import config
@@ -229,29 +242,41 @@ class LLMCog(commands.Cog, name="LLM"):
         self._usuarios_bloqueados: set[int] = self._carregar_bloqueados()
         # Canais explicitamente desligados — não responde nem a menções
         self._canais_desligados: set[int] = set()
+        self._llm_lock = threading.RLock()
         kv_type = _KV_TYPES.get(config.LLM_KV_TYPE)
         if kv_type is None:
             log.warning("LLM_KV_TYPE=%r não reconhecido; usando KV padrão do llama.cpp.", config.LLM_KV_TYPE)
         else:
             log.info("KV cache quantization ativado: type_k/type_v=%s", config.LLM_KV_TYPE)
-        log.info("Carregando modelo: %s", config.LLM_MODEL_PATH)
-        self.llm = Llama(
-            model_path=config.LLM_MODEL_PATH,
-            n_ctx=config.LLM_N_CTX,
-            n_gpu_layers=config.LLM_N_GPU_LAYERS,
-            n_batch=config.LLM_N_BATCH,
-            n_ubatch=config.LLM_N_UBATCH,
-            n_threads=config.LLM_N_THREADS,
-            n_threads_batch=config.LLM_N_THREADS_BATCH,
-            type_k=kv_type,
-            type_v=kv_type,
-            offload_kqv=True,
-            use_mmap=True,
-            flash_attn=True,
-            chat_format="chatml",
-            verbose=False,
-        )
-        log.info("Modelo carregado com sucesso.")
+        log.info("Carregando modelo LLM único: %s", config.LLM_MODEL_PATH)
+        try:
+            self.llm = self._criar_llama(kv_type=kv_type)
+        except Exception as exc:
+            if kv_type is None:
+                raise
+            log.warning("Falha ao carregar com KV %s (%s); tentando sem KV quantizado.", config.LLM_KV_TYPE, exc)
+            self.llm = self._criar_llama(kv_type=None)
+        log.info("Modelo LLM único carregado com sucesso.")
+
+    def _criar_llama(self, kv_type=None) -> Llama:
+        kwargs = {
+            "model_path": config.LLM_MODEL_PATH,
+            "n_ctx": config.LLM_N_CTX,
+            "n_gpu_layers": config.LLM_N_GPU_LAYERS,
+            "n_batch": config.LLM_N_BATCH,
+            "n_ubatch": config.LLM_N_UBATCH,
+            "n_threads": config.LLM_N_THREADS,
+            "n_threads_batch": config.LLM_N_THREADS_BATCH,
+            "offload_kqv": True,
+            "use_mmap": True,
+            "flash_attn": True,
+            "chat_format": "chatml",
+            "verbose": False,
+        }
+        if kv_type is not None:
+            kwargs["type_k"] = kv_type
+            kwargs["type_v"] = kv_type
+        return Llama(**kwargs)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Helper de mensagens configuráveis
@@ -324,15 +349,16 @@ class LLMCog(commands.Cog, name="LLM"):
             "parecer estranha, reescreva APENAS a versão corrrigida sem mais nada."
         )
         try:
-            output = self.llm.create_chat_completion(
-                messages=[
-                    {"role": "system", "content": verif_sys},
-                    {"role": "user", "content": resposta},
-                ],
-                max_tokens=256,
-                temperature=0.1,
-                stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
-            )
+            with self._llm_lock:
+                output = self.llm.create_chat_completion(
+                    messages=[
+                        {"role": "system", "content": verif_sys},
+                        {"role": "user", "content": resposta},
+                    ],
+                    max_tokens=256,
+                    temperature=0.1,
+                    stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+                )
             resultado = output["choices"][0]["message"]["content"].strip()
             if resultado.upper().startswith("OK"):
                 return resposta
@@ -370,18 +396,19 @@ class LLMCog(commands.Cog, name="LLM"):
     def _gerar_resposta(self, system_prompt: str, historico: list[dict],
                         max_tokens: int | None = None) -> str:
         """Gera resposta usando o prompt do modo ativo e o histórico do canal."""
-        output = self.llm.create_chat_completion(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                *historico,
-            ],
-            max_tokens=max_tokens or config.LLM_MAX_TOKENS,
-            temperature=config.LLM_TEMPERATURE,
-            repeat_penalty=config.LLM_REPEAT_PENALTY,
-            frequency_penalty=config.LLM_FREQUENCY_PENALTY,
-            presence_penalty=config.LLM_PRESENCE_PENALTY,
-            stop=["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"],
-        )
+        with self._llm_lock:
+            output = self.llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    *historico,
+                ],
+                max_tokens=max_tokens or config.LLM_MAX_TOKENS,
+                temperature=config.LLM_TEMPERATURE,
+                repeat_penalty=config.LLM_REPEAT_PENALTY,
+                frequency_penalty=config.LLM_FREQUENCY_PENALTY,
+                presence_penalty=config.LLM_PRESENCE_PENALTY,
+                stop=["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"],
+            )
         resposta = output["choices"][0]["message"]["content"].strip()
         # Remove tokens de template de chat que possam ter vazado
         resposta = re.sub(r'<\|im_start\|>.*', '', resposta, flags=re.DOTALL).strip()
@@ -424,15 +451,16 @@ class LLMCog(commands.Cog, name="LLM"):
             f"Conversa de {n} mensagens:\n\n{mensagens_texto}\n\n"
             "Resuma cada assunto relevante em frases completas:"
         )
-        output = self.llm.create_chat_completion(
-            messages=[
-                {"role": "system", "content": prompt_sys},
-                {"role": "user", "content": prompt_user},
-            ],
-            max_tokens=450,
-            temperature=0.35,
-            stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
-        )
+        with self._llm_lock:
+            output = self.llm.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": prompt_sys},
+                    {"role": "user", "content": prompt_user},
+                ],
+                max_tokens=450,
+                temperature=0.35,
+                stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+            )
         return output["choices"][0]["message"]["content"].strip()
 
     # ── Fila e worker por canal ─────────────────────────────────────────────

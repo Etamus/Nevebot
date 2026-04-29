@@ -56,11 +56,14 @@
       letter-spacing: .02em;
     }
 
-    .header-logo .dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 8px var(--success);
+    .header-logo-img {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      object-fit: cover;
+      display: block;
+      background: #fff;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.10), 0 6px 18px rgba(0,0,0,.24);
     }
 
     .btn-save-top {
@@ -431,22 +434,177 @@
       text-align: right;
     }
 
-    /* Select de voz */
+    /* Select nativo mantido apenas como estado do formulário */
     .voz-select {
       appearance: none;
       -webkit-appearance: none;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: .4rem .7rem;
+      padding: .4rem 2rem .4rem .7rem;
       color: var(--text);
       font-size: .88rem;
       outline: none;
       cursor: pointer;
       transition: border-color .15s;
+      width: auto;
+      min-width: 7.5rem;
+      max-width: 100%;
+      background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position:
+        calc(100% - 15px) 50%,
+        calc(100% - 10px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
     }
     .voz-select::-ms-expand { display: none; }
     .voz-select:focus { border-color: var(--accent); }
+
+    .voz-select.custom-native-select {
+      position: absolute;
+      width: 1px !important;
+      height: 1px !important;
+      min-width: 0 !important;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Dropdown customizado */
+    .custom-select {
+      position: relative;
+      display: inline-block;
+      min-width: 7.5rem;
+      max-width: 100%;
+      vertical-align: middle;
+      font-size: .88rem;
+      z-index: 1;
+    }
+    .custom-select.open { z-index: 99990; }
+    .custom-select-trigger {
+      width: 100%;
+      min-height: 37px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.11);
+      background:
+        linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.025)),
+        rgba(4,7,18,.64);
+      color: var(--text);
+      padding: .4rem .58rem .4rem .76rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.18);
+      cursor: pointer;
+      user-select: none;
+      outline: none;
+      transition: border-color .16s, box-shadow .16s, background .16s, transform .12s;
+    }
+    .custom-select-trigger:hover,
+    .custom-select.open .custom-select-trigger {
+      border-color: rgba(34,211,238,.55);
+      box-shadow: 0 0 0 4px rgba(34,211,238,.08), inset 0 1px 0 rgba(255,255,255,.08), 0 16px 34px rgba(0,0,0,.24);
+    }
+    .custom-select-trigger:active { transform: translateY(1px); }
+    .custom-select-label {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .custom-select-arrow {
+      width: 22px;
+      height: 22px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(167,139,250,.13);
+      color: var(--accent3);
+      transition: transform .18s, background .16s, color .16s;
+    }
+    .custom-select-arrow::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid currentColor;
+      border-bottom: 2px solid currentColor;
+      transform: translateY(-2px) rotate(45deg);
+    }
+    .custom-select.open .custom-select-arrow {
+      transform: rotate(180deg);
+      background: rgba(34,211,238,.16);
+      color: #fff;
+    }
+    .custom-select-menu {
+      position: absolute;
+      left: 0;
+      top: calc(100% + 8px);
+      width: max(100%, 14rem);
+      max-width: min(520px, calc(100vw - 32px));
+      max-height: 260px;
+      overflow: auto;
+      z-index: 99999;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(167,139,250,.16), transparent 34%),
+        linear-gradient(145deg, rgba(24,29,52,.98), rgba(7,10,22,.98));
+      backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: 0 24px 70px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.08);
+      padding: .35rem;
+      opacity: 0;
+      transform: translateY(-6px) scale(.98);
+      pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .custom-select-menu.custom-select-menu-portal {
+      position: fixed;
+      width: var(--custom-select-menu-width, 14rem);
+      left: var(--custom-select-menu-left, 16px);
+      top: var(--custom-select-menu-top, 16px);
+      z-index: 999999;
+    }
+    .custom-select.open .custom-select-menu,
+    .custom-select-menu.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .custom-select-menu::-webkit-scrollbar { width: 6px; }
+    .custom-select-menu::-webkit-scrollbar-track { background: transparent; }
+    .custom-select-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 999px; }
+    .custom-select-option {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      min-height: 34px;
+      padding: .42rem .62rem;
+      border-radius: 12px;
+      color: #dbe3ff;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background .13s, color .13s, transform .1s;
+    }
+    .custom-select-option:hover {
+      background: rgba(255,255,255,.08);
+      color: #fff;
+    }
+    .custom-select-option.selected {
+      background: linear-gradient(135deg, rgba(109,124,255,.30), rgba(34,211,238,.15));
+      color: #fff;
+    }
+    .custom-select-option.selected::before {
+      content: '✓';
+      color: var(--accent3);
+      font-weight: 800;
+    }
+    .custom-select-option.disabled {
+      opacity: .48;
+      cursor: default;
+    }
 
     .voz-save-btn {
       padding: .38rem 1rem;
@@ -556,7 +714,7 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: .5rem 3.35rem .5rem .8rem;
+      padding: .5rem 3.35rem .5rem 3.05rem;
       color: var(--text);
       font-size: .9rem;
       outline: none;
@@ -653,26 +811,32 @@
 
     /* ── Botão microfone (barra de input) ─────────────────────────────────── */
     .voice-mic-small {
-      width: 40px; height: 40px;
+      position: absolute;
+      left: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px; height: 32px;
       border-radius: 50%;
       border: none;
-      background: var(--accent2);
-      color: #fff;
+      background: transparent;
+      color: var(--accent3);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
-      flex-shrink: 0;
-      transition: background .2s, transform .15s, box-shadow .2s;
+      transition: color .15s, transform .15s, opacity .15s;
+      z-index: 2;
+      padding: 0;
     }
     .voice-mic-small svg { width: 20px; height: 20px; }
-    .voice-mic-small:hover { background: #4752c4; transform: scale(1.08); }
-    .voice-mic-small:active { transform: scale(.94); }
+    .voice-mic-small:hover { color: #fff; transform: translateY(-50%) scale(1.08); }
+    .voice-mic-small:active { transform: translateY(-50%) scale(.94); }
     .voice-mic-small.recording {
-      background: var(--error);
-      box-shadow: 0 0 0 5px rgba(237,66,69,.2);
+      color: var(--error);
+      box-shadow: none;
       animation: pulse-rec .9s infinite;
     }
     .voice-mic-small.processing {
-      background: #555;
+      color: var(--muted);
+      opacity: .55;
       cursor: default;
       box-shadow: none;
     }
@@ -757,7 +921,7 @@
     }
 
     .voice-settings-row .voz-label { min-width: auto; font-size: .75rem; }
-    .voice-settings-row .voz-select { font-size: .8rem; padding: .3rem .5rem; }
+    .voice-settings-row .voz-select { font-size: .8rem; padding: .3rem 1.8rem .3rem .5rem; }
     .voice-settings-row .input-name {
       width: 200px; font-size: .8rem; padding: .3rem .6rem; font-family: inherit;
     }
@@ -901,22 +1065,7 @@
       font-size: 1.02rem;
       letter-spacing: -.01em;
     }
-    .header-logo::before {
-      content: '✦';
-      width: 38px; height: 38px;
-      display: grid; place-items: center;
-      border-radius: 14px;
-      color: #fff;
-      background: linear-gradient(135deg, var(--accent), var(--accent2) 55%, var(--accent3));
-      box-shadow: 0 12px 32px rgba(109,124,255,.35);
-      font-size: 1rem;
-    }
-    .header-logo .dot {
-      width: 8px; height: 8px;
-      order: 2;
-      margin-left: .15rem;
-    }
-    .btn-save-top, .btn-shutdown, .voz-save-btn, .voice-mic-small, .voice-ptt-toggle {
+    .btn-save-top, .btn-shutdown, .voz-save-btn, .voice-ptt-toggle {
       position: relative;
       overflow: hidden;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
@@ -1112,9 +1261,9 @@
       background: rgba(3,6,18,.40);
     }
     .voice-mic-small {
-      width: 46px; height: 46px;
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
-      box-shadow: 0 12px 28px rgba(109,124,255,.28);
+      width: 32px; height: 32px;
+      background: transparent;
+      box-shadow: none;
     }
     .voice-send-btn {
       width: 32px;
@@ -1126,7 +1275,7 @@
     }
     .voice-send-btn:hover { transform: translateY(-50%) scale(1.04); }
     .voice-send-btn:active { transform: translateY(-50%) scale(.96); }
-    .voice-chat-input { height: 46px; padding-left: 1rem; padding-right: 3.1rem; }
+    .voice-chat-input { height: 46px; padding-left: 3.05rem; padding-right: 3.1rem; }
     .voice-ptt-toggle {
       height: 46px;
       border-radius: 999px;
@@ -1243,6 +1392,7 @@
   <!-- Header -->
   <header>
     <div class="header-logo">
+      <img class="header-logo-img" src="/logo.png" alt="Logo Nevebot" />
       <span>Nevebot</span>
     </div>
     <div style="display:flex;gap:.6rem;">
@@ -1374,7 +1524,174 @@ function renderizar(cfg) {
     grid.appendChild(card);
   }
 
+  setTimeout(ajustarTodosSelects, 0);
 }
+
+// ── Selects com largura dinâmica ───────────────────────────────────────────
+let _selectMeasureCanvas = null;
+let _customSelectId = 0;
+let _customSelectAberto = null;
+
+function obterMenuCustomSelect(custom) {
+  if (!custom) return null;
+  const id = custom.dataset.customSelectId;
+  return document.querySelector(`.custom-select-menu[data-custom-select-menu="${id}"]`) || custom.querySelector('.custom-select-menu');
+}
+
+function posicionarMenuCustomSelect(custom) {
+  const menu = obterMenuCustomSelect(custom);
+  const trigger = custom?.querySelector('.custom-select-trigger');
+  if (!menu || !trigger || !custom.classList.contains('open')) return;
+
+  if (menu.parentElement !== document.body) {
+    document.body.appendChild(menu);
+    menu.classList.add('custom-select-menu-portal');
+  }
+
+  const rect = trigger.getBoundingClientRect();
+  const margem = 12;
+  const largura = Math.min(Math.max(rect.width, 224), window.innerWidth - (margem * 2));
+  let left = Math.min(Math.max(rect.left, margem), window.innerWidth - largura - margem);
+  let top = rect.bottom + 8;
+
+  const alturaEstimada = Math.min(menu.scrollHeight || 260, 260);
+  if (top + alturaEstimada > window.innerHeight - margem && rect.top > alturaEstimada + margem) {
+    top = Math.max(margem, rect.top - alturaEstimada - 8);
+  }
+
+  menu.style.setProperty('--custom-select-menu-width', `${largura}px`);
+  menu.style.setProperty('--custom-select-menu-left', `${left}px`);
+  menu.style.setProperty('--custom-select-menu-top', `${top}px`);
+}
+
+function medirTextoSelect(select, texto) {
+  if (!_selectMeasureCanvas) _selectMeasureCanvas = document.createElement('canvas');
+  const ctx = _selectMeasureCanvas.getContext('2d');
+  const custom = select.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
+  const st = getComputedStyle(custom || select);
+  ctx.font = `${st.fontStyle} ${st.fontVariant} ${st.fontWeight} ${st.fontSize} / ${st.lineHeight} ${st.fontFamily}`;
+  return ctx.measureText(texto || '').width;
+}
+
+function ajustarSelectLargura(select) {
+  if (!select || select.tagName !== 'SELECT') return;
+  inicializarCustomSelect(select);
+  const option = select.options[select.selectedIndex] || select.options[0];
+  const texto = option ? option.textContent.trim() : '';
+  const custom = select.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
+  const st = getComputedStyle(custom || select);
+  const extra = 74;
+  const largura = Math.ceil(medirTextoSelect(select, texto) + extra);
+  const min = parseFloat(st.minWidth) || 0;
+  const alvo = custom || select;
+  alvo.style.width = `${Math.max(min, largura)}px`;
+  atualizarCustomSelect(select);
+}
+
+function ajustarTodosSelects(root = document) {
+  root.querySelectorAll('select').forEach(select => {
+    inicializarCustomSelect(select);
+    ajustarSelectLargura(select);
+  });
+}
+
+function inicializarCustomSelect(select) {
+  if (!select || select.tagName !== 'SELECT') return;
+  let custom = select.nextElementSibling;
+  if (!custom || !custom.classList.contains('custom-select')) {
+    custom = document.createElement('div');
+    const id = `cs-${++_customSelectId}`;
+    custom.className = 'custom-select';
+    custom.dataset.customSelectId = id;
+    custom.innerHTML = `
+      <button type="button" class="custom-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="custom-select-label"></span>
+        <span class="custom-select-arrow" aria-hidden="true"></span>
+      </button>
+      <div class="custom-select-menu" role="listbox" data-custom-select-menu="${id}"></div>`;
+    select.insertAdjacentElement('afterend', custom);
+    select.classList.add('custom-native-select');
+
+    const trigger = custom.querySelector('.custom-select-trigger');
+    trigger.addEventListener('click', e => {
+      e.stopPropagation();
+      const aberto = custom.classList.contains('open');
+      fecharCustomSelects();
+      if (!aberto) abrirCustomSelect(select);
+    });
+    trigger.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        trigger.click();
+      } else if (e.key === 'Escape') {
+        fecharCustomSelects();
+      }
+    });
+  }
+  atualizarCustomSelect(select);
+}
+
+function atualizarCustomSelect(select) {
+  const custom = select?.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
+  if (!custom) return;
+  const option = select.options[select.selectedIndex] || select.options[0];
+  const label = custom.querySelector('.custom-select-label');
+  const menu = obterMenuCustomSelect(custom);
+  const trigger = custom.querySelector('.custom-select-trigger');
+  if (label) label.textContent = option ? option.textContent.trim() : '';
+  if (trigger) trigger.setAttribute('aria-expanded', custom.classList.contains('open') ? 'true' : 'false');
+  if (!menu) return;
+  menu.innerHTML = [...select.options].map(opt => {
+    const selected = opt.value === select.value;
+    return `<div class="custom-select-option${selected ? ' selected' : ''}${opt.disabled ? ' disabled' : ''}" role="option" aria-selected="${selected ? 'true' : 'false'}" data-value="${esc(opt.value)}">${esc(opt.textContent.trim())}</div>`;
+  }).join('');
+  menu.querySelectorAll('.custom-select-option').forEach(item => {
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      if (item.classList.contains('disabled')) return;
+      select.value = item.dataset.value || '';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      atualizarCustomSelect(select);
+      fecharCustomSelects();
+    });
+  });
+}
+
+function abrirCustomSelect(select) {
+  const custom = select?.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
+  if (!custom) return;
+  atualizarCustomSelect(select);
+  custom.classList.add('open');
+  _customSelectAberto = custom;
+  const menu = obterMenuCustomSelect(custom);
+  if (menu) menu.classList.add('open');
+  posicionarMenuCustomSelect(custom);
+  custom.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'true');
+  const selected = menu?.querySelector('.custom-select-option.selected');
+  if (selected) selected.scrollIntoView({ block: 'nearest' });
+}
+
+function fecharCustomSelects() {
+  document.querySelectorAll('.custom-select.open').forEach(custom => {
+    custom.classList.remove('open');
+    obterMenuCustomSelect(custom)?.classList.remove('open');
+    custom.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+  });
+  _customSelectAberto = null;
+}
+
+document.addEventListener('click', fecharCustomSelects);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') fecharCustomSelects();
+});
+window.addEventListener('resize', () => posicionarMenuCustomSelect(_customSelectAberto));
+window.addEventListener('scroll', () => posicionarMenuCustomSelect(_customSelectAberto), true);
+
+document.addEventListener('change', e => {
+  if (e.target && e.target.tagName === 'SELECT') {
+    ajustarSelectLargura(e.target);
+  }
+});
 
 // ── Envio de mensagem para canais de texto ──────────────────────────────────
 function renderizarEnvioTexto() {
@@ -1422,9 +1739,11 @@ async function carregarCanaisTexto() {
   const guildSel = document.getElementById('texto-guild');
   const canalSel = document.getElementById('texto-canal');
   if (!guildSel || !canalSel) return;
+  ajustarSelectLargura(guildSel);
   const guildId = guildSel.value;
   if (!guildId) return;
   canalSel.innerHTML = '<option value="">Carregando...</option>';
+  ajustarSelectLargura(canalSel);
   try {
     const r = await fetch(`/api/texto/canais?guild_id=${guildId}`);
     const canais = await r.json();
@@ -1439,6 +1758,7 @@ async function carregarCanaisTexto() {
   } catch(e) {
     canalSel.innerHTML = '<option value="">Erro ao carregar</option>';
   }
+  ajustarSelectLargura(canalSel);
 }
 
 async function enviarMensagemServidor() {
@@ -1507,9 +1827,11 @@ async function carregarCanaisVoz() {
   const guildSel = document.getElementById('voz-guild');
   const canalSel = document.getElementById('voz-canal');
   if (!guildSel || !canalSel) return;
+  ajustarSelectLargura(guildSel);
   const guildId = guildSel.value;
   if (!guildId) return;
   canalSel.innerHTML = '<option value="">Carregando...</option>';
+  ajustarSelectLargura(canalSel);
   try {
     const r = await fetch(`/api/voz/canais?guild_id=${guildId}`);
     const canais = await r.json();
@@ -1534,6 +1856,7 @@ async function carregarCanaisVoz() {
   } catch(e) {
     canalSel.innerHTML = '<option value="">Erro ao carregar</option>';
   }
+  ajustarSelectLargura(canalSel);
 }
 
 async function conectarVoz() {
@@ -1600,6 +1923,7 @@ let _vozAudioCtx = null;
 let _vozMediaStream = null;
 let _vozSourceNode = null;
 let _vozProcessorNode = null;
+let _vozGainNode = null;
 let _vozChunks = [];
 let _pttEnabled = false;
 let _pttKeyHeld = false;
@@ -1627,15 +1951,6 @@ function renderizarChatVoz() {
 
     <!-- Input bar -->
     <div class="voice-chat-bar">
-      <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-      </button>
       <button class="voice-ptt-toggle" id="ptt-toggle" onclick="togglePTT()" title="Push-to-Talk (Shift direito — funciona fora do navegador)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1645,6 +1960,15 @@ function renderizarChatVoz() {
         <span id="ptt-label">PTT</span>
       </button>
       <div class="input-action-wrap">
+        <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
         <input type="text" class="voice-chat-input" id="voice-chat-input"
                 placeholder="Digite algo para a Neve responder..." onkeydown="if(event.key==='Enter')enviarTextoVoz()" />
         <button class="voice-send-btn" id="voice-send-btn" onclick="enviarTextoVoz()" title="Enviar">
@@ -1658,11 +1982,27 @@ function renderizarChatVoz() {
 
     <!-- Settings panel -->
     <div class="voice-settings-panel">
+      <input id="voz-instruct-input" type="hidden" value="female, teenager, low pitch" />
+
       <div class="vs-item">
-        <span class="vs-label">Voz</span>
+        <span class="vs-label">Idade</span>
         <div class="vs-control">
-          <input class="input-name" id="voz-instruct-input" type="text"
-                 value="female, teenager, low pitch" placeholder="ex: female, teenager, low pitch" />
+          <select class="voz-select" id="voz-age-select" onchange="atualizarInstructVoz()">
+            <option value="teenager">teenager</option>
+            <option value="young adult">young adult</option>
+            <option value="adult">adult</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="vs-item">
+        <span class="vs-label">Pitch voz</span>
+        <div class="vs-control">
+          <select class="voz-select" id="voz-pitch-style-select" onchange="atualizarInstructVoz()">
+            <option value="low pitch">low pitch</option>
+            <option value="moderate pitch">moderate pitch</option>
+            <option value="high pitch">high pitch</option>
+          </select>
         </div>
       </div>
 
@@ -1695,7 +2035,7 @@ function renderizarChatVoz() {
       <input id="voz-seed-input" type="hidden" value="42" />
 
       <div class="vs-item">
-        <span class="vs-label">Pitch</span>
+        <span class="vs-label">Pitch pós</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
             <input class="voz-slider" id="voz-pitch-slider" type="range"
@@ -1708,6 +2048,7 @@ function renderizarChatVoz() {
       </div>
 
       <div class="vs-actions">
+        <button class="voz-save-btn" onclick="testarVoz()" style="margin-right:.5rem;background:linear-gradient(135deg,var(--accent3),var(--accent2))">Testar voz</button>
         <button class="voz-save-btn" onclick="salvarConfigVoz()">Salvar</button>
       </div>
     </div>
@@ -1724,6 +2065,10 @@ function inicializarChatVoz() {
     const volSlider = document.getElementById('voz-volume-slider');
     const volVal = document.getElementById('voz-volume-val');
     if (instInput && cfg.voz_instruct) instInput.value = cfg.voz_instruct;
+    const ageSel = document.getElementById('voz-age-select');
+    const pitchStyleSel = document.getElementById('voz-pitch-style-select');
+    if (ageSel && cfg.voz_age) ageSel.value = cfg.voz_age;
+    if (pitchStyleSel && cfg.voz_pitch_style) pitchStyleSel.value = cfg.voz_pitch_style;
     const langInput = document.getElementById('voz-language-input');
     if (langInput && cfg.voz_language) langInput.value = cfg.voz_language;
     if (speedSlider && cfg.velocidade != null) {
@@ -1742,12 +2087,32 @@ function inicializarChatVoz() {
       pitchSlider.value = cfg.pitch;
       if (pitchVal) pitchVal.textContent = cfg.pitch;
     }
+    atualizarInstructVoz();
+    ajustarTodosSelects(document.getElementById('voice-chat-card') || document);
   }).catch(() => {});
 }
 
+function montarInstructVoz() {
+  const ageRaw = document.getElementById('voz-age-select')?.value || 'teenager';
+  const pitchRaw = document.getElementById('voz-pitch-style-select')?.value || 'low pitch';
+  const ageMap = { teenager: 'teenager', 'young adult': 'young adult', adult: 'middle-aged' };
+  const pitchMap = { 'low pitch': 'low pitch', 'moderate pitch': 'moderate pitch', 'medium pitch': 'moderate pitch', 'high pitch': 'high pitch' };
+  return `female, ${ageMap[ageRaw] || 'teenager'}, ${pitchMap[pitchRaw] || 'low pitch'}`;
+}
+
+function atualizarInstructVoz() {
+  const instInput = document.getElementById('voz-instruct-input');
+  if (instInput) instInput.value = montarInstructVoz();
+  ajustarSelectLargura(document.getElementById('voz-age-select'));
+  ajustarSelectLargura(document.getElementById('voz-pitch-style-select'));
+}
+
 async function salvarConfigVoz() {
+  atualizarInstructVoz();
   const cfg = {
     voz_instruct: document.getElementById('voz-instruct-input')?.value || 'female, teenager, low pitch',
+    voz_age: document.getElementById('voz-age-select')?.value || 'teenager',
+    voz_pitch_style: document.getElementById('voz-pitch-style-select')?.value || 'low pitch',
     voz_language: document.getElementById('voz-language-input')?.value || 'Portuguese',
     velocidade: parseFloat(document.getElementById('voz-speed-slider')?.value || '1'),
     volume: parseFloat(document.getElementById('voz-volume-slider')?.value || '1'),
@@ -1767,6 +2132,24 @@ async function salvarConfigVoz() {
   }
 }
 
+async function testarVoz() {
+  await salvarConfigVoz();
+  setVoiceStatus('Testando voz...');
+  try {
+    const r = await fetch('/api/voz/testar', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ texto: 'Oi, eu sou a Lou. Assim ficou minha voz agora.' }),
+    });
+    const res = await r.json();
+    if (res.ok) toast('Teste de voz enviado ao Discord.', 'ok');
+    else toast('Erro: ' + (res.erro || '?'), 'err');
+  } catch(e) {
+    toast('Falha ao testar voz.', 'err');
+  } finally {
+    setTimeout(() => setVoiceStatus(''), 2500);
+  }
+}
+
 // ── Gravação de áudio via AudioContext (sem FFmpeg) ──────────────────────────
 async function toggleGravacao() {
   if (_vozProcessing) return;
@@ -1779,10 +2162,19 @@ async function toggleGravacao() {
 
 async function iniciarGravacao() {
   try {
-    _vozMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    _vozMediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      }
+    });
     _vozAudioCtx = new AudioContext();
     _vozSourceNode = _vozAudioCtx.createMediaStreamSource(_vozMediaStream);
     _vozProcessorNode = _vozAudioCtx.createScriptProcessor(4096, 1, 1);
+    _vozGainNode = _vozAudioCtx.createGain();
+    _vozGainNode.gain.value = 0;
     _vozChunks = [];
 
     _vozProcessorNode.onaudioprocess = (e) => {
@@ -1792,7 +2184,8 @@ async function iniciarGravacao() {
     };
 
     _vozSourceNode.connect(_vozProcessorNode);
-    _vozProcessorNode.connect(_vozAudioCtx.destination);
+    _vozProcessorNode.connect(_vozGainNode);
+    _vozGainNode.connect(_vozAudioCtx.destination);
     _vozRecording = true;
 
     const btn = document.getElementById('voice-mic-btn');
@@ -1813,6 +2206,7 @@ async function pararGravacao() {
 
   // Limpa áudio
   if (_vozProcessorNode) _vozProcessorNode.disconnect();
+  if (_vozGainNode) _vozGainNode.disconnect();
   if (_vozSourceNode) _vozSourceNode.disconnect();
   if (_vozMediaStream) _vozMediaStream.getTracks().forEach(t => t.stop());
 
@@ -1832,7 +2226,16 @@ async function pararGravacao() {
 
   // Codifica como WAV
   const sampleRate = _vozAudioCtx ? _vozAudioCtx.sampleRate : 44100;
-  const wavBlob = encodeWAV(merged, sampleRate);
+  const tratado = preprocessarAudioMic(merged, sampleRate);
+  if (!tratado || tratado.length < sampleRate * 0.20) {
+    _vozProcessing = false;
+    if (btn) btn.classList.remove('processing');
+    setVoiceStatus('');
+    if (_vozAudioCtx) { _vozAudioCtx.close(); _vozAudioCtx = null; }
+    toast('Não detectei fala suficiente.', 'err');
+    return;
+  }
+  const wavBlob = encodeWAV(tratado, sampleRate);
   if (_vozAudioCtx) { _vozAudioCtx.close(); _vozAudioCtx = null; }
 
   // Envia ao servidor
@@ -1928,7 +2331,7 @@ function togglePTT() {
   if (btn) btn.classList.toggle('active', _pttEnabled);
   if (label) label.textContent = _pttEnabled ? 'PTT ON' : 'PTT';
   if (_pttEnabled) {
-    toast('Push-to-Talk ativado — segure Shift direito para falar (funciona fora do navegador)', 'ok');
+    toast('Push-to-Talk ativado — (Shift direito)', 'ok');
     _iniciarPollingPTT();
   } else {
     toast('Push-to-Talk desativado', 'ok');
@@ -1991,6 +2394,49 @@ document.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => {
   // Não para a gravação no blur — o polling global continua funcionando
 });
+
+function preprocessarAudioMic(samples, sampleRate) {
+  if (!samples || !samples.length) return samples;
+  const frame = Math.max(256, Math.floor(sampleRate * 0.03));
+  const hop = Math.max(128, Math.floor(sampleRate * 0.01));
+  const rms = [];
+  for (let i = 0; i + frame <= samples.length; i += hop) {
+    let sum = 0;
+    for (let j = 0; j < frame; j++) sum += samples[i + j] * samples[i + j];
+    rms.push(Math.sqrt(sum / frame));
+  }
+  if (!rms.length) return samples;
+  const ordenado = [...rms].sort((a, b) => a - b);
+  const noise = ordenado[Math.floor(ordenado.length * 0.2)] || 0;
+  const threshold = Math.max(0.012, noise * 3.0);
+  let first = -1, last = -1;
+  for (let i = 0; i < rms.length; i++) {
+    if (rms[i] > threshold) { if (first < 0) first = i; last = i; }
+  }
+  if (first < 0) return new Float32Array(0);
+  const pre = Math.floor(sampleRate * 0.18);
+  const post = Math.floor(sampleRate * 0.25);
+  const ini = Math.max(0, first * hop - pre);
+  const fim = Math.min(samples.length, last * hop + frame + post);
+  const cortado = samples.slice(ini, fim);
+
+  let sum = 0, peak = 0;
+  for (let i = 0; i < cortado.length; i++) {
+    const v = cortado[i];
+    sum += v * v;
+    peak = Math.max(peak, Math.abs(v));
+  }
+  const audioRms = Math.sqrt(sum / Math.max(1, cortado.length));
+  if (audioRms > 0 && peak > 0) {
+    const gain = Math.min(0.08 / audioRms, 0.95 / peak, 8);
+    if (gain > 1.05) {
+      const out = new Float32Array(cortado.length);
+      for (let i = 0; i < cortado.length; i++) out[i] = Math.max(-1, Math.min(1, cortado[i] * gain));
+      return out;
+    }
+  }
+  return cortado;
+}
 
 // ── Codificação WAV (sem FFmpeg) ────────────────────────────────────────────
 function encodeWAV(samples, sampleRate) {
@@ -2154,6 +2600,10 @@ function esc(s) {
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
+}
+
+function nomeArquivo(path) {
+  return String(path || '').split(/[\\/]/).pop();
 }
 
 // ── Suporte a Ctrl+S ───────────────────────────────────────────────────────

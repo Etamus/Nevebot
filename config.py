@@ -4,7 +4,6 @@ Lê variáveis de ambiente do arquivo .env (ou do ambiente do sistema).
 """
 
 import os
-import glob
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -22,22 +21,45 @@ if not DISCORD_TOKEN:
 
 # ── Modelo LLM ───────────────────────────────────────────────────────────────
 MODELS_DIR = BASE_DIR / "models"
+MODELS_TEXTO_DIR = MODELS_DIR / "texto"
+OMNIVOICE_DIR = MODELS_DIR / "omnivoice"
 
-def encontrar_modelo() -> str:
+def encontrar_modelo(pasta: Path | None = None, *, obrigatorio: bool = True) -> str:
     """
-    Retorna o caminho do primeiro arquivo .gguf encontrado em models/.
-    Levanta FileNotFoundError se nenhum modelo for encontrado.
+    Retorna o caminho do primeiro arquivo .gguf encontrado na pasta informada.
+    Se pasta não for informada, procura em models/.
     """
-    arquivos = sorted(MODELS_DIR.glob("*.gguf"))
+    pasta = pasta or MODELS_DIR
+    arquivos = sorted(pasta.glob("*.gguf"))
     if not arquivos:
+        if not obrigatorio:
+            return ""
         raise FileNotFoundError(
-            f"Nenhum modelo .gguf encontrado em '{MODELS_DIR}'.\n"
-            "Coloque um arquivo .gguf dentro da pasta models/ e reinicie o bot."
+            f"Nenhum modelo .gguf encontrado em '{pasta}'.\n"
+            "Coloque um arquivo .gguf na pasta correta e reinicie o bot."
         )
     return str(arquivos[0])
 
+def _modelo_env_ou_pasta(nome_env: str, pasta: Path, fallback: str = "") -> str:
+    valor = os.getenv(nome_env, "").strip().strip('"')
+    if valor:
+        caminho = Path(valor)
+        return str(caminho if caminho.is_absolute() else BASE_DIR / caminho)
+    encontrado = encontrar_modelo(pasta, obrigatorio=False)
+    return encontrado or fallback
+
 # Parâmetros do LLM
-LLM_MODEL_PATH: str = encontrar_modelo()
+_modelo_raiz = encontrar_modelo(MODELS_DIR, obrigatorio=False)
+LLM_MODEL_PATH: str = _modelo_env_ou_pasta(
+    "LLM_MODEL_PATH",
+    MODELS_TEXTO_DIR,
+    fallback=_modelo_raiz,
+)
+if not LLM_MODEL_PATH:
+    raise FileNotFoundError(
+        f"Nenhum modelo .gguf encontrado em '{MODELS_TEXTO_DIR}' ou '{MODELS_DIR}'.\n"
+        "Coloque o Cydonia em models/texto/ e reinicie o bot."
+    )
 
 # Para 16GB VRAM/32GB RAM com modelo ~24B quantizado, 8192 costuma ser o ponto
 # mais equilibrado. Contextos muito altos (ex.: 16k) aumentam KV cache, VRAM e
@@ -57,7 +79,18 @@ LLM_N_THREADS_BATCH: int = int(os.getenv("LLM_N_THREADS_BATCH", os.cpu_count() o
 LLM_KV_TYPE: str = os.getenv("LLM_KV_TYPE", "q8_0").strip().lower()
 
 # Limite de tokens para respostas de voz (respostas curtas = resposta rápida)
-LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 96))
+LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 60))
+
+# OmniVoice local: se models/omnivoice tiver checkpoint completo, usa local.
+# Se estiver vazio, mantém fallback para Hugging Face.
+OMNIVOICE_MODEL_PATH: str = os.getenv("OMNIVOICE_MODEL_PATH", "").strip().strip('"')
+if OMNIVOICE_MODEL_PATH:
+    _ov_path = Path(OMNIVOICE_MODEL_PATH)
+    OMNIVOICE_MODEL_PATH = str(_ov_path if _ov_path.is_absolute() else BASE_DIR / _ov_path)
+elif (OMNIVOICE_DIR / "config.json").exists() and (OMNIVOICE_DIR / "audio_tokenizer").is_dir():
+    OMNIVOICE_MODEL_PATH = str(OMNIVOICE_DIR)
+else:
+    OMNIVOICE_MODEL_PATH = "k2-fsa/OmniVoice"
 
 # Parâmetros de qualidade / controle de repetição
 LLM_TEMPERATURE: float        = float(os.getenv("LLM_TEMPERATURE",        0.7))

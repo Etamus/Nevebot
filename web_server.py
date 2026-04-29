@@ -31,11 +31,12 @@ import config
 log = logging.getLogger("web_server")
 
 _WEB_DIR = Path(__file__).parent / "web"
+_SHUTDOWN_FLAG = Path(__file__).parent / "logs" / "ui_shutdown.flag"
 _bot_ref = None        # discord.ext.commands.Bot
 _loop_ref = None       # asyncio event loop do bot
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
-_voz_historico: deque = deque(maxlen=8)
+_voz_historico: deque = deque(maxlen=4)
 _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
@@ -97,6 +98,8 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._serve_file(_WEB_DIR / "index.html", "text/html; charset=utf-8")
+        elif self.path == "/logo.png":
+            self._serve_file(_WEB_DIR / "logo.png", "image/png")
         elif self.path == "/api/config":
             from config_loader import cfg
             payload = json.dumps(cfg.as_dict(), ensure_ascii=False, indent=2).encode("utf-8")
@@ -135,6 +138,11 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/shutdown":
             self._respond(200, "application/json", b'{"ok": true}')
             log.info("Desligamento solicitado via UI web.")
+            try:
+                _SHUTDOWN_FLAG.parent.mkdir(parents=True, exist_ok=True)
+                _SHUTDOWN_FLAG.write_text("shutdown via web ui\n", encoding="utf-8")
+            except Exception:
+                log.exception("Falha ao registrar flag de desligamento da UI.")
             import os, threading
             threading.Timer(0.3, lambda: os._exit(0)).start()
             return
@@ -153,6 +161,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/voz/falar":
             self._handle_voz_falar()
+            return
+
+        if self.path == "/api/voz/testar":
+            self._handle_voz_testar()
             return
 
         if self.path == "/api/voz/chat-texto":
@@ -520,6 +532,41 @@ class _Handler(BaseHTTPRequestHandler):
             self._respond(500, "application/json",
                           json.dumps({"erro": str(exc)}).encode("utf-8"))
 
+    def _handle_voz_testar(self) -> None:
+        """POST /api/voz/testar — gera uma frase curta com a configuração atual."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except Exception:
+            data = {}
+        texto = str(data.get("texto") or "Oi, eu sou a Lou. Assim ficou minha voz agora.").strip()
+        try:
+            from services import tts_omnivoice
+            from cogs.voice_cog import voz_estado, reproduzir_pcm
+
+            guild_id = _encontrar_guild_com_voz()
+            if not guild_id:
+                self._respond(400, "application/json",
+                              b'{"erro": "Bot nao esta conectado a um canal de voz"}')
+                return
+
+            instruct = voz_estado.get("voz_instruct", "female, teenager, low pitch")
+            speed = float(voz_estado.get("velocidade", 1.0))
+            volume = float(voz_estado.get("volume", 1.0))
+            seed = int(voz_estado.get("voz_seed", 42))
+            pitch = float(voz_estado.get("pitch", 0.0))
+            language = voz_estado.get("voz_language", "Portuguese")
+            audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            pcm = tts_omnivoice.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
+            asyncio.run_coroutine_threadsafe(
+                reproduzir_pcm(_bot_ref, guild_id, pcm), _loop_ref
+            ).result(timeout=120)
+            self._respond(200, "application/json", b'{"ok": true}')
+        except Exception as exc:
+            log.exception("[WEB] ERRO em /api/voz/testar")
+            self._respond(500, "application/json",
+                          json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"))
+
     def _handle_voz_chat_texto(self) -> None:
         """POST /api/voz/chat-texto — recebe texto, envia ao LLM, gera TTS, fala."""
         log.info("[WEB] POST /api/voz/chat-texto recebido")
@@ -606,11 +653,18 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         from cogs.voice_cog import voz_estado, salvar_config_voz
+        from services import tts_omnivoice
 
         # Detecta se parâmetros de voz mudaram (requer nova referência)
         old_instruct = voz_estado.get("voz_instruct")
         old_language = voz_estado.get("voz_language")
         old_seed = voz_estado.get("voz_seed")
+
+        if any(k in data for k in ("voz_age", "voz_pitch_style")):
+            data["voz_instruct"] = tts_omnivoice.montar_instruct(
+                data.get("voz_age", voz_estado.get("voz_age", "teenager")),
+                data.get("voz_pitch_style", voz_estado.get("voz_pitch_style", "low pitch")),
+            )
 
         voz_estado.update(data)
         salvar_config_voz()
@@ -622,7 +676,6 @@ class _Handler(BaseHTTPRequestHandler):
         if (new_instruct != old_instruct or new_language != old_language
                 or new_seed != old_seed):
             try:
-                from services import tts_omnivoice
                 tts_omnivoice.regenerar_referencia(
                     instruct=new_instruct or "female, teenager, low pitch",
                     language=new_language or "Portuguese",
@@ -665,7 +718,7 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
 
     try:
         resposta = cog._gerar_resposta(system_prompt, historico,
-                                       max_tokens=config.LLM_VOZ_MAX_TOKENS)
+                   max_tokens=config.LLM_VOZ_MAX_TOKENS)
         log.info("[LLM-VOZ] Resposta gerada: %r", resposta[:100] if resposta else "(vazio)")
     except Exception as exc:
         log.error("[LLM-VOZ] ERRO ao gerar resposta: %s", exc, exc_info=True)

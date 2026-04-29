@@ -13,16 +13,52 @@ import threading
 from pathlib import Path
 
 import numpy as np
+import config
 
 log = logging.getLogger("tts_omnivoice")
 
 _model = None
 _voice_prompt = None   # VoiceClonePrompt reutilizável
+_voice_prompt_key = None
 _lock = threading.Lock()
 
 _BASE_DIR = Path(__file__).parent.parent
 _REF_AUDIO_PATH = _BASE_DIR / "data" / "voz_referencia.wav"
 _REF_TEXT = "Oi, tudo bem? Eu sou a Lou, é muito legal te conhecer."
+REF_TEXT_PADRAO = _REF_TEXT
+
+def montar_instruct(age: str = "teenager", pitch_style: str = "low pitch", style: str = "calma") -> str:
+    """Monta um instruct aceito pelo OmniVoice.
+
+    O OmniVoice rejeita descritores livres como "calm", "soft voice", "shy".
+    Por isso mantemos apenas os itens oficiais suportados.
+    """
+    age_map = {
+        "teenager": "teenager",
+        "young adult": "young adult",
+        "adult": "middle-aged",
+        "middle-aged": "middle-aged",
+    }
+    pitch_map = {
+        "low pitch": "low pitch",
+        "medium pitch": "moderate pitch",
+        "moderate pitch": "moderate pitch",
+        "high pitch": "high pitch",
+    }
+    age_token = age_map.get((age or "").strip().lower(), "teenager")
+    pitch_token = pitch_map.get((pitch_style or "").strip().lower(), "low pitch")
+    return f"female, {age_token}, {pitch_token}"
+
+
+def _duracao_segura(texto: str, speed: float = 1.0) -> float:
+    """Estima duração com folga para evitar que o OmniVoice corte o fim da frase."""
+    texto = (texto or "").strip()
+    speed = max(0.5, min(float(speed or 1.0), 2.0))
+    letras = sum(1 for ch in texto if not ch.isspace())
+    pontuacoes = sum(1 for ch in texto if ch in ".,;:?!")
+    # Português tende a precisar de mais folga no OmniVoice; a margem evita finais como "ago...".
+    dur = (letras / 11.5 + pontuacoes * 0.18 + 1.35) / speed
+    return max(1.6, min(dur, 18.0))
 
 
 def carregar(device: str = "cuda:0") -> None:
@@ -37,12 +73,12 @@ def carregar(device: str = "cuda:0") -> None:
             import torch
             from omnivoice import OmniVoice
 
-            log.info("[TTS] Carregando OmniVoice (device=%s)...", device)
+            log.info("[TTS] Carregando OmniVoice (device=%s, model=%s)...", device, config.OMNIVOICE_MODEL_PATH)
             log.info("[TTS] CUDA disponível: %s", torch.cuda.is_available())
             if torch.cuda.is_available():
                 log.info("[TTS] GPU: %s", torch.cuda.get_device_name(0))
             _model = OmniVoice.from_pretrained(
-                "k2-fsa/OmniVoice",
+                config.OMNIVOICE_MODEL_PATH,
                 device_map=device,
                 dtype=torch.float16,
             )
@@ -52,10 +88,24 @@ def carregar(device: str = "cuda:0") -> None:
             raise
 
 
+def _referencia_atual() -> tuple[Path, str, bool]:
+    """Retorna (caminho, texto_ref, deve_gerar_auto)."""
+    return _REF_AUDIO_PATH, _REF_TEXT, True
+
+
+def limpar_prompt_voz() -> None:
+    """Força recriação do VoiceClonePrompt na próxima geração."""
+    global _voice_prompt, _voice_prompt_key
+    _voice_prompt = None
+    _voice_prompt_key = None
+
+
 def _garantir_referencia(instruct: str, language: str, seed: int) -> None:
     """Gera o áudio de referência se ainda não existir e cria o VoiceClonePrompt."""
-    global _voice_prompt
-    if _voice_prompt is not None:
+    global _voice_prompt, _voice_prompt_key
+    ref_path, ref_text, gerar_auto = _referencia_atual()
+    prompt_key = (str(ref_path.resolve()), ref_text, instruct, language, int(seed))
+    if _voice_prompt is not None and _voice_prompt_key == prompt_key:
         return
 
     import torch
@@ -63,25 +113,31 @@ def _garantir_referencia(instruct: str, language: str, seed: int) -> None:
 
     carregar()
 
-    if not _REF_AUDIO_PATH.exists():
+    if gerar_auto and not ref_path.exists():
         log.info("[TTS] Gerando áudio de referência com voice design...")
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
         chunks = _model.generate(
-            text=_REF_TEXT, instruct=instruct, speed=1.0, language=language,
+            text=ref_text,
+            instruct=instruct,
+            duration=_duracao_segura(ref_text, 1.0),
+            language=language,
+            postprocess_output=False,
         )
         ref_audio = chunks[0]
-        sf.write(str(_REF_AUDIO_PATH), ref_audio, 24000)
+        ref_path.parent.mkdir(parents=True, exist_ok=True)
+        sf.write(str(ref_path), ref_audio, 24000)
         log.info("[TTS] Áudio de referência salvo em %s (%.2fs)",
-                 _REF_AUDIO_PATH, len(ref_audio) / 24000)
+                 ref_path, len(ref_audio) / 24000)
 
-    log.info("[TTS] Criando VoiceClonePrompt a partir de %s...", _REF_AUDIO_PATH)
+    log.info("[TTS] Criando VoiceClonePrompt a partir de %s...", ref_path)
     _voice_prompt = _model.create_voice_clone_prompt(
-        ref_audio=str(_REF_AUDIO_PATH),
-        ref_text=_REF_TEXT,
+        ref_audio=str(ref_path),
+        ref_text=ref_text,
     )
+    _voice_prompt_key = prompt_key
     log.info("[TTS] VoiceClonePrompt criado com sucesso.")
 
 
@@ -94,13 +150,15 @@ def gerar(texto: str, instruct: str = "female, teenager, low pitch",
         import torch
         carregar()
         _garantir_referencia(instruct, language, seed)
+        duration = _duracao_segura(texto, speed)
         chunks = _model.generate(
             text=texto, voice_clone_prompt=_voice_prompt,
-            speed=speed, language=language,
+            duration=duration, language=language,
+            postprocess_output=False,
         )
         audio = chunks[0]
-        log.info("[TTS] Áudio gerado: shape=%s dtype=%s duração=%.2fs",
-                 audio.shape, audio.dtype, len(audio) / 24000)
+        log.info("[TTS] Áudio gerado: shape=%s dtype=%s duração=%.2fs alvo=%.2fs",
+                 audio.shape, audio.dtype, len(audio) / 24000, duration)
         return audio
     except Exception as exc:
         log.error("[TTS] ERRO ao gerar áudio: %s", exc, exc_info=True)
@@ -110,12 +168,32 @@ def gerar(texto: str, instruct: str = "female, teenager, low pitch",
 def regenerar_referencia(instruct: str = "female, teenager, low pitch",
                          language: str = "Portuguese", seed: int = 42) -> None:
     """Apaga o áudio de referência e recria (chamado quando o usuário muda a voz)."""
-    global _voice_prompt
-    _voice_prompt = None
+    limpar_prompt_voz()
     if _REF_AUDIO_PATH.exists():
         _REF_AUDIO_PATH.unlink()
         log.info("[TTS] Áudio de referência anterior removido.")
     _garantir_referencia(instruct, language, seed)
+
+
+def precarregar_e_aquecer(voz_cfg: dict | None = None) -> None:
+    """Carrega OmniVoice, cria prompt de voz e gera uma frase curta para aquecer GPU."""
+    voz_cfg = voz_cfg or {}
+    instruct = voz_cfg.get("voz_instruct") or montar_instruct(
+        voz_cfg.get("voz_age", "teenager"),
+        voz_cfg.get("voz_pitch_style", "low pitch"),
+    )
+    language = voz_cfg.get("voz_language", "Portuguese")
+    seed = int(voz_cfg.get("voz_seed", 42))
+    carregar()
+    _garantir_referencia(instruct, language, seed)
+    _ = _model.generate(
+        text="Oi.",
+        voice_clone_prompt=_voice_prompt,
+        duration=_duracao_segura("Oi.", 1.0),
+        language=language,
+        postprocess_output=False,
+    )
+    log.info("[TTS] Warmup OmniVoice concluído.")
 
 
 def para_pcm_discord(audio_24k: np.ndarray, volume: float = 1.0,
@@ -144,6 +222,18 @@ def para_pcm_discord(audio_24k: np.ndarray, volume: float = 1.0,
         else:
             audio_48k = F.resample(tensor, 24000, 48000).squeeze(0).numpy()
 
+        # Margens/fades para não perder sílabas no início/fim do Discord/Opus.
+        start_pad = np.zeros(int(48000 * 0.30), dtype=np.float32)
+        end_pad = np.zeros(int(48000 * 2.25), dtype=np.float32)
+        audio_48k = np.concatenate([start_pad, audio_48k.astype(np.float32), end_pad])
+
+        fade_in = min(int(48000 * 0.03), len(audio_48k))
+        fade_out = min(int(48000 * 0.05), len(audio_48k))
+        if fade_in > 1:
+            audio_48k[:fade_in] *= np.linspace(0.0, 1.0, fade_in, dtype=np.float32)
+        if fade_out > 1:
+            audio_48k[-fade_out:] *= np.linspace(1.0, 0.0, fade_out, dtype=np.float32)
+
         # Normaliza e aplica volume
         peak = np.abs(audio_48k).max()
         if peak > 0:
@@ -156,13 +246,13 @@ def para_pcm_discord(audio_24k: np.ndarray, volume: float = 1.0,
         # Discord lê em frames de 3840 bytes (20ms a 48kHz estéreo 16-bit).
         # Frames incompletos são descartados e o encoder Opus tem look-ahead
         # interno (~26ms) — quando o stream acaba, amostras no buffer do Opus
-        # são perdidas. Alinhamos ao frame e adicionamos 5 frames de silêncio
+        # são perdidas. Alinhamos ao frame e adicionamos silêncio extra
         # para o Opus processar todo o áudio real antes do EOF.
         frame_size = 3840  # 960 samples × 2 canais × 2 bytes
         resto = len(pcm_bytes) % frame_size
         if resto:
             pcm_bytes += b'\x00' * (frame_size - resto)
-        pcm_bytes += b'\x00' * (frame_size * 5)  # 100ms de silêncio para flush do Opus
+        pcm_bytes += b'\x00' * (frame_size * 75)  # 1.5s de silêncio para flush do Opus
 
         log.info("[TTS] PCM gerado: %d bytes (%.2fs a 48kHz estéreo)",
                  len(pcm_bytes), len(pcm_bytes) / (48000 * 4))

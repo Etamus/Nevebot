@@ -1,6 +1,8 @@
 {
   "falar_discord": true,
-  "voz_instruct": "female, teenager, low pitch",
+  "voz_age": "young adult",
+  "voz_pitch_style": "low pitch",
+  "voz_instruct": "female, young adult, low pitch",
   "voz_language": "Portuguese",
   "velocidade": 1,
   "volume": 1,

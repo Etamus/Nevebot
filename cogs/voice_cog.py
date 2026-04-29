@@ -20,6 +20,8 @@ _CAMINHO_CONFIG_VOZ = _BASE_DIR / "data" / "voz_config.json"
 # Config padrão de voz
 _VOZ_DEFAULT: dict = {
     "falar_discord": True,
+    "voz_age": "teenager",
+    "voz_pitch_style": "low pitch",
     "voz_instruct": "female, teenager, low pitch",
     "voz_language": "Portuguese",
     "velocidade": 1.0,
@@ -106,6 +108,15 @@ class VoiceCog(commands.Cog, name="Voice"):
 
     async def cog_load(self) -> None:
         log.info("[VOZ] VoiceCog carregado.")
+        asyncio.create_task(self._preaquecer_tts(), name="omnivoice-warmup")
+
+    async def _preaquecer_tts(self) -> None:
+        """Carrega o OmniVoice e faz uma geração curta para aquecer CUDA/cache."""
+        try:
+            from services import tts_omnivoice
+            await asyncio.to_thread(tts_omnivoice.precarregar_e_aquecer, voz_estado)
+        except Exception as exc:
+            log.warning("[VOZ] Falha ao pré-aquecer OmniVoice: %s", exc)
 
     async def cog_unload(self) -> None:
         for guild in self.bot.guilds:

@@ -1,6 +1,7 @@
 venv/
 .venv/
 .env
+logs/
 # Ignora tudo dentro de temp_llama (inclusive subpastas)
 temp_llama/
 # Ignora tudo dentro de models (inclusive subpastas e arquivos grandes)

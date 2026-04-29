@@ -1597,3 +1597,615 @@ discord.errors.DiscordServerError: 503 Service Unavailable (error code: 0): upst
 19:38:04 [ERROR] discord.ext.commands.bot: Ignoring exception in command None
 discord.ext.commands.errors.CommandNotFound: Command "desativar" is not found
 19:40:43 [WARNING] huggingface_hub.utils._http: Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+21:02:36 [ERROR] tts_omnivoice: [TTS] ERRO ao carregar OmniVoice: cannot schedule new futures after interpreter shutdown
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 66, in carregar
+    _model = OmniVoice.from_pretrained(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 269, in from_pretrained
+    model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4135, in from_pretrained
+    loading_info, disk_offload_index = cls._load_pretrained_model(model, state_dict, checkpoint_files, load_config)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\modeling_utils.py", line 4255, in _load_pretrained_model
+    loading_info, disk_offload_index = convert_and_load_state_dict_in_model(
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\core_model_loading.py", line 1229, in convert_and_load_state_dict_in_model
+    future_or_tensor = spawn_materialize(thread_pool, tensor, param_device, _dtype)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\transformers\core_model_loading.py", line 811, in spawn_materialize
+    return thread_pool.submit(_job)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Administrador\AppData\Local\Programs\Python\Python311\Lib\concurrent\futures\thread.py", line 169, in submit
+    raise RuntimeError('cannot schedule new futures after '
+RuntimeError: cannot schedule new futures after interpreter shutdown
+21:07:45 [WARNING] web_server: Falha ao regenerar referência: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:07:45 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+21:08:01 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:01 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:03 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:03 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:06 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:06 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:19 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:19 [ERROR] web_server: [WEB] ERRO ao reproduzir TTS: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 708, in _handle_voz_chat_texto
+    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:27 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:27 [ERROR] web_server: [WEB] ERRO ao reproduzir TTS: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 708, in _handle_voz_chat_texto
+    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:34 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:08:34 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:03 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:03 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:07 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:07 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:50 [ERROR] tts_omnivoice: [TTS] ERRO ao gerar áudio: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+Traceback (most recent call last):
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:09:50 [ERROR] web_server: [WEB] ERRO em /api/voz/testar
+Traceback (most recent call last):
+  File "D:\Nevebot\web_server.py", line 601, in _handle_voz_testar
+    audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\services\tts_omnivoice.py", line 142, in gerar
+    _garantir_referencia(instruct, language, seed)
+  File "D:\Nevebot\services\tts_omnivoice.py", line 116, in _garantir_referencia
+    chunks = _model.generate(
+             ^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 546, in generate
+    full_task = self._preprocess_all(
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 919, in _preprocess_all
+    instruct_list[i] = _resolve_instruct(s, use_zh=use_zh)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Nevebot\venv\Lib\site-packages\omnivoice\models\omnivoice.py", line 1431, in _resolve_instruct
+    raise ValueError(err)
+ValueError: Unsupported instruct items found in female, teenager, low pitch, calm:
+  'calm' -> 'calm' (unsupported)
+
+Valid English items: american accent, australian accent, british accent, canadian accent, child, chinese accent, elderly, female, high pitch, indian accent, japanese accent, korean accent, low pitch, male, middle-aged, moderate pitch, portuguese accent, russian accent, teenager, very high pitch, very low pitch, whisper, young adult
+Valid Chinese items: 东北话，中年，中音调，云南话，低音调，儿童，四川话，女，宁夏话，少年，极低音调，极高音调，桂林话，河南话，济南话，甘肃话，男，石家庄话，老年，耳语，贵州话，陕西话，青岛话，青年，高音调
+
+Tip: Use only English or only Chinese instructs. English instructs should use comma + space (e.g. 'male, indian accent'),
+Chinese instructs should use full-width comma (e.g. '男，河南话').
+21:13:31 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+22:13:45 [ERROR] web_server: [WEB] Erro ao ler JSON: 'utf-8' codec can't decode byte 0xea in position 60: invalid continuation byte
+22:14:05 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+22:14:05 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+22:16:13 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+22:16:13 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
+23:32:36 [WARNING] web_server: [WEB] Nenhuma guild com voz ativa! Guilds: [('Toca do Chiquinho', False), ('Amaralis', False), ('Baile', False)]
+23:32:36 [WARNING] web_server: [WEB] Bot NÃO está em nenhum canal de voz!
