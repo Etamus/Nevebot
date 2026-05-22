@@ -13,38 +13,30 @@ Comandos de controle:
   - !desligar           — desativa o bot no canal
 """
 
+import atexit
 import asyncio
 import json
 import logging
+import os
 import re
+import subprocess
 import threading
+import time
 from collections import deque
 from pathlib import Path
 
 import discord
+import requests
 from discord.ext import commands
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
-for _dll_dir in (
-    _BASE_DIR / "venv" / "Lib" / "site-packages" / "nvidia" / "cublas" / "bin",
-    _BASE_DIR / "venv" / "Lib" / "site-packages" / "nvidia" / "cuda_runtime" / "bin",
-):
-    if _dll_dir.is_dir():
-        try:
-            import os
-            os.add_dll_directory(str(_dll_dir))
-        except (AttributeError, OSError):
-            pass
-from llama_cpp import GGML_TYPE_Q8_0, Llama
 
 import config
 from config_loader import cfg as _bot_cfg
 
 log = logging.getLogger(__name__)
 
-_KV_TYPES = {
-    "q8_0": GGML_TYPE_Q8_0,
-}
+_KV_TYPES = {"f32", "f16", "bf16", "q8_0", "q4_0", "q4_1", "iq4_nl", "q5_0", "q5_1"}
 
 # Username do Discord do "pai" da Neve — verificação feita pelo código Python,
 # nunca pelo LLM. Nenhum texto no chat pode mudar isso.
@@ -222,6 +214,154 @@ _PROMPT_TERAPEUTA = (
 )
 
 
+class LlamaCppServerClient:
+    """Cliente HTTP para um llama-server.exe local."""
+
+    def __init__(self, kv_type: str | None = None) -> None:
+        self.base_url = config.LLAMA_SERVER_URL.rstrip("/")
+        self.kv_type = kv_type
+        self.session = requests.Session()
+        self.process: subprocess.Popen | None = None
+        self._log_handle = None
+        self._owns_process = False
+        atexit.register(self.close)
+
+    def start(self) -> None:
+        if self._health_ok():
+            log.info("llama-server ja esta ativo em %s.", self.base_url)
+            return
+
+        exe = Path(config.LLAMA_CPP_SERVER_EXE)
+        if not exe.exists():
+            fallback = _BASE_DIR / "temp_llama" / "llama" / "llama-server.exe"
+            if fallback.exists():
+                exe = fallback
+            else:
+                raise FileNotFoundError(
+                    f"llama-server.exe nao encontrado em {config.LLAMA_CPP_SERVER_EXE}. "
+                    "Execute instalar.bat para baixar o llama.cpp oficial."
+                )
+
+        Path("logs").mkdir(exist_ok=True)
+        log_path = Path("logs") / "llama-server.log"
+        self._log_handle = log_path.open("a", encoding="utf-8")
+
+        cmd = self._build_command(exe)
+        env = os.environ.copy()
+        env["PATH"] = str(exe.parent) + os.pathsep + env.get("PATH", "")
+        cuda_path = env.get("CUDA_PATH", "")
+        if cuda_path and not (Path(cuda_path) / "bin").is_dir():
+            env.pop("CUDA_PATH", None)
+
+        log.info("Iniciando llama-server: %s", " ".join(f'"{p}"' if " " in p else p for p in cmd))
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        self.process = subprocess.Popen(
+            cmd,
+            cwd=str(exe.parent),
+            stdout=self._log_handle,
+            stderr=subprocess.STDOUT,
+            env=env,
+            creationflags=creationflags,
+        )
+        self._owns_process = True
+        self._wait_until_ready()
+        log.info("llama-server pronto em %s.", self.base_url)
+
+    def close(self) -> None:
+        if self._owns_process and self.process and self.process.poll() is None:
+            log.info("Encerrando llama-server local.")
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+        if self._log_handle:
+            self._log_handle.close()
+            self._log_handle = None
+
+    def _build_command(self, exe: Path) -> list[str]:
+        backend = self._installed_backend(exe)
+        if backend == "cpu" and config.LLM_N_GPU_LAYERS < 0:
+            gpu_layers = "0"
+        else:
+            gpu_layers = "all" if config.LLM_N_GPU_LAYERS < 0 else str(config.LLM_N_GPU_LAYERS)
+        cmd = [
+            str(exe),
+            "--model", config.LLM_MODEL_PATH,
+            "--host", config.LLAMA_SERVER_HOST,
+            "--port", str(config.LLAMA_SERVER_PORT),
+            "--ctx-size", str(config.LLM_N_CTX),
+            "--gpu-layers", gpu_layers,
+            "--batch-size", str(config.LLM_N_BATCH),
+            "--ubatch-size", str(config.LLM_N_UBATCH),
+            "--threads", str(config.LLM_N_THREADS),
+            "--threads-batch", str(config.LLM_N_THREADS_BATCH),
+            "--flash-attn", "on",
+            "--parallel", "1",
+            "--alias", "nevebot",
+            "--no-webui",
+            "--log-file", str((_BASE_DIR / "logs" / "llama-server-runtime.log").resolve()),
+        ]
+        if config.LLM_CHAT_TEMPLATE:
+            cmd.extend(["--chat-template", config.LLM_CHAT_TEMPLATE])
+        if self.kv_type:
+            cmd.extend(["--cache-type-k", self.kv_type, "--cache-type-v", self.kv_type])
+        return cmd
+
+    @staticmethod
+    def _installed_backend(exe: Path) -> str:
+        metadata_path = exe.parent / "release.json"
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            return str(metadata.get("backend", "")).lower()
+        except Exception:
+            return ""
+
+    def _wait_until_ready(self) -> None:
+        deadline = time.monotonic() + config.LLAMA_SERVER_STARTUP_TIMEOUT
+        last_error = "sem resposta"
+        while time.monotonic() < deadline:
+            if self.process and self.process.poll() is not None:
+                self.close()
+                raise RuntimeError(
+                    f"llama-server encerrou com codigo {self.process.returncode}. "
+                    "Confira logs/llama-server.log."
+                )
+            try:
+                response = self.session.get(f"{self.base_url}/health", timeout=2)
+                if response.status_code == 200:
+                    return
+                last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+            except requests.RequestException as exc:
+                last_error = str(exc)
+            time.sleep(1)
+
+        self.close()
+        raise TimeoutError(
+            "llama-server nao ficou pronto dentro do tempo limite "
+            f"({config.LLAMA_SERVER_STARTUP_TIMEOUT}s): {last_error}"
+        )
+
+    def _health_ok(self) -> bool:
+        try:
+            response = self.session.get(f"{self.base_url}/health", timeout=1)
+            return response.status_code == 200
+        except requests.RequestException:
+            return False
+
+    def create_chat_completion(self, **payload) -> dict:
+        payload.setdefault("model", "nevebot")
+        payload.setdefault("stream", False)
+        response = self.session.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=config.LLAMA_REQUEST_TIMEOUT,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(f"llama-server HTTP {response.status_code}: {response.text[:500]}")
+        return response.json()
+
+
 class LLMCog(commands.Cog, name="LLM"):
     """Integração com o modelo de linguagem local (llama-cpp)."""
 
@@ -243,40 +383,28 @@ class LLMCog(commands.Cog, name="LLM"):
         # Canais explicitamente desligados — não responde nem a menções
         self._canais_desligados: set[int] = set()
         self._llm_lock = threading.RLock()
-        kv_type = _KV_TYPES.get(config.LLM_KV_TYPE)
+        kv_type = config.LLM_KV_TYPE if config.LLM_KV_TYPE in _KV_TYPES else None
         if kv_type is None:
             log.warning("LLM_KV_TYPE=%r não reconhecido; usando KV padrão do llama.cpp.", config.LLM_KV_TYPE)
         else:
             log.info("KV cache quantization ativado: type_k/type_v=%s", config.LLM_KV_TYPE)
         log.info("Carregando modelo LLM único: %s", config.LLM_MODEL_PATH)
         try:
-            self.llm = self._criar_llama(kv_type=kv_type)
+            self.llm = LlamaCppServerClient(kv_type=kv_type)
+            self.llm.start()
         except Exception as exc:
+            failed_llm = getattr(self, "llm", None)
+            if failed_llm is not None:
+                failed_llm.close()
             if kv_type is None:
                 raise
             log.warning("Falha ao carregar com KV %s (%s); tentando sem KV quantizado.", config.LLM_KV_TYPE, exc)
-            self.llm = self._criar_llama(kv_type=None)
+            self.llm = LlamaCppServerClient(kv_type=None)
+            self.llm.start()
         log.info("Modelo LLM único carregado com sucesso.")
 
-    def _criar_llama(self, kv_type=None) -> Llama:
-        kwargs = {
-            "model_path": config.LLM_MODEL_PATH,
-            "n_ctx": config.LLM_N_CTX,
-            "n_gpu_layers": config.LLM_N_GPU_LAYERS,
-            "n_batch": config.LLM_N_BATCH,
-            "n_ubatch": config.LLM_N_UBATCH,
-            "n_threads": config.LLM_N_THREADS,
-            "n_threads_batch": config.LLM_N_THREADS_BATCH,
-            "offload_kqv": True,
-            "use_mmap": True,
-            "flash_attn": True,
-            "chat_format": "chatml",
-            "verbose": False,
-        }
-        if kv_type is not None:
-            kwargs["type_k"] = kv_type
-            kwargs["type_v"] = kv_type
-        return Llama(**kwargs)
+    def cog_unload(self) -> None:
+        self.llm.close()
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Helper de mensagens configuráveis

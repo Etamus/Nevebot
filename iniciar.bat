@@ -10,10 +10,22 @@ echo.
 
 if not exist "venv\Scripts\python.exe" (
     echo [ERRO] Python do ambiente virtual nao encontrado.
-    echo Execute install.bat ou recrie o venv antes de iniciar.
+    echo Execute instalar.bat ou recrie o venv antes de iniciar.
     echo.
     pause
     exit /b 1
+)
+
+if not exist "llama.cpp\llama-server.exe" (
+    echo llama.cpp local nao encontrado. Baixando a ultima release oficial...
+    call "%~dp0instalar.bat" --llama-only
+    if errorlevel 1 (
+        echo [ERRO] Nao foi possivel preparar o llama.cpp local.
+        echo Execute instalar.bat e tente novamente.
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 mkdir logs >nul 2>&1
@@ -27,7 +39,13 @@ timeout /t 2 /nobreak >nul
 set "PYTHONFAULTHANDLER=1"
 set "GGML_CUDA_NO_PINNED=1"
 set "PYTHONUTF8=1"
-set "PATH=%CD%\venv\Lib\site-packages\nvidia\cublas\bin;%CD%\venv\Lib\site-packages\nvidia\cuda_runtime\bin;%PATH%"
+set "LLAMA_CPP_DIR=%CD%\llama.cpp"
+set "LLAMA_CPP_SERVER_EXE=%CD%\llama.cpp\llama-server.exe"
+set "PATH=%CD%\llama.cpp;%PATH%"
+if defined CUDA_PATH if not exist "%CUDA_PATH%\bin" (
+    echo [AVISO] Ignorando CUDA_PATH invalido: %CUDA_PATH%
+    set "CUDA_PATH="
+)
 
 echo Iniciando Nevebot... use Ctrl+C para desligar.
 echo.

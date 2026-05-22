@@ -41,10 +41,11 @@ cd Nevebot
 2. Instale dependências (Windows):
 
 ```powershell
-install.bat
+instalar.bat
 ```
 
 - O script cria/ativa um `venv` e instala dependências listadas em `requirements.txt`.
+- O `llama.cpp` oficial é baixado da última release do GitHub para `llama.cpp/`.
 - `faster-whisper` e suas dependências (`ctranslate2`, `onnxruntime`) são instaladas pelo instalador.
 
 3. Configure variáveis de ambiente e modelos:
@@ -79,7 +80,8 @@ Nevebot/
 ├── web_server.py
 ├── config.py
 ├── config_loader.py
-├── install.bat
+├── instalar.bat
+├── install.bat              # compatibilidade: chama instalar.bat
 ├── iniciar.bat
 ├── requirements.txt
 ├── cogs/
@@ -102,7 +104,7 @@ Nevebot/
 ## Dependências Principais
 - Python 3.11+
 - `discord.py`
-- `llama-cpp-python` (para LLM GGUF)
+- `llama.cpp` oficial (`llama-server.exe`) para LLM GGUF
 - `faster-whisper` (STT)
 - `ctranslate2`, `onnxruntime`
 - `omnivoice` (TTS) ou SDK/environment compatível

@@ -22,21 +22,25 @@ except OSError:
     os._exit(1)
 
 # ── Registra DLLs do CUDA (necessário quando o CUDA Toolkit não está instalado)
-# Os pacotes nvidia-cuda-runtime-cu12 / nvidia-cublas-cu12 instalam as DLLs em
-# site-packages/nvidia/*/bin/ e site-packages/llama_cpp/lib/.
+# O instalar.bat baixa llama.cpp para llama.cpp/ e as dependencias Python
+# ainda podem trazer DLLs em site-packages/nvidia/*/bin/.
 # Os cookies devem ser mantidos em variável global para não serem coletados pelo GC.
-_site_packages = Path(__file__).parent / "venv" / "Lib" / "site-packages"
+_base_dir = Path(__file__).parent
+_site_packages = _base_dir / "venv" / "Lib" / "site-packages"
+_llama_cpp_dir = Path(os.getenv("LLAMA_CPP_DIR", _base_dir / "llama.cpp"))
 _dll_cookies = []
 
+_cuda_path = os.environ.get("CUDA_PATH", "")
+if _cuda_path and not (Path(_cuda_path) / "bin").is_dir():
+    os.environ.pop("CUDA_PATH", None)
+
 for _dll_dir in [
+    _llama_cpp_dir,
     *_site_packages.glob("nvidia/*/bin"),        # cudart, cublas, etc.
-    _site_packages / "llama_cpp" / "lib",        # llama.dll e ggml*.dll
     _site_packages / "ctranslate2",              # cudnn64_9.dll (faster-whisper)
 ]:
     if _dll_dir.is_dir():
         _dll_cookies.append(os.add_dll_directory(str(_dll_dir)))
-        # Também adiciona ao PATH — llama_cpp usa winmode=0 no LoadLibraryExW,
-        # que ignora AddDllDirectory e só busca no PATH.
         os.environ["PATH"] = str(_dll_dir) + os.pathsep + os.environ.get("PATH", "")
 
 import discord
@@ -48,6 +52,7 @@ from config_loader import cfg as _bot_cfg
 import web_server
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+Path("logs").mkdir(exist_ok=True)
 _log_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s",
                              datefmt="%H:%M:%S")
 

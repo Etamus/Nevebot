@@ -11,6 +11,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).parent
 load_dotenv(BASE_DIR / ".env")
 
+
+def _path_env(nome_env: str, padrao: Path) -> Path:
+    valor = os.getenv(nome_env, "").strip().strip('"')
+    caminho = Path(valor) if valor else padrao
+    return caminho if caminho.is_absolute() else BASE_DIR / caminho
+
 # ── Discord ──────────────────────────────────────────────────────────────────
 DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")
 if not DISCORD_TOKEN:
@@ -77,6 +83,20 @@ LLM_N_THREADS_BATCH: int = int(os.getenv("LLM_N_THREADS_BATCH", os.cpu_count() o
 # KV cache quantization. Q8_0 reduz uso de VRAM do KV cache sem perda perceptível
 # para chat e é aplicado ao carregar o modelo, ainda no startup do bot.
 LLM_KV_TYPE: str = os.getenv("LLM_KV_TYPE", "q8_0").strip().lower()
+LLM_CHAT_TEMPLATE: str = os.getenv("LLM_CHAT_TEMPLATE", "chatml").strip()
+
+# llama.cpp oficial baixado pelo instalar.bat. O Python conversa com
+# llama-server.exe via HTTP local, sem depender de llama-cpp-python/CUDA Toolkit.
+LLAMA_CPP_DIR: Path = _path_env("LLAMA_CPP_DIR", BASE_DIR / "llama.cpp")
+LLAMA_CPP_SERVER_EXE: Path = _path_env("LLAMA_CPP_SERVER_EXE", LLAMA_CPP_DIR / "llama-server.exe")
+LLAMA_SERVER_HOST: str = os.getenv("LLAMA_SERVER_HOST", "127.0.0.1").strip()
+LLAMA_SERVER_PORT: int = int(os.getenv("LLAMA_SERVER_PORT", 8080))
+LLAMA_SERVER_URL: str = os.getenv(
+    "LLAMA_SERVER_URL",
+    f"http://{LLAMA_SERVER_HOST}:{LLAMA_SERVER_PORT}",
+).rstrip("/")
+LLAMA_SERVER_STARTUP_TIMEOUT: int = int(os.getenv("LLAMA_SERVER_STARTUP_TIMEOUT", 600))
+LLAMA_REQUEST_TIMEOUT: int = int(os.getenv("LLAMA_REQUEST_TIMEOUT", 600))
 
 # Limite de tokens para respostas de voz (respostas curtas = resposta rápida)
 LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 60))
