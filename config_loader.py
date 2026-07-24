@@ -13,6 +13,12 @@ _lock = threading.Lock()
 # ── Config padrão ─────────────────────────────────────────────────────────────
 _DEFAULT: dict = {
     "prefix": "!",
+    "prompts": {
+        "assistente": "",
+        "lou": "",
+        "lou_voz": "",
+        "terapeuta": "",
+    },
     "commands": {
         "lou": {
             "name": "casual",
@@ -55,7 +61,7 @@ _DEFAULT: dict = {
         },
         "limitar": {
             "name": "bloquear",
-            "descricao": "[Apenas pai] Bloqueia um usuário de receber respostas.",
+            "descricao": "[Apenas dono] Bloqueia um usuário de receber respostas.",
             "messages": {
                 "sem_mencao": "Mencione um usuário. Ex: `!limitar @alguem`",
                 "auto_bloqueio": "Você não pode se bloquear.",
@@ -65,7 +71,7 @@ _DEFAULT: dict = {
         },
         "desbloquear": {
             "name": "desbloquear",
-            "descricao": "[Apenas pai] Remove o bloqueio de um usuário.",
+            "descricao": "[Apenas dono] Remove o bloqueio de um usuário.",
             "messages": {
                 "sem_mencao": "Mencione um usuário. Ex: `!desbloquear @alguem`",
                 "desbloqueado": "**{nome}** voltou a receber respostas.",
@@ -133,6 +139,14 @@ class BotConfig:
         with _lock:
             return self._data["commands"][cmd_key]["messages"][msg_key]
 
+    def prompt(self, prompt_key: str, fallback: str) -> str:
+        """Retorna um system prompt configurado via UI, ou fallback se estiver vazio."""
+        with _lock:
+            valor = self._data.get("prompts", {}).get(prompt_key, "")
+        if isinstance(valor, str) and valor.strip():
+            return valor
+        return fallback
+
     # ── Utilitários ───────────────────────────────────────────────────────────
 
     def original_names(self) -> dict[str, str]:
@@ -150,7 +164,9 @@ def _deep_copy(d: dict) -> dict:
 def _merge_defaults(loaded: dict, default: dict) -> dict:
     """Adiciona chaves presentes no padrão que estejam faltando no carregado."""
     result = _deep_copy(default)
-    result.update({k: v for k, v in loaded.items() if k != "commands"})
+    result.update({k: v for k, v in loaded.items() if k not in ("commands", "prompts")})
+    if "prompts" in loaded:
+        result["prompts"].update(loaded.get("prompts", {}))
     if "commands" in loaded:
         for cmd_key, cmd_val in loaded["commands"].items():
             if cmd_key in result["commands"]:

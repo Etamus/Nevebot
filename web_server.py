@@ -21,7 +21,9 @@ Inicie com:  start(bot, host="127.0.0.1", port=5000)
 import asyncio
 import json
 import logging
+import re
 import threading
+import time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -41,6 +43,159 @@ _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
 _ptt_global_pressionado = False
+
+
+def _agendar_reproducao_pcm(guild_id: int, pcm: bytes, origem: str = "") -> bool:
+    """Agenda reproducao no Discord sem bloquear a resposta HTTP."""
+    if _loop_ref is None or _bot_ref is None:
+        log.warning("[WEB] Nao foi possivel agendar audio%s: bot/loop indisponivel.", origem)
+        return False
+    try:
+        from cogs.voice_cog import reproduzir_pcm
+
+        future = asyncio.run_coroutine_threadsafe(
+            reproduzir_pcm(_bot_ref, guild_id, pcm),
+            _loop_ref,
+        )
+
+        def _registrar_resultado(fut) -> None:
+            try:
+                fut.result()
+            except Exception as exc:
+                log.error("[WEB] ERRO ao reproduzir TTS%s: %s", origem, exc, exc_info=True)
+            else:
+                log.info("[WEB] Reproducao no Discord concluida%s.", origem)
+
+        future.add_done_callback(_registrar_resultado)
+        return True
+    except Exception as exc:
+        log.error("[WEB] ERRO ao agendar TTS%s: %s", origem, exc, exc_info=True)
+        return False
+
+
+def _duracao_pcm_ms(pcm: bytes) -> int:
+    # PCM bruto do Discord: 48 kHz, stereo, 16-bit = 192000 bytes/s.
+    return max(0, int((len(pcm) / 192000) * 1000))
+
+
+_ABREVIACOES_TTS = {
+    "sr.",
+    "sra.",
+    "dr.",
+    "dra.",
+    "etc.",
+    "ex.",
+    "obs.",
+}
+_PALAVRAS_LIGACAO_TTS = {"que", "de", "do", "da", "para", "pra", "com", "por", "se", "e", "ou"}
+_INICIO_FRASE_SEM_PONTO = re.compile(
+    r"\s+(?=(?:Eu|Voc(?:e|ê)s?|Tudo|Isso|Mas|Ent(?:ao|ão)|S(?:o|ó)|A(?:i|í)|Agora|Talvez|N(?:ao|ão)|Sim|T(?:a|á)|Claro|Calma)\b)",
+)
+
+
+def _corrigir_mojibake(texto: str) -> str:
+    if not texto or not any(marcador in texto for marcador in ("Ã", "Â", "â€", "â€œ", "â€™")):
+        return texto
+    try:
+        return texto.encode("latin1").decode("utf-8")
+    except UnicodeError:
+        reparos = {
+            "Ã¡": "á", "Ã ": "à", "Ã¢": "â", "Ã£": "ã", "Ã©": "é", "Ãª": "ê",
+            "Ã­": "í", "Ã³": "ó", "Ã´": "ô", "Ãµ": "õ", "Ãº": "ú", "Ã§": "ç",
+            "Ã": "Á", "Ã€": "À", "Ã‚": "Â", "Ãƒ": "Ã", "Ã‰": "É", "ÃŠ": "Ê",
+            "Ã": "Í", "Ã“": "Ó", "Ã”": "Ô", "Ã•": "Õ", "Ãš": "Ú", "Ã‡": "Ç",
+            "Â¿": "¿", "Â¡": "¡", "Âº": "º", "Âª": "ª",
+            "â€“": "-", "â€”": "-", "â€¦": "...", "â€œ": '"', "â€": '"',
+            "â€˜": "'", "â€™": "'",
+        }
+        for errado, certo in reparos.items():
+            texto = texto.replace(errado, certo)
+        return texto
+
+
+def _normalizar_frase_tts(texto: str) -> str:
+    texto = _corrigir_mojibake(texto)
+    texto = " ".join((texto or "").split())
+    texto = re.sub(r"<\|[^|]+\|>", "", texto)
+    texto = re.sub(r"</?[a-zA-Z][^>]*/?>", "", texto)
+    texto = re.sub(r"^\[[^\]]{1,50}\]\s*:?\s*", "", texto).strip()
+    texto = re.sub(r"\*[^*]+\*", "", texto)
+    texto = re.sub(r"(?<![\w])_([^_]+)_(?![\w])", "", texto)
+    texto = texto.strip().strip("\"'")
+    if not texto:
+        return ""
+    if texto[-1] in ",;:-":
+        texto = texto[:-1].rstrip()
+    if texto and texto[-1] not in ".!?":
+        texto += "."
+    return texto
+
+
+def _fim_frase_pronta(texto: str) -> int | None:
+    for i, char in enumerate(texto):
+        if char not in ".!?":
+            continue
+        if char == "." and i > 0 and i + 1 < len(texto) and texto[i - 1].isdigit() and texto[i + 1].isdigit():
+            continue
+        fim = i + 1
+        while fim < len(texto) and texto[fim] in ".!?":
+            fim += 1
+        while fim < len(texto) and texto[fim] in "\"')]}":
+            fim += 1
+        ultima = texto[:fim].strip().lower().split()
+        if ultima and ultima[-1] in _ABREVIACOES_TTS:
+            continue
+        if fim == len(texto) or texto[fim].isspace():
+            return fim
+    return None
+
+
+def _corte_frase_longa(texto: str, limite: int = 135) -> int | None:
+    candidatos = [m.start() for m in _INICIO_FRASE_SEM_PONTO.finditer(texto)]
+    for pos in candidatos:
+        prefixo = texto[:pos].rstrip().lower().split()
+        ultima = prefixo[-1] if prefixo else ""
+        if 10 <= pos <= limite and ultima not in _PALAVRAS_LIGACAO_TTS:
+            return pos
+    if len(texto) < limite:
+        return None
+    for marcador in (",", ";", ":"):
+        pos = texto.rfind(marcador, 60, limite)
+        if pos >= 60:
+            return pos + 1
+    pos = texto.rfind(" ", 80, limite)
+    return pos if pos >= 80 else None
+
+
+def _extrair_frases_tts(buffer: str, *, force: bool = False) -> tuple[list[str], str]:
+    texto = _corrigir_mojibake(buffer or "").replace("\r", " ").replace("\n", " ").lstrip()
+    frases: list[str] = []
+    while texto:
+        fim_pontuacao = _fim_frase_pronta(texto)
+        fim_corte = _corte_frase_longa(texto)
+        if fim_corte is not None and (fim_pontuacao is None or fim_corte < fim_pontuacao):
+            fim = fim_corte
+        else:
+            fim = fim_pontuacao
+        if fim is None:
+            break
+        frase = _normalizar_frase_tts(texto[:fim])
+        if frase:
+            frases.append(frase)
+        texto = texto[fim:].lstrip()
+    if force and texto.strip():
+        frase = _normalizar_frase_tts(texto)
+        if frase:
+            frases.append(frase)
+        texto = ""
+    return frases, texto
+
+
+def _normalizar_resposta_voz_texto(texto: str) -> str:
+    frases, resto = _extrair_frases_tts(_corrigir_mojibake(texto), force=True)
+    if frases:
+        return " ".join(frases)
+    return _normalizar_frase_tts(resto or texto)
 
 
 # ── Aplicação de mudanças ao bot em tempo real ────────────────────────────────
@@ -102,7 +257,14 @@ class _Handler(BaseHTTPRequestHandler):
             self._serve_file(_WEB_DIR / "logo.png", "image/png")
         elif self.path == "/api/config":
             from config_loader import cfg
-            payload = json.dumps(cfg.as_dict(), ensure_ascii=False, indent=2).encode("utf-8")
+            data = cfg.as_dict()
+            try:
+                from cogs.llm_cog import prompt_defaults
+                data["_prompt_defaults"] = prompt_defaults()
+            except Exception as exc:
+                log.warning("Falha ao anexar prompts padrao na config: %s", exc)
+                data["_prompt_defaults"] = {}
+            payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
             self._respond(200, "application/json", payload)
         elif self.path.startswith("/api/voz/canais"):
             self._handle_get_voz_canais()
@@ -200,6 +362,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         from config_loader import cfg
+        nova_config.pop("_prompt_defaults", None)
         config_antiga = cfg.as_dict()
 
         # Salva a nova config
@@ -416,17 +579,17 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            from services import stt_whisper, tts_omnivoice
-            from cogs.voice_cog import voz_estado, reproduzir_pcm
+            from services import stt_whisper
+            from cogs.voice_cog import voz_estado
 
             # Carrega whisper com o modelo configurado
-            whisper_modelo = voz_estado.get("whisper_modelo", "medium")
+            whisper_modelo = voz_estado.get("whisper_modelo", "small")
             log.info("[WEB] Carregando Whisper '%s'...", whisper_modelo)
             stt_whisper.carregar(whisper_modelo)
 
             # 1. Transcrever áudio
             log.info("[WEB] Etapa 1: Transcrevendo áudio...")
-            texto_usuario = stt_whisper.transcrever(wav_bytes)
+            texto_usuario = stt_whisper.transcrever(wav_bytes, whisper_modelo)
             log.info("[WEB] Transcrição: %r", texto_usuario)
             if not texto_usuario:
                 log.warning("[WEB] Transcrição vazia!")
@@ -436,36 +599,20 @@ class _Handler(BaseHTTPRequestHandler):
 
             # 2. Enviar ao LLM
             log.info("[WEB] Etapa 2: Gerando resposta LLM...")
-            resposta_llm = _gerar_resposta_voz(texto_usuario)
+            guild_com_voz = _encontrar_guild_com_voz()
+            resposta_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
+                texto_usuario,
+                voz_estado,
+                guild_com_voz,
+                "/api/voz/chat",
+            )
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
             # 3. Gerar TTS e reproduzir no Discord
             guild_com_voz = _encontrar_guild_com_voz()
             log.info("[WEB] Etapa 3: TTS → Discord — guild_com_voz=%s falar_discord=%s",
                      guild_com_voz, voz_estado.get("falar_discord"))
-            falou = False
-            if guild_com_voz and resposta_llm and voz_estado.get("falar_discord", True):
-                try:
-                    instruct = voz_estado.get("voz_instruct", "female, teenager, low pitch")
-                    speed = float(voz_estado.get("velocidade", 1.0))
-                    volume = float(voz_estado.get("volume", 1.0))
-                    seed = int(voz_estado.get("voz_seed", 42))
-                    pitch = float(voz_estado.get("pitch", 0.0))
-                    language = voz_estado.get("voz_language", "Portuguese")
-                    log.info("[WEB] TTS params: instruct=%r speed=%.1f volume=%.1f seed=%d pitch=%.1f lang=%s",
-                             instruct, speed, volume, seed, pitch, language)
-
-                    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed, seed=seed, language=language)
-                    pcm = tts_omnivoice.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
-                    log.info("[WEB] Enviando PCM ao Discord (%d bytes)...", len(pcm))
-                    asyncio.run_coroutine_threadsafe(
-                        reproduzir_pcm(_bot_ref, guild_com_voz, pcm), _loop_ref
-                    ).result(timeout=120)
-                    falou = True
-                    log.info("[WEB] Reprodução no Discord concluída!")
-                except Exception as exc:
-                    log.error("[WEB] ERRO ao reproduzir TTS no Discord: %s", exc, exc_info=True)
-            elif not guild_com_voz:
+            if not guild_com_voz:
                 log.warning("[WEB] Bot NÃO está em nenhum canal de voz!")
             elif not resposta_llm:
                 log.warning("[WEB] Resposta LLM vazia — sem TTS")
@@ -474,6 +621,7 @@ class _Handler(BaseHTTPRequestHandler):
                 "transcript": texto_usuario,
                 "resposta": resposta_llm,
                 "falou_discord": falou,
+                "audio_ms": audio_ms if falou else 0,
             }
             self._respond(200, "application/json",
                           json.dumps(payload, ensure_ascii=False).encode("utf-8"))
@@ -500,8 +648,7 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            from services import tts_omnivoice
-            from cogs.voice_cog import voz_estado, reproduzir_pcm
+            from cogs.voice_cog import voz_estado
 
             guild_id = _encontrar_guild_com_voz()
             if not guild_id:
@@ -509,24 +656,17 @@ class _Handler(BaseHTTPRequestHandler):
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
-            instruct = voz_estado.get("voz_instruct", "female, teenager, low pitch")
-            speed = float(voz_estado.get("velocidade", 1.0))
-            volume = float(voz_estado.get("volume", 1.0))
-            seed = int(voz_estado.get("voz_seed", 42))
-            pitch = float(voz_estado.get("pitch", 0.0))
-            language = voz_estado.get("voz_language", "Portuguese")
+            log.info("[WEB] /api/voz/falar texto='%s'", texto[:60])
+            pcm = _gerar_pcm_tts(texto, voz_estado)
+            audio_ms = _duracao_pcm_ms(pcm)
+            log.info("[WEB] /api/voz/falar PCM gerado, %d bytes; agendando no Discord", len(pcm))
+            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/falar"):
+                self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
+                return
+            log.info("[WEB] /api/voz/falar audio agendado com sucesso")
 
-            log.info("[WEB] /api/voz/falar texto='%s' instruct='%s' speed=%.1f vol=%.1f seed=%d pitch=%.1f lang=%s", texto[:60], instruct, speed, volume, seed, pitch, language)
-            audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
-            log.info("[WEB] /api/voz/falar TTS gerado, %d amostras", len(audio) if audio is not None else 0)
-            pcm = tts_omnivoice.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
-            log.info("[WEB] /api/voz/falar PCM gerado, %d bytes — enviando ao Discord", len(pcm))
-            asyncio.run_coroutine_threadsafe(
-                reproduzir_pcm(_bot_ref, guild_id, pcm), _loop_ref
-            ).result(timeout=120)
-            log.info("[WEB] /api/voz/falar concluido com sucesso")
-
-            self._respond(200, "application/json", b'{"ok": true}')
+            payload = json.dumps({"ok": True, "audio_ms": audio_ms}).encode("utf-8")
+            self._respond(200, "application/json", payload)
         except Exception as exc:
             log.exception("[WEB] ERRO em /api/voz/falar")
             self._respond(500, "application/json",
@@ -541,8 +681,7 @@ class _Handler(BaseHTTPRequestHandler):
             data = {}
         texto = str(data.get("texto") or "Oi, eu sou a Lou. Assim ficou minha voz agora.").strip()
         try:
-            from services import tts_omnivoice
-            from cogs.voice_cog import voz_estado, reproduzir_pcm
+            from cogs.voice_cog import voz_estado
 
             guild_id = _encontrar_guild_com_voz()
             if not guild_id:
@@ -550,18 +689,13 @@ class _Handler(BaseHTTPRequestHandler):
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
-            instruct = voz_estado.get("voz_instruct", "female, teenager, low pitch")
-            speed = float(voz_estado.get("velocidade", 1.0))
-            volume = float(voz_estado.get("volume", 1.0))
-            seed = int(voz_estado.get("voz_seed", 42))
-            pitch = float(voz_estado.get("pitch", 0.0))
-            language = voz_estado.get("voz_language", "Portuguese")
-            audio = tts_omnivoice.gerar(texto, instruct=instruct, speed=speed, seed=seed, language=language)
-            pcm = tts_omnivoice.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
-            asyncio.run_coroutine_threadsafe(
-                reproduzir_pcm(_bot_ref, guild_id, pcm), _loop_ref
-            ).result(timeout=120)
-            self._respond(200, "application/json", b'{"ok": true}')
+            pcm = _gerar_pcm_tts(texto, voz_estado)
+            audio_ms = _duracao_pcm_ms(pcm)
+            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/testar"):
+                self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
+                return
+            payload = json.dumps({"ok": True, "audio_ms": audio_ms}).encode("utf-8")
+            self._respond(200, "application/json", payload)
         except Exception as exc:
             log.exception("[WEB] ERRO em /api/voz/testar")
             self._respond(500, "application/json",
@@ -586,41 +720,24 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            from services import tts_omnivoice
-            from cogs.voice_cog import voz_estado, reproduzir_pcm
+            from cogs.voice_cog import voz_estado
 
             # 1. LLM
             log.info("[WEB] Etapa 1: Gerando resposta LLM...")
-            resposta_llm = _gerar_resposta_voz(texto)
+            guild_com_voz = _encontrar_guild_com_voz()
+            resposta_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
+                texto,
+                voz_estado,
+                guild_com_voz,
+                "/api/voz/chat-texto",
+            )
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
             # 2. TTS + Discord
             guild_com_voz = _encontrar_guild_com_voz()
             log.info("[WEB] Etapa 2: TTS → Discord — guild=%s falar_discord=%s",
                      guild_com_voz, voz_estado.get("falar_discord"))
-            falou = False
-            if guild_com_voz and resposta_llm and voz_estado.get("falar_discord", True):
-                try:
-                    instruct = voz_estado.get("voz_instruct", "female, teenager, low pitch")
-                    speed = float(voz_estado.get("velocidade", 1.0))
-                    volume = float(voz_estado.get("volume", 1.0))
-                    seed = int(voz_estado.get("voz_seed", 42))
-                    pitch = float(voz_estado.get("pitch", 0.0))
-                    language = voz_estado.get("voz_language", "Portuguese")
-                    log.info("[WEB] TTS params: instruct=%r speed=%.1f volume=%.1f seed=%d pitch=%.1f lang=%s",
-                             instruct, speed, volume, seed, pitch, language)
-
-                    audio = tts_omnivoice.gerar(resposta_llm, instruct=instruct, speed=speed, seed=seed, language=language)
-                    pcm = tts_omnivoice.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
-                    log.info("[WEB] Enviando PCM ao Discord (%d bytes)...", len(pcm))
-                    asyncio.run_coroutine_threadsafe(
-                        reproduzir_pcm(_bot_ref, guild_com_voz, pcm), _loop_ref
-                    ).result(timeout=120)
-                    falou = True
-                    log.info("[WEB] Reprodução no Discord concluída!")
-                except Exception as exc:
-                    log.error("[WEB] ERRO ao reproduzir TTS: %s", exc, exc_info=True)
-            elif not guild_com_voz:
+            if not guild_com_voz:
                 log.warning("[WEB] Bot NÃO está em nenhum canal de voz!")
             elif not resposta_llm:
                 log.warning("[WEB] Resposta LLM vazia — sem TTS")
@@ -628,6 +745,7 @@ class _Handler(BaseHTTPRequestHandler):
             payload = {
                 "resposta": resposta_llm,
                 "falou_discord": falou,
+                "audio_ms": audio_ms if falou else 0,
             }
             self._respond(200, "application/json",
                           json.dumps(payload, ensure_ascii=False).encode("utf-8"))
@@ -653,42 +771,189 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         from cogs.voice_cog import voz_estado, salvar_config_voz
-        from services import tts_omnivoice
+        from services import tts_chatterbox
 
-        # Detecta se parâmetros de voz mudaram (requer nova referência)
-        old_instruct = voz_estado.get("voz_instruct")
-        old_language = voz_estado.get("voz_language")
-        old_seed = voz_estado.get("voz_seed")
-
-        if any(k in data for k in ("voz_age", "voz_pitch_style")):
-            data["voz_instruct"] = tts_omnivoice.montar_instruct(
-                data.get("voz_age", voz_estado.get("voz_age", "teenager")),
-                data.get("voz_pitch_style", voz_estado.get("voz_pitch_style", "low pitch")),
-            )
+        old_exaggeration = voz_estado.get("voz_exaggeration")
+        for old_key in ("voz_age", "voz_pitch_style", "voz_instruct"):
+            data.pop(old_key, None)
+        data["tts_model"] = "chatterbox-ptbr-v3"
+        data["voz_language"] = "pt-BR"
+        data["voz_referencia"] = "data/voz_referencia.wav"
 
         voz_estado.update(data)
         salvar_config_voz()
         log.info("Config de voz salva via UI web.")
 
-        new_instruct = voz_estado.get("voz_instruct")
-        new_language = voz_estado.get("voz_language")
-        new_seed = voz_estado.get("voz_seed")
-        if (new_instruct != old_instruct or new_language != old_language
-                or new_seed != old_seed):
-            try:
-                tts_omnivoice.regenerar_referencia(
-                    instruct=new_instruct or "female, teenager, low pitch",
-                    language=new_language or "Portuguese",
-                    seed=int(new_seed or 42),
-                )
-                log.info("Referência de voz regenerada após mudança de config.")
-            except Exception as exc:
-                log.warning("Falha ao regenerar referência: %s", exc)
+        if voz_estado.get("voz_exaggeration") != old_exaggeration:
+            tts_chatterbox.limpar_cache_referencia()
 
         self._respond(200, "application/json", b'{"ok": true}')
 
 
 # ── Helpers de chat de voz ─────────────────────────────────────────────────────
+
+def _gerar_pcm_tts(texto: str, voz_cfg: dict, *, stream_chunk: bool = False) -> bytes:
+    """Gera TTS Chatterbox PT-BR e converte para PCM do Discord."""
+    from services import tts_chatterbox
+
+    speed = float(voz_cfg.get("velocidade", 1.0))
+    volume = float(voz_cfg.get("volume", 1.0))
+    seed = int(voz_cfg.get("voz_seed", 42))
+    pitch = float(voz_cfg.get("pitch", 0.0))
+    exaggeration = float(voz_cfg.get("voz_exaggeration", 0.5))
+    cfg_weight = float(voz_cfg.get("voz_cfg_weight", 0.5))
+    temperature = float(voz_cfg.get("voz_temperature", 0.8))
+    log.info(
+        "[WEB] TTS Chatterbox PT-BR: speed=%.2f vol=%.2f seed=%d pitch=%.1f exag=%.2f cfg=%.2f temp=%.2f",
+        speed,
+        volume,
+        seed,
+        pitch,
+        exaggeration,
+        cfg_weight,
+        temperature,
+    )
+    audio = tts_chatterbox.gerar(
+        texto,
+        speed=speed,
+        seed=seed,
+        exaggeration=exaggeration,
+        cfg_weight=cfg_weight,
+        temperature=temperature,
+    )
+    if stream_chunk:
+        return tts_chatterbox.para_pcm_discord(
+            audio,
+            volume=volume,
+            pitch_semitones=pitch,
+            start_pad_s=0.08,
+            end_pad_s=0.22,
+            tail_frames=8,
+        )
+    return tts_chatterbox.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
+
+
+def _agendar_frase_tts(
+    frase: str,
+    voz_cfg: dict,
+    guild_id: int,
+    origem: str,
+    indice: int,
+) -> tuple[bool, int]:
+    pcm = _gerar_pcm_tts(frase, voz_cfg, stream_chunk=True)
+    audio_ms = _duracao_pcm_ms(pcm)
+    log.info("[WEB] Frase TTS %d%s: %r", indice, origem, frase[:120])
+    falou = _agendar_reproducao_pcm(guild_id, pcm, f" {origem} frase {indice}")
+    return falou, audio_ms if falou else 0
+
+
+def _gerar_resposta_voz_streaming(
+    texto_usuario: str,
+    voz_cfg: dict,
+    guild_id: int | None,
+    origem: str,
+) -> tuple[str, bool, int]:
+    """Gera resposta por streaming e agenda TTS assim que cada frase fica pronta."""
+    log.info("[LLM-VOZ] Gerando resposta streaming para: %r", texto_usuario[:80])
+    cog = _bot_ref.get_cog("LLM") if _bot_ref else None
+    if cog is None:
+        log.error("[LLM-VOZ] Cog LLM nao encontrado para streaming.")
+        return "LLM nao carregado.", False, 0
+
+    system_prompt = cog._construir_prompt_lou_voz(0)
+    with _voz_lock:
+        _voz_historico.append({"role": "user", "content": texto_usuario})
+        historico = list(_voz_historico)
+
+    tts_ativo = bool(guild_id and voz_cfg.get("falar_discord", True))
+    partes: list[str] = []
+    buffer_tts = ""
+    falou = False
+    audio_ms_total = 0
+    frase_idx = 0
+    inicio_llm = time.perf_counter()
+
+    try:
+        for delta in cog._stream_resposta(
+            system_prompt,
+            historico,
+            max_tokens=config.LLM_VOZ_MAX_TOKENS,
+        ):
+            partes.append(delta)
+            if not tts_ativo:
+                continue
+            buffer_tts += delta
+            frases, buffer_tts = _extrair_frases_tts(buffer_tts)
+            for frase in frases:
+                frase_idx += 1
+                try:
+                    agendou, audio_ms = _agendar_frase_tts(
+                        frase,
+                        voz_cfg,
+                        int(guild_id),
+                        origem,
+                        frase_idx,
+                    )
+                    falou = falou or agendou
+                    audio_ms_total += audio_ms
+                except Exception as exc:
+                    log.error("[WEB] ERRO ao gerar/agendar frase TTS: %s", exc, exc_info=True)
+    except Exception as exc:
+        log.warning("[LLM-VOZ] Streaming falhou: %s", exc, exc_info=True)
+        if not partes:
+            resposta_fallback = cog._gerar_resposta(
+                system_prompt,
+                historico,
+                max_tokens=config.LLM_VOZ_MAX_TOKENS,
+                continuar_se_cortar=False,
+            )
+            resposta_fallback = _normalizar_resposta_voz_texto(resposta_fallback)
+            if tts_ativo and resposta_fallback:
+                try:
+                    pcm = _gerar_pcm_tts(resposta_fallback, voz_cfg)
+                    falou = _agendar_reproducao_pcm(int(guild_id), pcm, f" {origem} fallback")
+                    audio_ms_total = _duracao_pcm_ms(pcm) if falou else 0
+                except Exception as tts_exc:
+                    log.error("[WEB] ERRO ao gerar TTS fallback: %s", tts_exc, exc_info=True)
+            if resposta_fallback:
+                with _voz_lock:
+                    _voz_historico.append({"role": "assistant", "content": resposta_fallback})
+            return resposta_fallback, falou, audio_ms_total
+
+    resposta_bruta = "".join(partes)
+    resposta = _normalizar_resposta_voz_texto(cog._limpar_resposta(resposta_bruta))
+    if not resposta and resposta_bruta.strip():
+        resposta = _normalizar_resposta_voz_texto(resposta_bruta)
+
+    if tts_ativo:
+        frases_finais, _ = _extrair_frases_tts(buffer_tts, force=True)
+        for frase in frases_finais:
+            frase_idx += 1
+            try:
+                agendou, audio_ms = _agendar_frase_tts(
+                    frase,
+                    voz_cfg,
+                    int(guild_id),
+                    origem,
+                    frase_idx,
+                )
+                falou = falou or agendou
+                audio_ms_total += audio_ms
+            except Exception as exc:
+                log.error("[WEB] ERRO ao gerar/agendar frase final TTS: %s", exc, exc_info=True)
+
+    log.info(
+        "[LLM-VOZ] Streaming concluido em %.2fs; frases_tts=%d resposta=%r",
+        time.perf_counter() - inicio_llm,
+        frase_idx,
+        resposta[:100] if resposta else "(vazio)",
+    )
+
+    if resposta:
+        with _voz_lock:
+            _voz_historico.append({"role": "assistant", "content": resposta})
+    return resposta or "", falou, audio_ms_total
+
 
 def _gerar_resposta_voz(texto_usuario: str) -> str:
     """Envia texto ao LLM (via cog) e retorna a resposta. Mantém histórico próprio."""
@@ -700,15 +965,7 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
                   [c.qualified_name for c in _bot_ref.cogs.values()] if _bot_ref else [])
         return "LLM não carregado."
 
-    # Usa o prompt Lou (personalidade) para o chat de voz
-    system_prompt = cog._construir_prompt_lou(0)
-    # Instrução extra para voz: respostas curtas, naturais, no tom da Lou
-    system_prompt += (
-        "\n\n[SISTEMA] Você está conversando por voz em tempo real, como se fosse "
-        "um papo casual pelo Discord. Fale como a Lou falaria — natural, descontraída, "
-        "sem formalidade. 1 a 2 frases curtas no máximo. Nada de listas, parágrafos "
-        "ou oferecer ajuda como se fosse assistente. Você é a Lou, não uma IA."
-    )
+    system_prompt = cog._construir_prompt_lou_voz(0)
     log.info("[LLM-VOZ] Prompt sistema: %d chars, histórico: %d msgs",
              len(system_prompt), len(_voz_historico))
 
@@ -717,8 +974,14 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
         historico = list(_voz_historico)
 
     try:
-        resposta = cog._gerar_resposta(system_prompt, historico,
-                   max_tokens=config.LLM_VOZ_MAX_TOKENS)
+        inicio_llm = time.perf_counter()
+        resposta = cog._gerar_resposta(
+            system_prompt,
+            historico,
+            max_tokens=config.LLM_VOZ_MAX_TOKENS,
+            continuar_se_cortar=False,
+        )
+        log.info("[LLM-VOZ] Tempo LLM: %.2fs", time.perf_counter() - inicio_llm)
         log.info("[LLM-VOZ] Resposta gerada: %r", resposta[:100] if resposta else "(vazio)")
     except Exception as exc:
         log.error("[LLM-VOZ] ERRO ao gerar resposta: %s", exc, exc_info=True)

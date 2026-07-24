@@ -1,5 +1,11 @@
 {
   "prefix": "!",
+  "prompts": {
+    "assistente": "",
+    "lou": "",
+    "lou_voz": "",
+    "terapeuta": ""
+  },
   "commands": {
     "lou": {
       "name": "casual",
@@ -42,7 +48,7 @@
     },
     "limitar": {
       "name": "bloquear",
-      "descricao": "[Apenas pai] Bloqueia um usuário de receber respostas.",
+      "descricao": "[Apenas dono] Bloqueia um usuário de receber respostas.",
       "messages": {
         "sem_mencao": "Mencione um usuário. Ex: `!limitar @alguem`",
         "auto_bloqueio": "Você não pode se bloquear.",
@@ -52,7 +58,7 @@
     },
     "desbloquear": {
       "name": "desbloquear",
-      "descricao": "[Apenas pai] Remove o bloqueio de um usuário.",
+      "descricao": "[Apenas dono] Remove o bloqueio de um usuário.",
       "messages": {
         "sem_mencao": "Mencione um usuário. Ex: `!desbloquear @alguem`",
         "desbloqueado": "**{nome}** voltou a receber respostas.",

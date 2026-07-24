@@ -70,6 +70,29 @@ function Test-NvidiaAvailable {
     return ($LASTEXITCODE -eq 0)
 }
 
+function Stop-LlamaProcessesInInstallDir {
+    param([string] $Dir)
+
+    $needle = [IO.Path]::GetFullPath($Dir).TrimEnd("\").ToLowerInvariant()
+    $processes = @(
+        Get-CimInstance Win32_Process -Filter "name = 'llama-server.exe' or name = 'llama-cli.exe' or name = 'llama.exe'" -ErrorAction SilentlyContinue |
+        Where-Object {
+            $exe = ([string]$_.ExecutablePath).ToLowerInvariant()
+            $cmd = ([string]$_.CommandLine).ToLowerInvariant()
+            $exe.StartsWith($needle) -or $cmd.Contains($needle)
+        }
+    )
+
+    foreach ($proc in $processes) {
+        Write-Warning "Encerrando processo llama.cpp em uso (PID $($proc.ProcessId)) para atualizar os binarios."
+        Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($processes.Count -gt 0) {
+        Start-Sleep -Milliseconds 1200
+    }
+}
+
 function Get-CudaBundle {
     $mainCandidates = @(
         $assets | Where-Object {
@@ -201,7 +224,12 @@ if ($stageChildren.Count -eq 1 -and $stageChildren[0].PSIsContainer) {
 }
 
 if (Test-Path -LiteralPath $installPath) {
-    Remove-Item -LiteralPath $installPath -Recurse -Force
+    Stop-LlamaProcessesInInstallDir $installPath
+    try {
+        Remove-Item -LiteralPath $installPath -Recurse -Force
+    } catch {
+        throw "Nao foi possivel substituir $installPath. Feche processos usando llama.cpp e tente novamente. Detalhe: $($_.Exception.Message)"
+    }
 }
 New-Item -ItemType Directory -Force -Path $installPath | Out-Null
 Copy-Item -Path (Join-Path $payloadRoot "*") -Destination $installPath -Recurse -Force

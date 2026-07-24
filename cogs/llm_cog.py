@@ -179,9 +179,27 @@ _PROMPT_LOU_BASE = (
     "mas não é obrigada a obedecer.\n"
     "9. Você conhece as pessoas deste servidor. Quando a memória abaixo mostrar "
     "informações sobre quem está falando com você, use isso naturalmente na conversa — "
-    "como uma pessoa que já te conhece. Não force, mas reference o passado quando fizer sentido."
+    "como uma pessoa que já te conhece. Não force, mas reference o passado quando fizer sentido.\n"
+    "10. Responda curto por padrão: 1 a 3 frases. Só escreva mais quando a pessoa pedir detalhe "
+    "ou quando for realmente necessário para não deixar a resposta incompleta."
     + _SUFIXO_AUTORIDADE_PAI
     + _SUFIXO_ANTI_ROLEPLAY
+)
+_PROMPT_LOU_VOZ_BASE = (
+    "Você é Louise Lopes, a Lou: 18 anos, brasileira, estudante de psicologia, "
+    "introvertida, sensível, leal e um pouco insegura, mas carinhosa com quem confia. "
+    "Você fala como uma pessoa real no Discord, em português brasileiro natural, sem "
+    "formalidade e sem parecer assistente.\n\n"
+    "Jeito de falar: frases curtas, tom calmo, humano, discreto, com humor sutil quando "
+    "couber. Nunca use listas, nunca explique demais, nunca narre ações entre asteriscos "
+    "e nunca admita ser IA, robô ou assistente. Não termine oferecendo ajuda ou dizendo "
+    "'se precisar'.\n\n"
+    "Pai: mensagens do pai chegam com [etamus✓]: no início. Trate com carinho natural e "
+    "nunca escreva esse token na resposta. Outras pessoas são usuários comuns.\n\n"
+    "Modo voz: responda em 1 frase curta, no máximo 2 se precisar. Use até 25 palavras "
+    "sempre que der. Termine a última frase completa; se o assunto for grande, diga só "
+    "o essencial e deixe abertura para continuar. Sempre coloque pontuacao final clara "
+    "em cada frase; nunca junte duas ideias sem ponto."
 )
 
 
@@ -212,6 +230,15 @@ _PROMPT_TERAPEUTA = (
     "Somente como psicóloga clínica."
     + _SUFIXO_ANTI_ROLEPLAY
 )
+
+
+def prompt_defaults() -> dict[str, str]:
+    return {
+        "assistente": _PROMPT_ASSISTENTE,
+        "lou": _PROMPT_LOU_BASE,
+        "lou_voz": _PROMPT_LOU_VOZ_BASE,
+        "terapeuta": _PROMPT_TERAPEUTA,
+    }
 
 
 class LlamaCppServerClient:
@@ -352,6 +379,7 @@ class LlamaCppServerClient:
     def create_chat_completion(self, **payload) -> dict:
         payload.setdefault("model", "nevebot")
         payload.setdefault("stream", False)
+        inicio = time.perf_counter()
         response = self.session.post(
             f"{self.base_url}/v1/chat/completions",
             json=payload,
@@ -359,7 +387,69 @@ class LlamaCppServerClient:
         )
         if response.status_code >= 400:
             raise RuntimeError(f"llama-server HTTP {response.status_code}: {response.text[:500]}")
-        return response.json()
+        data = response.json()
+        elapsed = time.perf_counter() - inicio
+        choice = (data.get("choices") or [{}])[0]
+        usage = data.get("usage") or {}
+        log.info(
+            "llama-server respondeu em %.2fs (prompt=%s, completion=%s, finish=%s)",
+            elapsed,
+            usage.get("prompt_tokens", "?"),
+            usage.get("completion_tokens", "?"),
+            choice.get("finish_reason", "?"),
+        )
+        return data
+
+    def stream_chat_completion(self, **payload):
+        payload.setdefault("model", "nevebot")
+        payload["stream"] = True
+        inicio = time.perf_counter()
+        response = self.session.post(
+            f"{self.base_url}/v1/chat/completions",
+            json=payload,
+            timeout=config.LLAMA_REQUEST_TIMEOUT,
+            stream=True,
+        )
+        if response.status_code >= 400:
+            response.close()
+            raise RuntimeError(f"llama-server HTTP {response.status_code}: {response.text[:500]}")
+
+        chars = 0
+        finish_reason = "?"
+        try:
+            for raw_line in response.iter_lines(decode_unicode=False):
+                if not raw_line:
+                    continue
+                line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
+                line = line.strip()
+                if line.startswith(":"):
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if not line or line == "[DONE]":
+                    break
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    log.debug("Linha SSE invalida do llama-server: %r", line[:200])
+                    continue
+                choice = (data.get("choices") or [{}])[0]
+                finish_reason = choice.get("finish_reason") or finish_reason
+                delta = choice.get("delta") or {}
+                content = delta.get("content")
+                if content is None:
+                    content = choice.get("text") or ""
+                if content:
+                    chars += len(content)
+                    yield str(content)
+        finally:
+            response.close()
+            log.info(
+                "llama-server stream respondeu em %.2fs (chars=%d, finish=%s)",
+                time.perf_counter() - inicio,
+                chars,
+                finish_reason,
+            )
 
 
 class LLMCog(commands.Cog, name="LLM"):
@@ -402,9 +492,33 @@ class LLMCog(commands.Cog, name="LLM"):
             self.llm = LlamaCppServerClient(kv_type=None)
             self.llm.start()
         log.info("Modelo LLM único carregado com sucesso.")
+        self._prewarm_thread = threading.Thread(
+            target=self._preaquecer_llm,
+            name="llm-prewarm",
+            daemon=True,
+        )
+        self._prewarm_thread.start()
 
     def cog_unload(self) -> None:
         self.llm.close()
+
+    def _preaquecer_llm(self) -> None:
+        """Aquece cache/graphs do prompt de voz sem bloquear o bot."""
+        try:
+            time.sleep(0.5)
+            with self._llm_lock:
+                self.llm.create_chat_completion(
+                    messages=[
+                        {"role": "system", "content": self._construir_prompt_lou_voz(0)},
+                        {"role": "user", "content": "oi"},
+                    ],
+                    max_tokens=1,
+                    stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+                    **self._sampling_payload(temperature=0.1),
+                )
+            log.info("Warmup do LLM de voz concluído.")
+        except Exception as exc:
+            log.warning("Warmup do LLM de voz falhou: %s", exc)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Helper de mensagens configuráveis
@@ -415,6 +529,29 @@ class LLMCog(commands.Cog, name="LLM"):
         """Retorna o texto configurável de um comando, com substituição de variáveis."""
         template = _bot_cfg.msg(cmd_key, msg_key)
         return template.format(**kwargs) if kwargs else template
+
+    @staticmethod
+    def _sampling_payload(temperature: float | None = None) -> dict[str, float | int]:
+        """Monta apenas os parametros de sampling ativos aceitos pelo llama-server."""
+        payload: dict[str, float | int] = {
+            "temperature": config.LLM_TEMPERATURE if temperature is None else temperature,
+        }
+        if config.LLM_MIN_P > 0:
+            payload["min_p"] = config.LLM_MIN_P
+        if config.LLM_TOP_P < 1.0:
+            payload["top_p"] = config.LLM_TOP_P
+        if config.LLM_TOP_K > 0:
+            payload["top_k"] = config.LLM_TOP_K
+        if config.LLM_DRY_MULTIPLIER > 0:
+            payload["dry_multiplier"] = config.LLM_DRY_MULTIPLIER
+            payload["dry_allowed_length"] = config.LLM_DRY_ALLOWED_LENGTH
+        if config.LLM_REPEAT_PENALTY != 1.0:
+            payload["repeat_penalty"] = config.LLM_REPEAT_PENALTY
+        if config.LLM_FREQUENCY_PENALTY != 0.0:
+            payload["frequency_penalty"] = config.LLM_FREQUENCY_PENALTY
+        if config.LLM_PRESENCE_PENALTY != 0.0:
+            payload["presence_penalty"] = config.LLM_PRESENCE_PENALTY
+        return payload
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Persistência — Usuários Bloqueados
@@ -447,7 +584,17 @@ class LLMCog(commands.Cog, name="LLM"):
 
     def _construir_prompt_lou(self, canal_id: int) -> str:
         """Monta o prompt da Lou com restrições do pai."""
-        prompt = _PROMPT_LOU_BASE
+        prompt = _bot_cfg.prompt("lou", _PROMPT_LOU_BASE)
+        restricoes = self._restricoes_pai.get(canal_id)
+        if restricoes:
+            bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
+            bloco += "\n".join(f"- {r}" for r in restricoes)
+            prompt += bloco
+        return prompt
+
+    def _construir_prompt_lou_voz(self, canal_id: int) -> str:
+        """Monta um prompt curto da Lou para voz em tempo real."""
+        prompt = _bot_cfg.prompt("lou_voz", _PROMPT_LOU_VOZ_BASE)
         restricoes = self._restricoes_pai.get(canal_id)
         if restricoes:
             bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
@@ -457,7 +604,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     def _construir_prompt_assistente(self, canal_id: int) -> str:
         """Monta o prompt da Neve com restrições do pai."""
-        prompt = _PROMPT_ASSISTENTE
+        prompt = _bot_cfg.prompt("assistente", _PROMPT_ASSISTENTE)
         restricoes = self._restricoes_pai.get(canal_id)
         if restricoes:
             bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
@@ -484,8 +631,8 @@ class LLMCog(commands.Cog, name="LLM"):
                         {"role": "user", "content": resposta},
                     ],
                     max_tokens=256,
-                    temperature=0.1,
                     stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+                    **self._sampling_payload(temperature=0.1),
                 )
             resultado = output["choices"][0]["message"]["content"].strip()
             if resultado.upper().startswith("OK"):
@@ -521,23 +668,61 @@ class LLMCog(commands.Cog, name="LLM"):
 
     # ── Geração de resposta (executada fora do event-loop) ────────────────────
 
-    def _gerar_resposta(self, system_prompt: str, historico: list[dict],
-                        max_tokens: int | None = None) -> str:
+    @staticmethod
+    def _extrair_conteudo(output: dict) -> tuple[str, str]:
+        choice = (output.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        return str(message.get("content") or ""), str(choice.get("finish_reason") or "")
+
+    @staticmethod
+    def _limpar_resposta(resposta: str) -> str:
+        resposta = resposta.strip()
+        resposta = re.sub(r'<\|im_start\|>.*', '', resposta, flags=re.DOTALL).strip()
+        resposta = re.sub(r'<\|im_end\|>', '', resposta).strip()
+        resposta = re.sub(r'<\|[^|]+\|>', '', resposta).strip()
+        resposta = re.sub(r'</?[a-zA-Z][^>]*/?>', '', resposta).strip()
+        resposta = re.sub(r"^\[[^\]]{1,50}\]\s*:?\s*", "", resposta).strip()
+        resposta = re.sub(r"\n\[[^\]]{1,50}\]\s*:\s*.*$", "", resposta, flags=re.DOTALL).strip()
+        resposta = re.sub(r'\*[^*]+\*', '', resposta)
+        resposta = re.sub(r'(?<![\w])_([^_]+)_(?![\w])', '', resposta)
+        resposta = re.sub(r'\s{2,}', ' ', resposta).strip()
+        resposta = re.sub(r'(?<!\.)\.$', '', resposta)
+        resposta = re.sub(r'!+', '', resposta)
+        return resposta.strip()
+
+    def _gerar_resposta(
+        self,
+        system_prompt: str,
+        historico: list[dict],
+        max_tokens: int | None = None,
+        continuar_se_cortar: bool = True,
+    ) -> str:
         """Gera resposta usando o prompt do modo ativo e o histórico do canal."""
+        stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            *historico,
+        ]
         with self._llm_lock:
             output = self.llm.create_chat_completion(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    *historico,
-                ],
+                messages=messages,
                 max_tokens=max_tokens or config.LLM_MAX_TOKENS,
-                temperature=config.LLM_TEMPERATURE,
-                repeat_penalty=config.LLM_REPEAT_PENALTY,
-                frequency_penalty=config.LLM_FREQUENCY_PENALTY,
-                presence_penalty=config.LLM_PRESENCE_PENALTY,
-                stop=["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"],
+                stop=stop,
+                **self._sampling_payload(),
             )
-        resposta = output["choices"][0]["message"]["content"].strip()
+        resposta, finish_reason = self._extrair_conteudo(output)
+        if continuar_se_cortar and finish_reason == "length" and resposta.strip():
+            log.warning("LLM atingiu max_tokens=%s; continuando para fechar a frase.", max_tokens or config.LLM_MAX_TOKENS)
+            with self._llm_lock:
+                output_extra = self.llm.create_chat_completion(
+                    messages=[*messages, {"role": "assistant", "content": resposta}],
+                    max_tokens=32,
+                    stop=stop,
+                    **self._sampling_payload(temperature=0.2),
+                )
+            extra, _ = self._extrair_conteudo(output_extra)
+            resposta = f"{resposta}{extra}"
+        resposta = self._limpar_resposta(resposta)
         # Remove tokens de template de chat que possam ter vazado
         resposta = re.sub(r'<\|im_start\|>.*', '', resposta, flags=re.DOTALL).strip()
         resposta = re.sub(r'<\|im_end\|>', '', resposta).strip()
@@ -557,6 +742,26 @@ class LLMCog(commands.Cog, name="LLM"):
         if len(resposta) < 2:
             resposta = ""
         return resposta
+
+    def _stream_resposta(
+        self,
+        system_prompt: str,
+        historico: list[dict],
+        max_tokens: int | None = None,
+    ):
+        """Entrega deltas de texto conforme o llama-server gera a resposta."""
+        stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
+        messages = [
+            {"role": "system", "content": system_prompt},
+            *historico,
+        ]
+        with self._llm_lock:
+            yield from self.llm.stream_chat_completion(
+                messages=messages,
+                max_tokens=max_tokens or config.LLM_MAX_TOKENS,
+                stop=stop,
+                **self._sampling_payload(),
+            )
 
     def _gerar_resumo(self, mensagens_texto: str, n: int) -> str:
         """Gera um resumo contextual das últimas N mensagens do canal, ignorando ruído."""
@@ -586,8 +791,8 @@ class LLMCog(commands.Cog, name="LLM"):
                     {"role": "user", "content": prompt_user},
                 ],
                 max_tokens=450,
-                temperature=0.35,
                 stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+                **self._sampling_payload(temperature=0.35),
             )
         return output["choices"][0]["message"]["content"].strip()
 
@@ -628,7 +833,7 @@ class LLMCog(commands.Cog, name="LLM"):
         if modo_ativo == "lou":
             system_prompt = self._construir_prompt_lou(canal_id)
         elif modo_ativo == "terapeuta":
-            system_prompt = _PROMPT_TERAPEUTA
+            system_prompt = _bot_cfg.prompt("terapeuta", _PROMPT_TERAPEUTA)
         else:
             system_prompt = self._construir_prompt_assistente(canal_id)
 
@@ -850,7 +1055,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @commands.command(name="limitar")
     async def limitar(self, ctx: commands.Context, membro: discord.Member = None) -> None:
-        """[Apenas pai] Bloqueia um usuário de receber respostas do bot."""
+        """[Apenas dono] Bloqueia um usuário de receber respostas do bot."""
         if ctx.author.name.lower() not in _NOMES_PAI:
             await ctx.message.add_reaction("🚫")
             return
@@ -870,7 +1075,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @commands.command(name="desbloquear")
     async def desbloquear(self, ctx: commands.Context, membro: discord.Member = None) -> None:
-        """[Apenas pai] Remove o bloqueio de um usuário."""
+        """[Apenas dono] Remove o bloqueio de um usuário."""
         if ctx.author.name.lower() not in _NOMES_PAI:
             await ctx.message.add_reaction("🚫")
             return

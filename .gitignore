@@ -1,28 +1,50 @@
+# Ambiente local e segredos
+.env
+.env.*
+!.env.example
 venv/
 .venv/
-.env
-logs/
-# Ignora tudo dentro de temp_llama (inclusive subpastas)
-temp_llama/
-llama.cpp/
-# Ignora tudo dentro de models (inclusive subpastas e arquivos grandes)
-models/**
-# Ignora todos os arquivos .wav em data e subpastas
-data/**/*.wav
-data/*.wav
-# Ignora todos os arquivos .wav em gravacoes e subpastas
-gravacoes/**/*.wav
-gravacoes/*.wav
-.omnivoice/
-omnivoice_cache/
+
+# Python/cache/build
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.egg-info/
-dist/
-build/
 .eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime local
+logs/
+*.log
+temp_llama/
+gravacoes/
+data/bloqueados.json
+
+# Modelos, caches e binarios grandes
+models/**
+llama.cpp/
+.omnivoice/
+omnivoice_cache/
+.cache/
+
+# Audios locais/de referencia
+data/**/*.wav
+data/*.wav
+data/**/*.mp3
+data/*.mp3
+data/**/*.flac
+data/*.flac
+data/**/*.ogg
+data/*.ogg
+
+# Editor/SO
 .vscode/
 .idea/
 *.swp
+Thumbs.db
+Desktop.ini

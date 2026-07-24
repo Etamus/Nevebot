@@ -9,14 +9,14 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #0e0f13;
-      --surface:  #16181f;
-      --card:     #1d1f29;
-      --border:   #2a2d3a;
-      --accent:   #7c6fcd;
-      --accent2:  #5865f2;
-      --text:     #e2e4ed;
-      --muted:    #8b8fa8;
+      --bg:       #080808;
+      --surface:  #141414;
+      --card:     #1f1f1f;
+      --border:   #333333;
+      --accent:   #ffffff;
+      --accent2:  #2d2d2d;
+      --text:     #f1f1f1;
+      --muted:    #a3a3a3;
       --success:  #3ba55c;
       --error:    #ed4245;
       --radius:   10px;
@@ -85,14 +85,14 @@
       border-radius: 6px;
       border: none;
       background: transparent;
-      color: var(--error);
+      color: #f4f4f5;
       font-size: .9rem;
       font-weight: 600;
       cursor: pointer;
-      border: 1px solid var(--error);
+      border: 1px solid rgba(255,255,255,.36);
       transition: background .15s, transform .1s;
     }
-    .btn-shutdown:hover { background: rgba(237,66,69,.12); }
+    .btn-shutdown:hover { background: rgba(255,255,255,.12); }
     .btn-shutdown:active { transform: scale(.97); }
 
     main { flex: 1; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem 4rem; width: 100%; }
@@ -183,7 +183,7 @@
       font-weight: 700;
       font-family: monospace;
       letter-spacing: .05em;
-      background: rgba(124, 111, 205, .18);
+      background: rgba(255, 255, 255, .12);
       color: var(--accent);
       padding: .2rem .55rem;
       border-radius: 4px;
@@ -220,7 +220,7 @@
     }
 
     .badge-name {
-      background: rgba(88, 101, 242, .2);
+      background: rgba(255, 255, 255, .12);
       color: var(--accent2);
       font-size: .68rem;
       padding: .1rem .4rem;
@@ -341,10 +341,10 @@
       display: flex; align-items: center; justify-content: center;
       cursor: pointer;
       transition: background .2s, transform .15s, box-shadow .2s;
-      box-shadow: 0 4px 16px rgba(88,101,242,.35);
+      box-shadow: 0 4px 16px rgba(0,0,0,.35);
     }
     .mic-btn svg { width: 32px; height: 32px; }
-    .mic-btn:hover { background: #4752c4; transform: scale(1.06); }
+    .mic-btn:hover { background: #3a3a3a; transform: scale(1.06); }
     .mic-btn:active { transform: scale(.96); }
     .mic-btn.recording {
       background: var(--error);
@@ -387,7 +387,7 @@
     .toggle input { opacity: 0; width: 0; height: 0; }
     .toggle-slider {
       position: absolute; inset: 0;
-      background: #3a3d4e;
+      background: #3a3a3a;
       border-radius: 26px;
       cursor: pointer;
       transition: background .2s;
@@ -493,7 +493,7 @@
       border: 1px solid rgba(255,255,255,.11);
       background:
         linear-gradient(135deg, rgba(255,255,255,.07), rgba(255,255,255,.025)),
-        rgba(4,7,18,.64);
+        rgba(8,8,8,.64);
       color: var(--text);
       padding: .4rem .58rem .4rem .76rem;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.18);
@@ -504,8 +504,8 @@
     }
     .custom-select-trigger:hover,
     .custom-select.open .custom-select-trigger {
-      border-color: rgba(34,211,238,.55);
-      box-shadow: 0 0 0 4px rgba(34,211,238,.08), inset 0 1px 0 rgba(255,255,255,.08), 0 16px 34px rgba(0,0,0,.24);
+      border-color: rgba(255,255,255,.55);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.08), inset 0 1px 0 rgba(255,255,255,.08), 0 16px 34px rgba(0,0,0,.24);
     }
     .custom-select-trigger:active { transform: translateY(1px); }
     .custom-select-label {
@@ -521,7 +521,7 @@
       flex-shrink: 0;
       display: grid;
       place-items: center;
-      background: rgba(167,139,250,.13);
+      background: rgba(255,255,255,.10);
       color: var(--accent3);
       transition: transform .18s, background .16s, color .16s;
     }
@@ -535,7 +535,7 @@
     }
     .custom-select.open .custom-select-arrow {
       transform: rotate(180deg);
-      background: rgba(34,211,238,.16);
+      background: rgba(255,255,255,.16);
       color: #fff;
     }
     .custom-select-menu {
@@ -550,8 +550,7 @@
       border: 1px solid rgba(255,255,255,.13);
       border-radius: 16px;
       background:
-        radial-gradient(circle at 12% 0%, rgba(167,139,250,.16), transparent 34%),
-        linear-gradient(145deg, rgba(24,29,52,.98), rgba(7,10,22,.98));
+        linear-gradient(145deg, rgba(36,36,36,.98), rgba(7,7,7,.98));
       backdrop-filter: blur(18px) saturate(140%);
       box-shadow: 0 24px 70px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.08);
       padding: .35rem;
@@ -583,7 +582,7 @@
       min-height: 34px;
       padding: .42rem .62rem;
       border-radius: 12px;
-      color: #dbe3ff;
+      color: #f4f4f5;
       white-space: nowrap;
       cursor: pointer;
       transition: background .13s, color .13s, transform .1s;
@@ -593,7 +592,7 @@
       color: #fff;
     }
     .custom-select-option.selected {
-      background: linear-gradient(135deg, rgba(109,124,255,.30), rgba(34,211,238,.15));
+      background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
       color: #fff;
     }
     .custom-select-option.selected::before {
@@ -802,7 +801,7 @@
       font-size: .72rem;
       font-weight: 600;
       color: var(--accent);
-      background: rgba(124,111,205,.12);
+      background: rgba(255,255,255,.12);
       padding: .2rem .7rem;
       border-radius: 999px;
       white-space: nowrap;
@@ -861,11 +860,11 @@
     }
     .voice-ptt-toggle:hover { border-color: var(--accent); color: var(--text); }
     .voice-ptt-toggle.active {
-      background: rgba(88,101,242,.15);
-      border-color: var(--accent2);
-      color: var(--accent2);
+      background: rgba(255,255,255,.10);
+      border-color: rgba(255,255,255,.42);
+      color: #f4f4f5;
     }
-    .voice-ptt-toggle.active:hover { background: rgba(88,101,242,.25); }
+    .voice-ptt-toggle.active:hover { background: rgba(255,255,255,.16); }
 
     /* ── Empty state icon ────────────────────────────────────────────────── */
     .voice-chat-empty-icon {
@@ -981,8 +980,8 @@
       outline: none;
     }
     .text-dispatch-input:focus {
-      border-color: rgba(34,211,238,.75);
-      box-shadow: 0 0 0 4px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.72);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.10), inset 0 1px 0 rgba(255,255,255,.05);
     }
     .text-dispatch-send {
       position: absolute;
@@ -1010,32 +1009,29 @@
 
     /* ── Modernização visual ─────────────────────────────────────────────── */
     :root {
-      --bg: #070914;
-      --surface: rgba(17, 20, 35, .78);
-      --card: rgba(22, 26, 46, .72);
-      --card-strong: rgba(31, 36, 62, .86);
+      --bg: #070707;
+      --surface: rgba(20, 20, 20, .82);
+      --card: rgba(28, 28, 28, .76);
+      --card-strong: rgba(38, 38, 38, .88);
       --border: rgba(255,255,255,.10);
-      --accent: #a78bfa;
-      --accent2: #6d7cff;
-      --accent3: #22d3ee;
-      --text: #f5f7ff;
-      --muted: #9aa3bd;
+      --accent: #ffffff;
+      --accent2: #2f2f2f;
+      --accent3: #f5f5f5;
+      --text: #f5f5f5;
+      --muted: #a7a7a7;
       --success: #34d399;
       --error: #fb7185;
       --warning: #fbbf24;
       --radius: 22px;
       --radius-sm: 14px;
       --shadow: 0 24px 80px rgba(0,0,0,.42);
-      --glow: 0 0 60px rgba(167,139,250,.18), 0 0 110px rgba(34,211,238,.08);
+      --glow: 0 0 60px rgba(255,255,255,.08), 0 0 110px rgba(0,0,0,.32);
     }
 
     html { scroll-behavior: smooth; }
     body {
       background:
-        radial-gradient(circle at 12% 12%, rgba(109,124,255,.24), transparent 28%),
-        radial-gradient(circle at 88% 6%, rgba(34,211,238,.18), transparent 30%),
-        radial-gradient(circle at 50% 100%, rgba(167,139,250,.16), transparent 35%),
-        linear-gradient(135deg, #050712 0%, #0b1024 52%, #090b18 100%);
+        linear-gradient(135deg, #030303 0%, #101010 52%, #070707 100%);
       overflow-x: hidden;
     }
     body::before {
@@ -1057,7 +1053,7 @@
       height: 72px;
       border: 1px solid rgba(255,255,255,.12);
       border-radius: 24px;
-      background: linear-gradient(135deg, rgba(20,24,44,.84), rgba(12,15,29,.64));
+      background: linear-gradient(135deg, rgba(31,31,31,.86), rgba(10,10,10,.70));
       backdrop-filter: blur(22px) saturate(145%);
       box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.08);
     }
@@ -1074,16 +1070,17 @@
       height: 42px;
       padding: 0 1.25rem;
       border-radius: 999px;
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
-      box-shadow: 0 12px 30px rgba(109,124,255,.28), inset 0 1px 0 rgba(255,255,255,.18);
+      background: linear-gradient(135deg, #ffffff, #bdbdbd);
+      color: #070707;
+      box-shadow: 0 12px 30px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.18);
     }
     .btn-shutdown {
       height: 42px;
       padding: 0 1.15rem;
       border-radius: 999px;
-      border-color: rgba(251,113,133,.45);
-      background: rgba(251,113,133,.08);
-      color: #fecdd3;
+      border-color: rgba(255,255,255,.34);
+      background: rgba(255,255,255,.06);
+      color: #f4f4f5;
     }
     main {
       max-width: 1180px;
@@ -1099,8 +1096,8 @@
       padding: 2rem;
       margin-bottom: 1.4rem;
       background:
-        linear-gradient(135deg, rgba(167,139,250,.20), rgba(34,211,238,.08)),
-        rgba(14,18,34,.72);
+        linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,.035)),
+        rgba(18,18,18,.78);
       backdrop-filter: blur(22px) saturate(140%);
       box-shadow: var(--shadow), var(--glow), inset 0 1px 0 rgba(255,255,255,.10);
     }
@@ -1110,7 +1107,7 @@
       width: 320px; height: 320px;
       right: -92px; top: -120px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(34,211,238,.34), transparent 68%);
+      background: radial-gradient(circle, rgba(255,255,255,.16), transparent 68%);
       filter: blur(8px);
     }
     .hero-kicker {
@@ -1120,7 +1117,7 @@
       padding: .32rem .72rem;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.12);
-      color: #dbeafe;
+      color: #f4f4f5;
       background: rgba(255,255,255,.06);
       font-size: .76rem;
       font-weight: 800;
@@ -1135,7 +1132,7 @@
       letter-spacing: -.065em;
     }
     .hero h1 span {
-      background: linear-gradient(90deg, #fff, #c4b5fd 42%, #67e8f9);
+      background: linear-gradient(90deg, #fff, #d4d4d4 42%, #fff);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
@@ -1167,20 +1164,20 @@
       align-items: center;
       gap: .7rem;
       margin: 2rem 0 .85rem;
-      color: #dbeafe;
+      color: #f4f4f5;
       font-size: .78rem;
     }
     .section-title::before {
       content: '';
       width: 9px; height: 9px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent3));
-      box-shadow: 0 0 18px rgba(34,211,238,.55);
+      background: linear-gradient(135deg, #ffffff, #9a9a9a);
+      box-shadow: 0 0 18px rgba(255,255,255,.22);
     }
 
     .general-card, .voz-card, .voice-chat-card, .cmd-card {
       border: 1px solid rgba(255,255,255,.11);
-      background: linear-gradient(145deg, rgba(25,30,54,.76), rgba(12,15,30,.68));
+      background: linear-gradient(145deg, rgba(31,31,31,.80), rgba(12,12,12,.72));
       backdrop-filter: blur(18px) saturate(135%);
       box-shadow: 0 18px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.07);
     }
@@ -1189,22 +1186,70 @@
     .text-dispatch-card {
       border: 1px solid rgba(255,255,255,.11);
       border-radius: 24px;
-      background: linear-gradient(145deg, rgba(25,30,54,.76), rgba(12,15,30,.68));
+      background: linear-gradient(145deg, rgba(31,31,31,.80), rgba(12,12,12,.72));
       backdrop-filter: blur(18px) saturate(135%);
       box-shadow: 0 18px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.07);
     }
+    .prompt-card {
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 24px;
+      padding: 1rem;
+      background: linear-gradient(145deg, rgba(31,31,31,.80), rgba(12,12,12,.72));
+      backdrop-filter: blur(18px) saturate(135%);
+      box-shadow: 0 18px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.07);
+    }
+    .prompt-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-bottom: .85rem;
+    }
+    .prompt-tab {
+      height: 36px;
+      padding: 0 .9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.05);
+      color: #d4d4d4;
+      cursor: pointer;
+      font-size: .82rem;
+      font-weight: 700;
+    }
+    .prompt-tab.active {
+      background: linear-gradient(135deg, #ffffff, #bdbdbd);
+      color: #070707;
+    }
+    .prompt-editor {
+      display: none;
+    }
+    .prompt-editor.active {
+      display: block;
+    }
+    .prompt-textarea {
+      min-height: 360px;
+      max-height: 680px;
+      font-size: .82rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .prompt-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: .6rem;
+      margin-top: .75rem;
+    }
     .general-card { justify-content: space-between; }
-    .general-card label, .voz-label, .vs-label { color: #b6c0da; }
+    .general-card label, .voz-label, .vs-label { color: #c7c7c7; }
 
     .input-prefix, .input-name, textarea, .voz-select, .voice-chat-input {
       border-radius: 14px;
       border-color: rgba(255,255,255,.11);
-      background: rgba(4,7,18,.48);
+      background: rgba(8,8,8,.50);
       box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
     }
     .input-prefix:focus, .input-name:focus, textarea:focus, .voz-select:focus, .voice-chat-input:focus {
-      border-color: rgba(34,211,238,.75);
-      box-shadow: 0 0 0 4px rgba(34,211,238,.10), inset 0 1px 0 rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.72);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.10), inset 0 1px 0 rgba(255,255,255,.05);
     }
 
     .voice-chat-card { border-radius: 30px; min-height: 640px; }
@@ -1214,7 +1259,7 @@
       align-items: center;
       gap: 1rem;
       padding: 1.15rem 1.35rem;
-      background: linear-gradient(135deg, rgba(167,139,250,.13), rgba(34,211,238,.045));
+      background: linear-gradient(135deg, rgba(255,255,255,.08), rgba(255,255,255,.025));
     }
     .voice-chat-header.compact {
       display: flex;
@@ -1225,7 +1270,7 @@
     .voice-chat-header-icon {
       width: 52px; height: 52px;
       border-radius: 18px;
-      box-shadow: 0 16px 34px rgba(109,124,255,.30);
+      box-shadow: 0 16px 34px rgba(0,0,0,.34);
     }
     .voice-chat-header-text h3 { font-size: 1.08rem; letter-spacing: -.02em; }
     .voice-chat-header-actions {
@@ -1237,8 +1282,7 @@
       max-height: 560px;
       padding: 1.3rem;
       background:
-        radial-gradient(circle at 10% 0%, rgba(167,139,250,.08), transparent 30%),
-        radial-gradient(circle at 90% 100%, rgba(34,211,238,.06), transparent 30%);
+        linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.01));
     }
     .voice-msg {
       border-radius: 20px;
@@ -1248,7 +1292,8 @@
     }
     @keyframes msg-in { from { opacity:0; transform: translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
     .voice-msg.user {
-      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      background: linear-gradient(135deg, #ffffff, #cfcfcf);
+      color: #080808;
       border-bottom-right-radius: 7px;
     }
     .voice-msg.bot {
@@ -1258,7 +1303,7 @@
     }
     .voice-chat-bar {
       padding: 1rem 1.2rem;
-      background: rgba(3,6,18,.40);
+      background: rgba(8,8,8,.40);
     }
     .voice-mic-small {
       width: 32px; height: 32px;
@@ -1283,16 +1328,16 @@
       background: rgba(255,255,255,.045);
     }
     .voice-ptt-toggle.active {
-      background: linear-gradient(135deg, rgba(109,124,255,.22), rgba(34,211,238,.14));
-      color: #dbeafe;
-      border-color: rgba(109,124,255,.55);
+      background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.08));
+      color: #f4f4f5;
+      border-color: rgba(255,255,255,.46);
     }
 
     .voice-settings-panel {
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: .9rem;
       padding: 1.2rem;
-      background: rgba(3,6,18,.30);
+      background: rgba(8,8,8,.30);
     }
     .vs-item {
       min-width: 0;
@@ -1319,8 +1364,9 @@
       min-height: 40px;
       border-radius: 999px;
       padding-inline: 1.25rem;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      box-shadow: 0 12px 30px rgba(167,139,250,.20);
+      background: linear-gradient(135deg, #ffffff, #bdbdbd);
+      color: #070707;
+      box-shadow: 0 12px 30px rgba(0,0,0,.30);
     }
     .voz-row {
       padding: .35rem;
@@ -1336,8 +1382,8 @@
     }
     .cmd-card:hover {
       transform: translateY(-3px);
-      border-color: rgba(167,139,250,.34);
-      box-shadow: 0 18px 46px rgba(0,0,0,.30), 0 0 34px rgba(167,139,250,.08);
+      border-color: rgba(255,255,255,.30);
+      box-shadow: 0 18px 46px rgba(0,0,0,.30), 0 0 34px rgba(255,255,255,.06);
     }
     .cmd-header {
       cursor: default;
@@ -1348,9 +1394,9 @@
     }
     .cmd-tag {
       border-radius: 999px;
-      color: #ede9fe;
-      background: rgba(167,139,250,.16);
-      border: 1px solid rgba(167,139,250,.18);
+      color: #f5f5f5;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.16);
     }
     .cmd-desc { line-height: 1.45; }
 
@@ -1462,6 +1508,13 @@ const MSG_VARS = {
   info:          ["{nome}"],
 };
 
+const PROMPT_LABELS = {
+  lou_voz: "Voz",
+  lou: "Chat",
+  assistente: "Assistente",
+  terapeuta: "Terapeuta",
+};
+
 // Estado atual da config
 let _config = null;
 let _guilds = [];
@@ -1502,6 +1555,8 @@ function renderizar(cfg) {
   // ── Chat de Voz ──────────────────────────────────
   el.innerHTML += renderizarChatVoz();
   setTimeout(inicializarChatVoz, 100);
+  el.innerHTML += renderizarPrompts(cfg);
+  setTimeout(() => selecionarPrompt('lou_voz'), 0);
 
   // ── Comandos ─────────────────────────────────────
   el.innerHTML += `<div class="section-title" style="margin-top:2rem">Comandos</div>
@@ -1694,6 +1749,53 @@ document.addEventListener('change', e => {
 });
 
 // ── Envio de mensagem para canais de texto ──────────────────────────────────
+function renderizarPrompts(cfg) {
+  const prompts = cfg.prompts || {};
+  const defaults = cfg._prompt_defaults || {};
+  const keys = ['lou_voz', 'lou', 'assistente', 'terapeuta'];
+  const tabs = keys.map(key => `
+    <button type="button" class="prompt-tab" data-prompt-tab="${esc(key)}"
+            onclick="selecionarPrompt('${esc(key)}')">${esc(PROMPT_LABELS[key] || key)}</button>
+  `).join('');
+  const editors = keys.map(key => {
+    const valor = prompts[key] || defaults[key] || '';
+    return `
+      <div class="prompt-editor" data-prompt-editor="${esc(key)}">
+        <div class="field">
+          <div class="field-label">${esc(PROMPT_LABELS[key] || key)} <span class="badge-name">SYSTEM</span></div>
+          <textarea class="prompt-textarea" data-prompt="${esc(key)}" spellcheck="false">${esc(valor)}</textarea>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="section-title" style="margin-top:2rem">Prompt da LLM</div>
+  <div class="prompt-card">
+    <div class="prompt-tabs">${tabs}</div>
+    ${editors}
+    <div class="prompt-actions">
+      <button class="voz-save-btn" type="button" onclick="restaurarPromptAtual()">Restaurar padrão</button>
+      <button class="voz-save-btn" type="button" onclick="salvar()">Salvar prompt</button>
+    </div>
+  </div>`;
+}
+
+function selecionarPrompt(key) {
+  document.querySelectorAll('.prompt-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.promptTab === key);
+  });
+  document.querySelectorAll('.prompt-editor').forEach(editor => {
+    editor.classList.toggle('active', editor.dataset.promptEditor === key);
+  });
+}
+
+function restaurarPromptAtual() {
+  const active = document.querySelector('.prompt-tab.active')?.dataset.promptTab || 'lou_voz';
+  const textarea = document.querySelector(`[data-prompt="${active}"]`);
+  const valor = _config?._prompt_defaults?.[active] || '';
+  if (textarea) textarea.value = valor;
+}
+
 function renderizarEnvioTexto() {
   const guildsHtml = _guilds && _guilds.length
     ? _guilds.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')
@@ -1927,6 +2029,7 @@ let _vozGainNode = null;
 let _vozChunks = [];
 let _pttEnabled = false;
 let _pttKeyHeld = false;
+let _pttPendingStart = false;
 
 function renderizarChatVoz() {
   return `
@@ -1982,38 +2085,55 @@ function renderizarChatVoz() {
 
     <!-- Settings panel -->
     <div class="voice-settings-panel">
-      <input id="voz-instruct-input" type="hidden" value="female, teenager, low pitch" />
-
       <div class="vs-item">
-        <span class="vs-label">Idade</span>
+        <span class="vs-label">Modelo</span>
         <div class="vs-control">
-          <select class="voz-select" id="voz-age-select" onchange="atualizarInstructVoz()">
-            <option value="teenager">teenager</option>
-            <option value="young adult">young adult</option>
-            <option value="adult">adult</option>
-          </select>
+          <input class="input-name" id="voz-model-input" type="text" value="Chatterbox PT-BR V3" disabled />
         </div>
       </div>
 
       <div class="vs-item">
-        <span class="vs-label">Pitch voz</span>
+        <span class="vs-label">Expressividade</span>
         <div class="vs-control">
-          <select class="voz-select" id="voz-pitch-style-select" onchange="atualizarInstructVoz()">
-            <option value="low pitch">low pitch</option>
-            <option value="moderate pitch">moderate pitch</option>
-            <option value="high pitch">high pitch</option>
-          </select>
+          <div class="voz-slider-wrap">
+            <input class="voz-slider" id="voz-exaggeration-slider" type="range"
+                   min="0.25" max="0.95" step="0.05" value="0.5"
+                   oninput="document.getElementById('voz-exaggeration-val').textContent=this.value" />
+            <span class="voz-slider-val" id="voz-exaggeration-val">0.5</span>
+          </div>
         </div>
       </div>
 
-      <input id="voz-language-input" type="hidden" value="Portuguese" />
+      <div class="vs-item">
+        <span class="vs-label">CFG</span>
+        <div class="vs-control">
+          <div class="voz-slider-wrap">
+            <input class="voz-slider" id="voz-cfg-slider" type="range"
+                   min="0.2" max="1" step="0.05" value="0.5"
+                   oninput="document.getElementById('voz-cfg-val').textContent=this.value" />
+            <span class="voz-slider-val" id="voz-cfg-val">0.5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="vs-item">
+        <span class="vs-label">Temperatura</span>
+        <div class="vs-control">
+          <div class="voz-slider-wrap">
+            <input class="voz-slider" id="voz-temperature-slider" type="range"
+                   min="0.05" max="2" step="0.05" value="0.8"
+                   oninput="document.getElementById('voz-temperature-val').textContent=this.value" />
+            <span class="voz-slider-val" id="voz-temperature-val">0.8</span>
+          </div>
+        </div>
+      </div>
 
       <div class="vs-item">
         <span class="vs-label">Velocidade</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
             <input class="voz-slider" id="voz-speed-slider" type="range"
-                   min="0.5" max="2" step="0.1" value="1"
+                   min="0.85" max="1.2" step="0.05" value="1"
                    oninput="document.getElementById('voz-speed-val').textContent=this.value" />
             <span class="voz-slider-val" id="voz-speed-val">1</span>
           </div>
@@ -2032,7 +2152,12 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <input id="voz-seed-input" type="hidden" value="42" />
+      <div class="vs-item">
+        <span class="vs-label">Seed</span>
+        <div class="vs-control">
+          <input class="input-name" id="voz-seed-input" type="number" min="0" step="1" value="42" />
+        </div>
+      </div>
 
       <div class="vs-item">
         <span class="vs-label">Pitch pós</span>
@@ -2048,7 +2173,7 @@ function renderizarChatVoz() {
       </div>
 
       <div class="vs-actions">
-        <button class="voz-save-btn" onclick="testarVoz()" style="margin-right:.5rem;background:linear-gradient(135deg,var(--accent3),var(--accent2))">Testar voz</button>
+        <button class="voz-save-btn" onclick="testarVoz()" style="margin-right:.5rem;background:linear-gradient(135deg,#ffffff,#bdbdbd);color:#070707">Testar voz</button>
         <button class="voz-save-btn" onclick="salvarConfigVoz()">Salvar</button>
       </div>
     </div>
@@ -2057,20 +2182,30 @@ function renderizarChatVoz() {
 }
 
 function inicializarChatVoz() {
-  // Carrega config de voz e preenche os campos
   fetch('/api/voz/config').then(r => r.json()).then(cfg => {
-    const instInput = document.getElementById('voz-instruct-input');
     const speedSlider = document.getElementById('voz-speed-slider');
     const speedVal = document.getElementById('voz-speed-val');
     const volSlider = document.getElementById('voz-volume-slider');
     const volVal = document.getElementById('voz-volume-val');
-    if (instInput && cfg.voz_instruct) instInput.value = cfg.voz_instruct;
-    const ageSel = document.getElementById('voz-age-select');
-    const pitchStyleSel = document.getElementById('voz-pitch-style-select');
-    if (ageSel && cfg.voz_age) ageSel.value = cfg.voz_age;
-    if (pitchStyleSel && cfg.voz_pitch_style) pitchStyleSel.value = cfg.voz_pitch_style;
-    const langInput = document.getElementById('voz-language-input');
-    if (langInput && cfg.voz_language) langInput.value = cfg.voz_language;
+    const exSlider = document.getElementById('voz-exaggeration-slider');
+    const exVal = document.getElementById('voz-exaggeration-val');
+    const cfgSlider = document.getElementById('voz-cfg-slider');
+    const cfgVal = document.getElementById('voz-cfg-val');
+    const tempSlider = document.getElementById('voz-temperature-slider');
+    const tempVal = document.getElementById('voz-temperature-val');
+
+    if (exSlider && cfg.voz_exaggeration != null) {
+      exSlider.value = cfg.voz_exaggeration;
+      if (exVal) exVal.textContent = cfg.voz_exaggeration;
+    }
+    if (cfgSlider && cfg.voz_cfg_weight != null) {
+      cfgSlider.value = cfg.voz_cfg_weight;
+      if (cfgVal) cfgVal.textContent = cfg.voz_cfg_weight;
+    }
+    if (tempSlider && cfg.voz_temperature != null) {
+      tempSlider.value = cfg.voz_temperature;
+      if (tempVal) tempVal.textContent = cfg.voz_temperature;
+    }
     if (speedSlider && cfg.velocidade != null) {
       speedSlider.value = cfg.velocidade;
       if (speedVal) speedVal.textContent = cfg.velocidade;
@@ -2087,33 +2222,18 @@ function inicializarChatVoz() {
       pitchSlider.value = cfg.pitch;
       if (pitchVal) pitchVal.textContent = cfg.pitch;
     }
-    atualizarInstructVoz();
     ajustarTodosSelects(document.getElementById('voice-chat-card') || document);
   }).catch(() => {});
 }
 
-function montarInstructVoz() {
-  const ageRaw = document.getElementById('voz-age-select')?.value || 'teenager';
-  const pitchRaw = document.getElementById('voz-pitch-style-select')?.value || 'low pitch';
-  const ageMap = { teenager: 'teenager', 'young adult': 'young adult', adult: 'middle-aged' };
-  const pitchMap = { 'low pitch': 'low pitch', 'moderate pitch': 'moderate pitch', 'medium pitch': 'moderate pitch', 'high pitch': 'high pitch' };
-  return `female, ${ageMap[ageRaw] || 'teenager'}, ${pitchMap[pitchRaw] || 'low pitch'}`;
-}
-
-function atualizarInstructVoz() {
-  const instInput = document.getElementById('voz-instruct-input');
-  if (instInput) instInput.value = montarInstructVoz();
-  ajustarSelectLargura(document.getElementById('voz-age-select'));
-  ajustarSelectLargura(document.getElementById('voz-pitch-style-select'));
-}
-
 async function salvarConfigVoz() {
-  atualizarInstructVoz();
   const cfg = {
-    voz_instruct: document.getElementById('voz-instruct-input')?.value || 'female, teenager, low pitch',
-    voz_age: document.getElementById('voz-age-select')?.value || 'teenager',
-    voz_pitch_style: document.getElementById('voz-pitch-style-select')?.value || 'low pitch',
-    voz_language: document.getElementById('voz-language-input')?.value || 'Portuguese',
+    tts_model: 'chatterbox-ptbr-v3',
+    voz_language: 'pt-BR',
+    voz_referencia: 'data/voz_referencia.wav',
+    voz_exaggeration: parseFloat(document.getElementById('voz-exaggeration-slider')?.value || '0.5'),
+    voz_cfg_weight: parseFloat(document.getElementById('voz-cfg-slider')?.value || '0.5'),
+    voz_temperature: parseFloat(document.getElementById('voz-temperature-slider')?.value || '0.8'),
     velocidade: parseFloat(document.getElementById('voz-speed-slider')?.value || '1'),
     volume: parseFloat(document.getElementById('voz-volume-slider')?.value || '1'),
     voz_seed: parseInt(document.getElementById('voz-seed-input')?.value || '42', 10),
@@ -2161,12 +2281,13 @@ async function toggleGravacao() {
 }
 
 async function iniciarGravacao() {
+  if (_vozRecording || _vozProcessing) return false;
   try {
     _vozMediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        noiseSuppression: false,
+        autoGainControl: false,
         channelCount: 1,
       }
     });
@@ -2191,8 +2312,15 @@ async function iniciarGravacao() {
     const btn = document.getElementById('voice-mic-btn');
     if (btn) btn.classList.add('recording');
     setVoiceStatus('Gravando...');
+    return true;
   } catch(e) {
+    _vozRecording = false;
+    _pttKeyHeld = false;
+    _pttPendingStart = false;
+    const btn = document.getElementById('voice-mic-btn');
+    if (btn) btn.classList.remove('recording');
     toast('Erro ao acessar microfone: ' + e.message, 'err');
+    return false;
   }
 }
 
@@ -2213,7 +2341,7 @@ async function pararGravacao() {
   // Merge chunks
   const totalLen = _vozChunks.reduce((a, c) => a + c.length, 0);
   if (totalLen < 1600) { // muito curto
-    _vozProcessing = false;
+    _finalizarProcessamentoVoz({ retomarPTT: false });
     if (btn) btn.classList.remove('processing');
     setVoiceStatus('');
     return;
@@ -2228,7 +2356,7 @@ async function pararGravacao() {
   const sampleRate = _vozAudioCtx ? _vozAudioCtx.sampleRate : 44100;
   const tratado = preprocessarAudioMic(merged, sampleRate);
   if (!tratado || tratado.length < sampleRate * 0.20) {
-    _vozProcessing = false;
+    _finalizarProcessamentoVoz({ retomarPTT: false });
     if (btn) btn.classList.remove('processing');
     setVoiceStatus('');
     if (_vozAudioCtx) { _vozAudioCtx.close(); _vozAudioCtx = null; }
@@ -2239,6 +2367,7 @@ async function pararGravacao() {
   if (_vozAudioCtx) { _vozAudioCtx.close(); _vozAudioCtx = null; }
 
   // Envia ao servidor
+  let audioDelayMs = 0;
   try {
     setVoiceStatus('Transcrevendo e gerando resposta...');
     const r = await fetch('/api/voz/chat', {
@@ -2249,16 +2378,19 @@ async function pararGravacao() {
     const res = await r.json();
     if (res.transcript) adicionarMsgChat('user', res.transcript);
     if (res.resposta) adicionarMsgChat('bot', res.resposta);
-    if (res.falou_discord) setVoiceStatus('Falando no Discord...');
+    if (res.falou_discord) {
+      audioDelayMs = calcularAguardoAudioDiscord(res);
+      setVoiceStatus('Falando no Discord...');
+    }
     else setVoiceStatus('');
   } catch(e) {
     toast('Erro no chat de voz: ' + e.message, 'err');
     setVoiceStatus('');
   }
 
-  _vozProcessing = false;
+  _finalizarProcessamentoVoz({ delayMs: audioDelayMs });
   if (btn) btn.classList.remove('processing');
-  setTimeout(() => setVoiceStatus(''), 3000);
+  setTimeout(() => { if (!_vozRecording && !_vozProcessing) setVoiceStatus(''); }, Math.max(3000, audioDelayMs + 500));
 }
 
 // ── Enviar texto digitado ───────────────────────────────────────────────────
@@ -2275,6 +2407,7 @@ async function enviarTextoVoz() {
   const sendBtn = document.getElementById('voice-send-btn');
   if (sendBtn) sendBtn.disabled = true;
 
+  let audioDelayMs = 0;
   try {
     const r = await fetch('/api/voz/chat-texto', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2282,16 +2415,19 @@ async function enviarTextoVoz() {
     });
     const res = await r.json();
     if (res.resposta) adicionarMsgChat('bot', res.resposta);
-    if (res.falou_discord) setVoiceStatus('Falando no Discord...');
+    if (res.falou_discord) {
+      audioDelayMs = calcularAguardoAudioDiscord(res);
+      setVoiceStatus('Falando no Discord...');
+    }
     else if (res.erro) toast('Erro: ' + res.erro, 'err');
     else setVoiceStatus('');
   } catch(e) {
     toast('Erro: ' + e.message, 'err');
   }
 
-  _vozProcessing = false;
+  _finalizarProcessamentoVoz({ delayMs: audioDelayMs });
   if (sendBtn) sendBtn.disabled = false;
-  setTimeout(() => setVoiceStatus(''), 3000);
+  setTimeout(() => { if (!_vozRecording && !_vozProcessing) setVoiceStatus(''); }, Math.max(3000, audioDelayMs + 500));
 }
 
 // ── Helpers de UI do chat ───────────────────────────────────────────────────
@@ -2311,6 +2447,29 @@ function adicionarMsgChat(role, texto) {
 function setVoiceStatus(msg) {
   const el = document.getElementById('voice-status');
   if (el) el.textContent = msg;
+}
+
+function calcularAguardoAudioDiscord(res) {
+  const ms = Number(res?.audio_ms || 0);
+  if (!Number.isFinite(ms) || ms <= 0) return 800;
+  return Math.min(120000, Math.max(800, ms + 250));
+}
+
+function _finalizarProcessamentoVoz({ retomarPTT = true, delayMs = 0 } = {}) {
+  const finalizar = () => {
+    _vozProcessing = false;
+    _pttGlobalAnterior = false;
+    if (retomarPTT) {
+      setTimeout(() => { _retomarPTTSePressionado(); }, 0);
+    } else {
+      _pttPendingStart = false;
+    }
+  };
+  if (delayMs > 0) {
+    setTimeout(finalizar, delayMs);
+  } else {
+    finalizar();
+  }
 }
 
 async function limparChatVoz() {
@@ -2349,11 +2508,16 @@ function _iniciarPollingPTT() {
   _pttPollInterval = setInterval(async () => {
     if (!_pttEnabled) return;
     try {
-      const r = await fetch('/api/voz/ptt-estado');
+      const r = await fetch('/api/voz/ptt-estado', { cache: 'no-store' });
       const data = await r.json();
       const agora = data.pressionado;
+      if (!agora) _pttPendingStart = false;
+      if (agora && _vozProcessing && !_vozRecording) {
+        _pttPendingStart = true;
+      }
       if (agora && !_pttGlobalAnterior && !_pttKeyHeld && !_vozProcessing) {
         _pttKeyHeld = true;
+        _pttPendingStart = false;
         iniciarGravacao();
       } else if (!agora && _pttGlobalAnterior && _pttKeyHeld) {
         _pttKeyHeld = false;
@@ -2370,21 +2534,49 @@ function _pararPollingPTT() {
     _pttPollInterval = null;
   }
   _pttGlobalAnterior = false;
+  _pttPendingStart = false;
+}
+
+async function _retomarPTTSePressionado() {
+  if (!_pttEnabled || _vozProcessing || _vozRecording || _pttKeyHeld) return;
+  let pressionado = _pttPendingStart;
+  try {
+    const r = await fetch('/api/voz/ptt-estado', { cache: 'no-store' });
+    const data = await r.json();
+    pressionado = pressionado || !!data.pressionado;
+  } catch(e) {}
+
+  if (!pressionado || !_pttEnabled || _vozProcessing || _vozRecording || _pttKeyHeld) {
+    if (!pressionado) _pttPendingStart = false;
+    return;
+  }
+
+  _pttPendingStart = false;
+  _pttKeyHeld = true;
+  _pttGlobalAnterior = true;
+  await iniciarGravacao();
 }
 
 document.addEventListener('keydown', (e) => {
-  if (!_pttEnabled || _pttKeyHeld || _vozProcessing) return;
+  if (!_pttEnabled) return;
   if (e.code === 'ShiftRight') {
     e.preventDefault();
+    if (_vozProcessing) {
+      _pttPendingStart = true;
+      return;
+    }
+    if (_pttKeyHeld) return;
     _pttKeyHeld = true;
     iniciarGravacao();
   }
 });
 
 document.addEventListener('keyup', (e) => {
-  if (!_pttEnabled || !_pttKeyHeld) return;
+  if (!_pttEnabled) return;
   if (e.code === 'ShiftRight') {
     e.preventDefault();
+    _pttPendingStart = false;
+    if (!_pttKeyHeld) return;
     _pttKeyHeld = false;
     if (_vozRecording) pararGravacao();
   }
@@ -2408,14 +2600,14 @@ function preprocessarAudioMic(samples, sampleRate) {
   if (!rms.length) return samples;
   const ordenado = [...rms].sort((a, b) => a - b);
   const noise = ordenado[Math.floor(ordenado.length * 0.2)] || 0;
-  const threshold = Math.max(0.012, noise * 3.0);
+  const threshold = Math.max(0.006, noise * 2.0);
   let first = -1, last = -1;
   for (let i = 0; i < rms.length; i++) {
     if (rms[i] > threshold) { if (first < 0) first = i; last = i; }
   }
   if (first < 0) return new Float32Array(0);
-  const pre = Math.floor(sampleRate * 0.18);
-  const post = Math.floor(sampleRate * 0.25);
+  const pre = Math.floor(sampleRate * 0.28);
+  const post = Math.floor(sampleRate * 0.35);
   const ini = Math.max(0, first * hop - pre);
   const fim = Math.min(samples.length, last * hop + frame + post);
   const cortado = samples.slice(ini, fim);
@@ -2513,10 +2705,16 @@ function buildBody(cmdKey, cmdData) {
 // ── Coleta os valores do formulário ────────────────────────────────────────
 function coletar() {
   const nova = JSON.parse(JSON.stringify(_config)); // deep clone
+  delete nova._prompt_defaults;
 
   // Prefixo
   const pInput = document.getElementById('inp-prefix');
   if (pInput) nova.prefix = pInput.value.trim() || '!';
+
+  nova.prompts = nova.prompts || {};
+  document.querySelectorAll('[data-prompt]').forEach(el => {
+    nova.prompts[el.dataset.prompt] = el.value;
+  });
 
   // Campos dos cards
   document.querySelectorAll('[data-cmd]').forEach(el => {
@@ -2536,6 +2734,7 @@ function coletar() {
 
 // ── Salva no servidor ──────────────────────────────────────────────────────
 async function salvar() {
+  const promptDefaults = _config?._prompt_defaults || {};
   const nova = coletar();
   try {
     const r = await fetch('/api/config', {
@@ -2545,7 +2744,7 @@ async function salvar() {
     });
     const res = await r.json();
     if (res.ok) {
-      _config = nova;
+      _config = { ...nova, _prompt_defaults: promptDefaults };
       // Atualiza os tags de prefixo/nome nos headers sem re-renderizar tudo
       atualizarTags(nova);
       toast('Configurações salvas com sucesso!', 'ok');

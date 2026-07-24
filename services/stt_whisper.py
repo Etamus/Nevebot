@@ -16,6 +16,7 @@ import numpy as np
 log = logging.getLogger("stt_whisper")
 
 _model = None
+_model_name = None
 _lock = threading.Lock()
 
 
@@ -50,13 +51,13 @@ def _trim_silencio_vad(samples: np.ndarray, sr: int = 16000) -> np.ndarray:
         return samples
     rms_arr = np.asarray(rms_vals, dtype=np.float32)
     noise = float(np.percentile(rms_arr, 20))
-    threshold = max(0.012, noise * 3.0)
+    threshold = max(0.006, noise * 2.0)
     voiced = np.where(rms_arr > threshold)[0]
     if voiced.size == 0:
         log.info("[STT] VAD local descartou áudio sem fala clara.")
         return np.asarray([], dtype=np.float32)
-    pre = int(sr * 0.18)
-    post = int(sr * 0.25)
+    pre = int(sr * 0.28)
+    post = int(sr * 0.35)
     ini = max(0, int(voiced[0] * hop) - pre)
     fim = min(len(samples), int(voiced[-1] * hop + frame) + post)
     if ini > 0 or fim < len(samples):
@@ -64,26 +65,48 @@ def _trim_silencio_vad(samples: np.ndarray, sr: int = 16000) -> np.ndarray:
     return samples[ini:fim].astype(np.float32)
 
 
-def carregar(modelo: str = "medium") -> None:
+def carregar(modelo: str = "small") -> None:
     """Carrega o modelo faster-whisper (lazy, thread-safe)."""
-    global _model
-    if _model is not None:
+    global _model, _model_name
+    modelo = (modelo or "small").strip()
+    if _model is not None and _model_name == modelo:
         return
     with _lock:
-        if _model is not None:
+        if _model is not None and _model_name == modelo:
             return
         try:
+            if _model is not None and _model_name != modelo:
+                log.info("[STT] Trocando faster-whisper '%s' -> '%s'...", _model_name, modelo)
+                _model = None
+
             from faster_whisper import WhisperModel
 
             log.info("[STT] Carregando faster-whisper '%s'...", modelo)
             _model = WhisperModel(modelo, device="cuda", compute_type="int8_float16")
+            _model_name = modelo
             log.info("[STT] faster-whisper carregado com sucesso.")
         except Exception as exc:
             log.error("[STT] ERRO ao carregar faster-whisper: %s", exc, exc_info=True)
             raise
 
 
-def transcrever(wav_bytes: bytes) -> str:
+def precarregar_e_aquecer(modelo: str = "small") -> None:
+    """Carrega o faster-whisper e aquece com um WAV real quando disponivel."""
+    carregar(modelo)
+    from pathlib import Path
+
+    wav_teste = Path(__file__).parent.parent / "data" / "debug_tts" / "chatterbox_sem_duplicar_normal.wav"
+    if not wav_teste.exists():
+        log.info("[STT] faster-whisper '%s' pre-carregado; WAV de warmup nao encontrado.", modelo)
+        return
+    try:
+        texto = transcrever(wav_teste.read_bytes(), modelo)
+        log.info("[STT] Warmup faster-whisper '%s' concluido: %r", modelo, texto)
+    except Exception as exc:
+        log.warning("[STT] Warmup faster-whisper falhou: %s", exc)
+
+
+def transcrever(wav_bytes: bytes, modelo: str = "small") -> str:
     """Transcreve áudio WAV (qualquer sample rate) para texto PT-BR.
 
     O WAV é lido com a stdlib (sem FFmpeg). Se a taxa de amostragem
@@ -91,7 +114,7 @@ def transcrever(wav_bytes: bytes) -> str:
     """
     log.info("[STT] Recebido WAV: %d bytes", len(wav_bytes))
     try:
-        carregar()
+        carregar(modelo)
         import torch
         import torchaudio.functional as F
 
@@ -136,12 +159,14 @@ def transcrever(wav_bytes: bytes) -> str:
         segments, info = _model.transcribe(
             samples,
             language="pt",
-            beam_size=1,
-            initial_prompt="Conversa em português brasileiro.",
+            beam_size=3,
+            initial_prompt=(
+                "Transcricao literal de fala casual em portugues brasileiro do Brasil. "
+                "Preserve girias e nomes proprios."
+            ),
             condition_on_previous_text=False,
-            no_speech_threshold=0.4,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=300),
+            no_speech_threshold=0.6,
+            vad_filter=False,
         )
         texto = " ".join(seg.text.strip() for seg in segments).strip()
         log.info("[STT] Transcrição: %r (lang=%s prob=%.2f)", texto,

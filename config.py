@@ -28,7 +28,7 @@ if not DISCORD_TOKEN:
 # ── Modelo LLM ───────────────────────────────────────────────────────────────
 MODELS_DIR = BASE_DIR / "models"
 MODELS_TEXTO_DIR = MODELS_DIR / "texto"
-OMNIVOICE_DIR = MODELS_DIR / "omnivoice"
+CHATTERBOX_DIR = MODELS_DIR / "chatterbox"
 
 def encontrar_modelo(pasta: Path | None = None, *, obrigatorio: bool = True) -> str:
     """
@@ -48,10 +48,13 @@ def encontrar_modelo(pasta: Path | None = None, *, obrigatorio: bool = True) -> 
 
 def _modelo_env_ou_pasta(nome_env: str, pasta: Path, fallback: str = "") -> str:
     valor = os.getenv(nome_env, "").strip().strip('"')
+    encontrado = encontrar_modelo(pasta, obrigatorio=False)
     if valor:
         caminho = Path(valor)
-        return str(caminho if caminho.is_absolute() else BASE_DIR / caminho)
-    encontrado = encontrar_modelo(pasta, obrigatorio=False)
+        resolvido = caminho if caminho.is_absolute() else BASE_DIR / caminho
+        if resolvido.exists():
+            return str(resolvido)
+        return encontrado or fallback
     return encontrado or fallback
 
 # Parâmetros do LLM
@@ -64,19 +67,18 @@ LLM_MODEL_PATH: str = _modelo_env_ou_pasta(
 if not LLM_MODEL_PATH:
     raise FileNotFoundError(
         f"Nenhum modelo .gguf encontrado em '{MODELS_TEXTO_DIR}' ou '{MODELS_DIR}'.\n"
-        "Coloque o Cydonia em models/texto/ e reinicie o bot."
+        "Coloque um modelo .gguf em models/texto/ e reinicie o bot."
     )
 
-# Para 16GB VRAM/32GB RAM com modelo ~24B quantizado, 8192 costuma ser o ponto
-# mais equilibrado. Contextos muito altos (ex.: 16k) aumentam KV cache, VRAM e
-# tempo de prefill sem ganho real para chat curto/voz.
-LLM_N_CTX: int        = int(os.getenv("LLM_N_CTX", 8192))
+# Para chat curto/voz, 4096 reduz KV cache, VRAM e tempo de prefill sem perder
+# utilidade pratica na conversa em tempo real.
+LLM_N_CTX: int        = int(os.getenv("LLM_N_CTX", 4096))
 
-_llm_max_tokens_env = int(os.getenv("LLM_MAX_TOKENS", 320))
-LLM_MAX_TOKENS: int   = _llm_max_tokens_env if _llm_max_tokens_env > 0 else 320
+_llm_max_tokens_env = int(os.getenv("LLM_MAX_TOKENS", 220))
+LLM_MAX_TOKENS: int   = _llm_max_tokens_env if _llm_max_tokens_env > 0 else 220
 LLM_N_GPU_LAYERS: int = int(os.getenv("LLM_N_GPU_LAYERS", -1))  # -1 = toda a GPU
-LLM_N_BATCH: int      = int(os.getenv("LLM_N_BATCH", 2048))     # tokens por batch no prefill
-LLM_N_UBATCH: int     = int(os.getenv("LLM_N_UBATCH", 512))     # micro-batch interno
+LLM_N_BATCH: int      = int(os.getenv("LLM_N_BATCH", 1024))     # tokens por batch no prefill
+LLM_N_UBATCH: int     = int(os.getenv("LLM_N_UBATCH", 256))     # micro-batch interno
 LLM_N_THREADS: int    = int(os.getenv("LLM_N_THREADS", max(4, (os.cpu_count() or 8) // 2)))
 LLM_N_THREADS_BATCH: int = int(os.getenv("LLM_N_THREADS_BATCH", os.cpu_count() or 8))
 
@@ -98,22 +100,24 @@ LLAMA_SERVER_URL: str = os.getenv(
 LLAMA_SERVER_STARTUP_TIMEOUT: int = int(os.getenv("LLAMA_SERVER_STARTUP_TIMEOUT", 600))
 LLAMA_REQUEST_TIMEOUT: int = int(os.getenv("LLAMA_REQUEST_TIMEOUT", 600))
 
-# Limite de tokens para respostas de voz (respostas curtas = resposta rápida)
-LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 60))
+# Limite de tokens para respostas de voz. O prompt mantem a resposta curta; a
+# folga evita corte no meio da frase quando o modelo precisa fechar a ideia.
+LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 64))
 
-# OmniVoice local: se models/omnivoice tiver checkpoint completo, usa local.
-# Se estiver vazio, mantém fallback para Hugging Face.
-OMNIVOICE_MODEL_PATH: str = os.getenv("OMNIVOICE_MODEL_PATH", "").strip().strip('"')
-if OMNIVOICE_MODEL_PATH:
-    _ov_path = Path(OMNIVOICE_MODEL_PATH)
-    OMNIVOICE_MODEL_PATH = str(_ov_path if _ov_path.is_absolute() else BASE_DIR / _ov_path)
-elif (OMNIVOICE_DIR / "config.json").exists() and (OMNIVOICE_DIR / "audio_tokenizer").is_dir():
-    OMNIVOICE_MODEL_PATH = str(OMNIVOICE_DIR)
-else:
-    OMNIVOICE_MODEL_PATH = "k2-fsa/OmniVoice"
+# Chatterbox Multilingual V3 PT-BR local.
+CHATTERBOX_BASE_DIR: Path = _path_env("CHATTERBOX_BASE_DIR", CHATTERBOX_DIR / "base")
+CHATTERBOX_PTBR_DIR: Path = _path_env("CHATTERBOX_PTBR_DIR", CHATTERBOX_DIR / "pt-br")
+CHATTERBOX_DEVICE: str = os.getenv("CHATTERBOX_DEVICE", "cuda").strip().lower()
+CHATTERBOX_LANGUAGE_ID: str = "pt"
+CHATTERBOX_MAX_CHARS: int = int(os.getenv("CHATTERBOX_MAX_CHARS", 280))
 
 # Parâmetros de qualidade / controle de repetição
-LLM_TEMPERATURE: float        = float(os.getenv("LLM_TEMPERATURE",        0.7))
-LLM_REPEAT_PENALTY: float     = float(os.getenv("LLM_REPEAT_PENALTY",     1.2))
-LLM_FREQUENCY_PENALTY: float  = float(os.getenv("LLM_FREQUENCY_PENALTY",  0.4))
-LLM_PRESENCE_PENALTY: float   = float(os.getenv("LLM_PRESENCE_PENALTY",   0.4))
+LLM_TEMPERATURE: float        = float(os.getenv("LLM_TEMPERATURE",        0.8))
+LLM_MIN_P: float              = float(os.getenv("LLM_MIN_P",              0.05))
+LLM_TOP_P: float              = float(os.getenv("LLM_TOP_P",              1.0))
+LLM_TOP_K: int                = int(os.getenv("LLM_TOP_K",                0))
+LLM_DRY_MULTIPLIER: float     = float(os.getenv("LLM_DRY_MULTIPLIER",     0.8))
+LLM_DRY_ALLOWED_LENGTH: int   = int(os.getenv("LLM_DRY_ALLOWED_LENGTH",   3))
+LLM_REPEAT_PENALTY: float     = float(os.getenv("LLM_REPEAT_PENALTY",     1.0))
+LLM_FREQUENCY_PENALTY: float  = float(os.getenv("LLM_FREQUENCY_PENALTY",  0.0))
+LLM_PRESENCE_PENALTY: float   = float(os.getenv("LLM_PRESENCE_PENALTY",   0.0))

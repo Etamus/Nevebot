@@ -1,14 +1,16 @@
 {
   "falar_discord": true,
-  "voz_age": "young adult",
-  "voz_pitch_style": "low pitch",
-  "voz_instruct": "female, young adult, low pitch",
-  "voz_language": "Portuguese",
+  "tts_model": "chatterbox-ptbr-v3",
+  "voz_language": "pt-BR",
+  "voz_referencia": "data/voz_referencia.wav",
+  "voz_exaggeration": 0.5,
+  "voz_cfg_weight": 0.5,
+  "voz_temperature": 0.8,
   "velocidade": 1,
   "volume": 1,
   "whisper_modelo": "small",
   "ativa": false,
   "silencio_s": 1.5,
   "voz_seed": 42,
-  "pitch": -2
+  "pitch": 0
 }

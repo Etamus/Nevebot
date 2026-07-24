@@ -1,6 +1,6 @@
 # Nevebot
 
-Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via llama.cpp), recursos de voz (STT com faster-whisper e TTS com OmniVoice) e uma interface web para configuração em tempo real. O projeto foca em conversas naturais em português, integração com canais de voz e controle fino via UI.
+Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via llama.cpp), recursos de voz (STT com faster-whisper e TTS com Chatterbox Multilingual V3 PT-BR) e uma interface web para configuração em tempo real. O projeto foca em conversas naturais em português, integração com canais de voz e controle fino via UI.
 
 ## Funcionalidades
 
@@ -13,7 +13,7 @@ Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via lla
 
 ### Recursos de Voz
 - Transcrição (STT): usa `faster-whisper` (CTranslate2 backend) com VAD; modelos `small`/`medium` configuráveis para balancear latência x qualidade.
-- Síntese de voz (TTS): usa `OmniVoice` em modo *voice-cloning* (gera uma referência única e reutiliza para consistência vocal).
+- Síntese de voz (TTS): usa `Chatterbox Multilingual V3` com o pacote dedicado PT-BR e clona a voz a partir de `data/voz_referencia.wav`.
 - Conversão PCM alinhada a frames Opus e flush final para evitar cortes abruptos no fim do áudio.
 - Reproduz TTS diretamente em canais de voz do Discord.
 - Suporte a GPU (CUDA) para acelerar STT/TTS/LLM.
@@ -44,13 +44,16 @@ cd Nevebot
 instalar.bat
 ```
 
-- O script cria/ativa um `venv` e instala dependências listadas em `requirements.txt`.
+- O script cria/usa um `venv`, cria as pastas locais, copia `.env.example` para `.env` se necessário, instala as dependências de `requirements.txt` e prepara o `chatterbox-tts`.
+- Quando há NVIDIA disponível, o instalador prepara PyTorch com CUDA `cu128`; sem NVIDIA, usa fallback CPU.
 - O `llama.cpp` oficial é baixado da última release do GitHub para `llama.cpp/`.
-- `faster-whisper` e suas dependências (`ctranslate2`, `onnxruntime`) são instaladas pelo instalador.
+- `faster-whisper`, Chatterbox e suas dependências são instaladas pelo instalador.
+- Os pesos locais do Chatterbox PT-BR são baixados para `models/chatterbox/`.
+- `install.bat` também existe como alias de compatibilidade e chama `instalar.bat`.
 
 3. Configure variáveis de ambiente e modelos:
-- Copie `.env.example` para `.env` e preencha `DISCORD_TOKEN` e outros caminhos conforme necessário.
-- Coloque o(s) modelo(s) LLM GGUF em `models/`.
+- Edite `.env` e preencha `DISCORD_TOKEN` e outros caminhos conforme necessário.
+- Coloque o(s) modelo(s) LLM GGUF em `models/texto/` ou ajuste `LLM_MODEL_PATH`.
 - Na primeira execução, `faster-whisper` baixará automaticamente o modelo STT selecionado (`small`/`medium`).
 
 ## Como Executar
@@ -68,9 +71,9 @@ iniciar.bat
 - Em canais de voz, fale para o bot — ele transcreve e pode responder por TTS no canal.
 
 ## Arquivos de Configuração
-- `data/voz_config.json`: configurações de voz (modelo STT, instruct do TTS, velocidade, volume, seed, pitch).
+- `data/voz_config.json`: configurações de voz (modelo STT, Chatterbox, expressividade, CFG, temperatura, velocidade, volume, seed, pitch).
 - `data/config_ui.json`: configurações exibidas na UI e textos de comandos.
-- `data/bloqueados.json`: lista de usuários bloqueados.
+- `data/bloqueados.json`: lista local de usuários bloqueados; é criado automaticamente e não deve ir para o Git.
 
 ## Estrutura do Projeto
 
@@ -89,7 +92,7 @@ Nevebot/
 │   └── voice_cog.py
 ├── services/
 │   ├── stt_whisper.py        # faster-whisper wrapper (STT)
-│   └── tts_omnivoice.py      # OmniVoice TTS + voice-clone
+│   └── tts_chatterbox.py      # Chatterbox PT-BR TTS + voice-clone
 ├── data/
 │   ├── config_ui.json
 │   ├── voz_config.json
@@ -107,7 +110,7 @@ Nevebot/
 - `llama.cpp` oficial (`llama-server.exe`) para LLM GGUF
 - `faster-whisper` (STT)
 - `ctranslate2`, `onnxruntime`
-- `omnivoice` (TTS) ou SDK/environment compatível
+- `chatterbox-tts` (TTS) com pesos locais PT-BR
 - `pynput` (PTT global)
 
 Consulte `requirements.txt` para a lista completa e versões testadas.
@@ -115,5 +118,5 @@ Consulte `requirements.txt` para a lista completa e versões testadas.
 ## Notas e Recomendações
 - Recomendamos GPU (CUDA) para desempenho ideal em STT/TTS/LLM.
 - Default do STT é configurável; recomendamos `small` para bom equilíbrio entre velocidade e qualidade em PT-BR. `medium` melhora qualidade, com latência maior.
-- O pipeline de TTS usa voice-clone com uma referência persistente (`data/voz_referencia.wav`) para voz consistente entre gerações.
+- O pipeline de TTS usa voice-clone diretamente em `data/voz_referencia.wav`; ao trocar o arquivo, a nova referência é detectada na próxima geração.
 - Implementamos alinhamento de frames e flush no final do PCM para evitar cortes no final da fala.
