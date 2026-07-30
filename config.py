@@ -103,6 +103,7 @@ LLAMA_REQUEST_TIMEOUT: int = int(os.getenv("LLAMA_REQUEST_TIMEOUT", 600))
 # Limite de tokens para respostas de voz. O prompt mantem a resposta curta; a
 # folga evita corte no meio da frase quando o modelo precisa fechar a ideia.
 LLM_VOZ_MAX_TOKENS: int = int(os.getenv("LLM_VOZ_MAX_TOKENS", 64))
+LLM_VOZ_TEMPERATURE: float = float(os.getenv("LLM_VOZ_TEMPERATURE", 0.62))
 
 # Chatterbox Multilingual V3 PT-BR local.
 CHATTERBOX_BASE_DIR: Path = _path_env("CHATTERBOX_BASE_DIR", CHATTERBOX_DIR / "base")
@@ -110,6 +111,13 @@ CHATTERBOX_PTBR_DIR: Path = _path_env("CHATTERBOX_PTBR_DIR", CHATTERBOX_DIR / "p
 CHATTERBOX_DEVICE: str = os.getenv("CHATTERBOX_DEVICE", "cuda").strip().lower()
 CHATTERBOX_LANGUAGE_ID: str = "pt"
 CHATTERBOX_MAX_CHARS: int = int(os.getenv("CHATTERBOX_MAX_CHARS", 280))
+CHATTERBOX_WATERMARK: bool = os.getenv("CHATTERBOX_WATERMARK", "0").strip().lower() in {"1", "true", "yes", "sim"}
+CHATTERBOX_FULL_WARMUP: bool = os.getenv("CHATTERBOX_FULL_WARMUP", "1").strip().lower() in {"1", "true", "yes", "sim"}
+CHATTERBOX_CFM_TIMESTEPS: int = int(os.getenv("CHATTERBOX_CFM_TIMESTEPS", 4))
+CHATTERBOX_MIN_SPEECH_TOKENS: int = int(os.getenv("CHATTERBOX_MIN_SPEECH_TOKENS", 40))
+CHATTERBOX_MAX_SPEECH_TOKENS: int = int(os.getenv("CHATTERBOX_MAX_SPEECH_TOKENS", 560))
+CHATTERBOX_SPEECH_TOKENS_PER_CHAR: float = float(os.getenv("CHATTERBOX_SPEECH_TOKENS_PER_CHAR", 2.0))
+CHATTERBOX_SPEECH_TOKEN_BIAS: int = int(os.getenv("CHATTERBOX_SPEECH_TOKEN_BIAS", 24))
 
 # Parâmetros de qualidade / controle de repetição
 LLM_TEMPERATURE: float        = float(os.getenv("LLM_TEMPERATURE",        0.8))

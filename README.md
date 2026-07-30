@@ -8,11 +8,11 @@ Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via lla
 - Respostas locais usando modelos Llama (GGUF) hospedados no host.
 - Modos de operação:
   - **Assistente**: respostas diretas e objetivas.
-  - **Lou**: persona casual e introspectiva (não admite ser IA).
+  - **Neve casual**: persona casual e introspectiva (não admite ser IA).
 - Comandos especiais (via prefixo): `!resumir`, `!estilo`, `!limpar`, `!desligar`, `!bloquear`, entre outros.
 
 ### Recursos de Voz
-- Transcrição (STT): usa `faster-whisper` (CTranslate2 backend) com VAD; modelos `small`/`medium` configuráveis para balancear latência x qualidade.
+- Transcrição (STT): usa `faster-whisper` (CTranslate2 backend) com `large-v3-turbo` em PT-BR, quantização e decodificação rápida para balancear qualidade e latência.
 - Síntese de voz (TTS): usa `Chatterbox Multilingual V3` com o pacote dedicado PT-BR e clona a voz a partir de `data/voz_referencia.wav`.
 - Conversão PCM alinhada a frames Opus e flush final para evitar cortes abruptos no fim do áudio.
 - Reproduz TTS diretamente em canais de voz do Discord.
@@ -54,7 +54,7 @@ instalar.bat
 3. Configure variáveis de ambiente e modelos:
 - Edite `.env` e preencha `DISCORD_TOKEN` e outros caminhos conforme necessário.
 - Coloque o(s) modelo(s) LLM GGUF em `models/texto/` ou ajuste `LLM_MODEL_PATH`.
-- Na primeira execução, `faster-whisper` baixará automaticamente o modelo STT selecionado (`small`/`medium`).
+- Na primeira execução, `faster-whisper` baixará automaticamente o modelo STT selecionado (`large-v3-turbo` por padrão).
 
 ## Como Executar
 
@@ -117,6 +117,6 @@ Consulte `requirements.txt` para a lista completa e versões testadas.
 
 ## Notas e Recomendações
 - Recomendamos GPU (CUDA) para desempenho ideal em STT/TTS/LLM.
-- Default do STT é configurável; recomendamos `small` para bom equilíbrio entre velocidade e qualidade em PT-BR. `medium` melhora qualidade, com latência maior.
+- Default do STT é `large-v3-turbo`, usando `beam_size=1`, `temperature=0` e `int8_float16` em CUDA para melhorar compreensão em PT-BR sem pesar como o `large-v3` completo.
 - O pipeline de TTS usa voice-clone diretamente em `data/voz_referencia.wav`; ao trocar o arquivo, a nova referência é detectada na próxima geração.
 - Implementamos alinhamento de frames e flush no final do PCM para evitar cortes no final da fala.

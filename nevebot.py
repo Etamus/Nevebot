@@ -70,6 +70,7 @@ log = logging.getLogger("nevebot")
 # ── Bot ───────────────────────────────────────────────────────────────────────
 intents = discord.Intents.default()
 intents.message_content = True  # necessário para ler o conteúdo das mensagens
+intents.voice_states = True
 
 bot = commands.Bot(command_prefix=_bot_cfg.prefix(), intents=intents)
 

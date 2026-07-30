@@ -6,6 +6,7 @@ import asyncio
 import io
 import json
 import logging
+import os
 from pathlib import Path
 
 import discord
@@ -28,7 +29,7 @@ _VOZ_DEFAULT: dict = {
     "voz_temperature": 0.8,
     "velocidade": 1.0,
     "volume": 1.0,
-    "whisper_modelo": "small",
+    "whisper_modelo": "large-v3-turbo",
     "ativa": False,
     "silencio_s": 1.5,
     "voz_seed": 42,
@@ -65,18 +66,37 @@ def salvar_config_voz() -> None:
     )
 
 
-async def reproduzir_pcm(bot: commands.Bot, guild_id: int, pcm_bytes: bytes) -> None:
+async def reproduzir_pcm(
+    bot: commands.Bot,
+    guild_id: int,
+    pcm_bytes: bytes,
+    *,
+    interromper: bool = False,
+) -> None:
     """Reproduz áudio PCM bruto (48 kHz, estéreo, 16-bit) no canal de voz.
 
     Usa discord.PCMAudio — não depende de FFmpeg.
     Espera até a reprodução terminar.
     """
-    log.info("[VOZ] reproduzir_pcm chamado — guild_id=%s pcm_bytes=%d", guild_id, len(pcm_bytes))
+    log.info(
+        "[VOZ] reproduzir_pcm chamado — guild_id=%s pcm_bytes=%d interromper=%s",
+        guild_id,
+        len(pcm_bytes),
+        interromper,
+    )
 
     lock = _playback_locks.get(guild_id)
     if lock is None:
         lock = asyncio.Lock()
         _playback_locks[guild_id] = lock
+
+    if interromper:
+        guild = bot.get_guild(guild_id)
+        vc = guild.voice_client if guild is not None else None
+        if vc is not None and vc.is_connected() and vc.is_playing():
+            log.info("[VOZ] Interrompendo reproducao anterior para tocar resposta nova.")
+            vc.stop()
+            await asyncio.sleep(0.05)
 
     async with lock:
         guild = bot.get_guild(guild_id)
@@ -141,7 +161,11 @@ class VoiceCog(commands.Cog, name="Voice"):
         """Carrega e aquece o faster-whisper com o modelo configurado."""
         try:
             from services import stt_whisper
-            modelo = voz_estado.get("whisper_modelo", "small")
+            modelo = voz_estado.get("whisper_modelo", "large-v3-turbo")
+            delay = max(0.0, float(os.getenv("WHISPER_PREWARM_DELAY_S", "8.0")))
+            if delay:
+                log.info("[VOZ] Whisper '%s' será pré-aquecido em %.1fs.", modelo, delay)
+                await asyncio.sleep(delay)
             await asyncio.to_thread(stt_whisper.precarregar_e_aquecer, modelo)
         except Exception as exc:
             log.warning("[VOZ] Falha ao pré-aquecer Whisper: %s", exc)

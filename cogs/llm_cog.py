@@ -97,7 +97,7 @@ _PROMPT_ASSISTENTE = (
 )
 
 _PROMPT_LOU_BASE = (
-    "Você é Louise Lopes, conhecida como Lou. Tem 18 anos, nasceu em 05/06/2006, "
+    "Você é Neve. Tem 18 anos, nasceu em 05/06/2006, "
     "mora em São Bernardo do Campo, é estudante de psicologia no início da graduação. "
     "Vive sozinha em um apartamento pequeno e acolhedor. Classe média baixa.\n\n"
 
@@ -186,7 +186,7 @@ _PROMPT_LOU_BASE = (
     + _SUFIXO_ANTI_ROLEPLAY
 )
 _PROMPT_LOU_VOZ_BASE = (
-    "Você é Louise Lopes, a Lou: 18 anos, brasileira, estudante de psicologia, "
+    "Você é Neve: 18 anos, brasileira, estudante de psicologia, "
     "introvertida, sensível, leal e um pouco insegura, mas carinhosa com quem confia. "
     "Você fala como uma pessoa real no Discord, em português brasileiro natural, sem "
     "formalidade e sem parecer assistente.\n\n"
@@ -199,7 +199,19 @@ _PROMPT_LOU_VOZ_BASE = (
     "Modo voz: responda em 1 frase curta, no máximo 2 se precisar. Use até 25 palavras "
     "sempre que der. Termine a última frase completa; se o assunto for grande, diga só "
     "o essencial e deixe abertura para continuar. Sempre coloque pontuacao final clara "
-    "em cada frase; nunca junte duas ideias sem ponto."
+    "em cada frase; nunca junte duas ideias sem ponto.\n\n"
+    "Estabilidade: responda somente ao que o usuario acabou de dizer. Nao invente fatos, "
+    "nomes, assuntos, memorias ou intencoes. Se a transcricao parecer ruido, legenda, "
+    "frase solta sem sentido ou algo que voce nao entendeu, responda so: "
+    "'Acho que nao entendi direito.'"
+)
+
+_SUFIXO_VOZ_ESTAVEL = (
+    "\n\n[SISTEMA VOZ - ESTABILIDADE] "
+    "Responda somente ao que o usuario acabou de dizer. Nao invente fatos, nomes, "
+    "assuntos, memorias ou intencoes. Se a transcricao parecer ruido, legenda, "
+    "frase solta sem sentido ou algo que voce nao entendeu, responda exatamente: "
+    "'Acho que nao entendi direito.'"
 )
 
 
@@ -417,7 +429,7 @@ class LlamaCppServerClient:
         chars = 0
         finish_reason = "?"
         try:
-            for raw_line in response.iter_lines(decode_unicode=False):
+            for raw_line in response.iter_lines(chunk_size=1, decode_unicode=False):
                 if not raw_line:
                     continue
                 line = raw_line.decode("utf-8", errors="replace") if isinstance(raw_line, bytes) else str(raw_line)
@@ -583,7 +595,7 @@ class LLMCog(commands.Cog, name="LLM"):
         return bool(palavras & _PALAVRAS_PROIBICAO)
 
     def _construir_prompt_lou(self, canal_id: int) -> str:
-        """Monta o prompt da Lou com restrições do pai."""
+        """Monta o prompt casual da Neve com restrições do pai."""
         prompt = _bot_cfg.prompt("lou", _PROMPT_LOU_BASE)
         restricoes = self._restricoes_pai.get(canal_id)
         if restricoes:
@@ -593,8 +605,10 @@ class LLMCog(commands.Cog, name="LLM"):
         return prompt
 
     def _construir_prompt_lou_voz(self, canal_id: int) -> str:
-        """Monta um prompt curto da Lou para voz em tempo real."""
+        """Monta um prompt curto da Neve para voz em tempo real."""
         prompt = _bot_cfg.prompt("lou_voz", _PROMPT_LOU_VOZ_BASE)
+        if "SISTEMA VOZ - ESTABILIDADE" not in prompt:
+            prompt += _SUFIXO_VOZ_ESTAVEL
         restricoes = self._restricoes_pai.get(canal_id)
         if restricoes:
             bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
@@ -613,7 +627,7 @@ class LLMCog(commands.Cog, name="LLM"):
         return prompt
 
     def _verificar_e_corrigir_lou(self, resposta: str) -> str:
-        """Verifica se a resposta da Lou está em PT-BR natural. Corrige se necessário."""
+        """Verifica se a resposta da Neve está em PT-BR natural. Corrige se necessário."""
         if len(resposta) < 4:
             return resposta
         verif_sys = (
@@ -696,6 +710,7 @@ class LLMCog(commands.Cog, name="LLM"):
         historico: list[dict],
         max_tokens: int | None = None,
         continuar_se_cortar: bool = True,
+        temperature: float | None = None,
     ) -> str:
         """Gera resposta usando o prompt do modo ativo e o histórico do canal."""
         stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
@@ -708,7 +723,7 @@ class LLMCog(commands.Cog, name="LLM"):
                 messages=messages,
                 max_tokens=max_tokens or config.LLM_MAX_TOKENS,
                 stop=stop,
-                **self._sampling_payload(),
+                **self._sampling_payload(temperature=temperature),
             )
         resposta, finish_reason = self._extrair_conteudo(output)
         if continuar_se_cortar and finish_reason == "length" and resposta.strip():
@@ -748,6 +763,7 @@ class LLMCog(commands.Cog, name="LLM"):
         system_prompt: str,
         historico: list[dict],
         max_tokens: int | None = None,
+        temperature: float | None = None,
     ):
         """Entrega deltas de texto conforme o llama-server gera a resposta."""
         stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
@@ -760,7 +776,7 @@ class LLMCog(commands.Cog, name="LLM"):
                 messages=messages,
                 max_tokens=max_tokens or config.LLM_MAX_TOKENS,
                 stop=stop,
-                **self._sampling_payload(),
+                **self._sampling_payload(temperature=temperature),
             )
 
     def _gerar_resumo(self, mensagens_texto: str, n: int) -> str:
@@ -978,14 +994,14 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @commands.command(name="lou")
     async def cmd_lou(self, ctx: commands.Context) -> None:
-        """Ativa o modo Lou (conversa casual) neste canal."""
+        """Ativa o modo casual da Neve neste canal."""
         if self.canais_modo.get(ctx.channel.id) == "lou":
             await ctx.send(self._m("lou", "ja_ativo"))
             return
         self._canais_desligados.discard(ctx.channel.id)
         self.canais_modo[ctx.channel.id] = "lou"
         self._historico.pop(ctx.channel.id, None)
-        log.info("Modo Lou ativado em #%s", ctx.channel)
+        log.info("Modo casual ativado em #%s", ctx.channel)
         await ctx.send(self._m("lou", "ativado"))
 
     @commands.command(name="desligar")

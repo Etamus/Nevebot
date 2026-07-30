@@ -8,7 +8,7 @@
   "voz_temperature": 0.8,
   "velocidade": 1,
   "volume": 1,
-  "whisper_modelo": "small",
+  "whisper_modelo": "large-v3-turbo",
   "ativa": false,
   "silencio_s": 1.5,
   "voz_seed": 42,

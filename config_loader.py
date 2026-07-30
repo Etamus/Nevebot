@@ -22,9 +22,9 @@ _DEFAULT: dict = {
     "commands": {
         "lou": {
             "name": "casual",
-            "descricao": "Ativa o modo Lou (conversa casual) neste canal.",
+            "descricao": "Ativa o modo casual da Neve neste canal.",
             "messages": {
-                "ja_ativo": "Já tô no modo Lou aqui.",
+                "ja_ativo": "Já tô no modo casual aqui.",
                 "ativado": "Modo casual ativado."
             }
         },

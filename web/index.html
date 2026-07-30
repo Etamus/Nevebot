@@ -1022,8 +1022,8 @@
       --success: #34d399;
       --error: #fb7185;
       --warning: #fbbf24;
-      --radius: 22px;
-      --radius-sm: 14px;
+      --radius: 14px;
+      --radius-sm: 8px;
       --shadow: 0 24px 80px rgba(0,0,0,.42);
       --glow: 0 0 60px rgba(255,255,255,.08), 0 0 110px rgba(0,0,0,.32);
     }
@@ -1368,6 +1368,11 @@
       color: #070707;
       box-shadow: 0 12px 30px rgba(0,0,0,.30);
     }
+    .voz-save-btn.voz-danger-btn {
+      background: linear-gradient(135deg, #ef4444, #991b1b);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(153,27,27,.28), inset 0 1px 0 rgba(255,255,255,.16);
+    }
     .voz-row {
       padding: .35rem;
       border-radius: 16px;
@@ -1410,12 +1415,54 @@
     #toast.ok { background: rgba(52,211,153,.18); color: #d1fae5; }
     #toast.err { background: rgba(251,113,133,.18); color: #ffe4e6; }
 
+    header { border-radius: 16px; }
+    .hero { border-radius: 18px; }
+    .general-card,
+    .voz-card,
+    .text-dispatch-card,
+    .prompt-card,
+    .voice-chat-card {
+      border-radius: 16px;
+    }
+    .cmd-card,
+    .stat-card,
+    .vs-item,
+    .voice-msg {
+      border-radius: 12px;
+    }
+    .voice-chat-header-icon,
+    .voice-settings-panel,
+    .voz-row,
+    .input-action-wrap,
+    .custom-select-menu,
+    .voice-chat-bar {
+      border-radius: 10px;
+    }
+    .btn-save-top,
+    .btn-shutdown,
+    .voz-save-btn,
+    .prompt-tab,
+    .voice-ptt-toggle,
+    .hero-kicker,
+    .cmd-tag {
+      border-radius: 10px;
+    }
+    .input-prefix,
+    .input-name,
+    textarea,
+    .voz-select,
+    .voice-chat-input,
+    .custom-select-trigger {
+      border-radius: 8px;
+    }
+    #toast { border-radius: 12px; }
+
     @media (max-width: 860px) {
       header { width: calc(100% - 20px); padding: 0 .9rem; }
       header > div:last-child { gap: .35rem; }
       .btn-shutdown, .btn-save-top { padding-inline: .8rem; font-size: .78rem; }
       main { padding-inline: .8rem; margin-top: 22px; }
-      .hero { padding: 1.35rem; border-radius: 24px; }
+      .hero { padding: 1.35rem; border-radius: 16px; }
       .hero-stats { grid-template-columns: 1fr; }
       .general-card, .voz-row { align-items: stretch; flex-direction: column; }
       .text-dispatch-head { flex-direction: column; }
@@ -1762,7 +1809,7 @@ function renderizarPrompts(cfg) {
     return `
       <div class="prompt-editor" data-prompt-editor="${esc(key)}">
         <div class="field">
-          <div class="field-label">${esc(PROMPT_LABELS[key] || key)} <span class="badge-name">SYSTEM</span></div>
+          <div class="field-label">${esc(PROMPT_LABELS[key] || key)}</div>
           <textarea class="prompt-textarea" data-prompt="${esc(key)}" spellcheck="false">${esc(valor)}</textarea>
         </div>
       </div>`;
@@ -1808,7 +1855,6 @@ function renderizarEnvioTexto() {
     <div class="text-dispatch-head">
       <div>
         <div class="text-dispatch-title">Mensagem</div>
-        <div class="text-dispatch-subtitle">Selecione um servidor, escolha um canal de texto e envie uma mensagem como o bot.</div>
       </div>
     </div>
     <div class="text-dispatch-grid">
@@ -1895,7 +1941,7 @@ async function enviarMensagemServidor() {
 // ── Seção Voz ───────────────────────────────────────────────────────────────
 function renderizarVoz() {
   const guildsHtml = _guilds && _guilds.length
-    ? _guilds.map(g => `<option value="${esc(g.id)}" ${g.em_voz ? 'selected' : ''}>${esc(g.name)}${g.em_voz ? ' 🔊' : ''}</option>`).join('')
+    ? _guilds.map(g => `<option value="${esc(g.id)}" ${(g.em_voz || g.conectando) ? 'selected' : ''}>${esc(rotuloGuildVoz(g))}</option>`).join('')
     : '';
 
   return `
@@ -1905,7 +1951,6 @@ function renderizarVoz() {
     <div class="voz-row" style="align-items:flex-start;justify-content:space-between">
       <div>
         <div style="font-weight:800;font-size:1.05rem;letter-spacing:-.02em">Conexão</div>
-        <div style="color:var(--muted);font-size:.86rem;margin-top:.15rem">Escolha servidor e canal para a Neve falar</div>
       </div>
     </div>
     <div class="voz-row">
@@ -1917,11 +1962,43 @@ function renderizarVoz() {
       <select class="voz-select" id="voz-canal"><option value="">Carregando...</option></select>
     </div>
     <div class="voz-row" style="justify-content:flex-end;gap:.5rem">
+      <button class="voz-save-btn voz-danger-btn" id="voz-btn-remover-servidor" onclick="removerServidorSelecionado()"
+              title="Faz a Neve sair do servidor selecionado">Remover servidor</button>
       <button class="voz-save-btn" id="voz-btn-conectar" onclick="conectarVoz()">Conectar</button>
       <button class="voz-save-btn" id="voz-btn-desconectar" onclick="desconectarVoz()"
-              style="background:#ed4245;display:none">Desconectar</button>
+              style="display:none">Desconectar</button>
     </div>` : '<div style="color:var(--muted);text-align:center;padding:1rem">Nenhum servidor disponível.</div>'}
   </div>`;
+}
+
+function rotuloGuildVoz(g) {
+  if (!g) return '';
+  const sufixo = g.em_voz ? ' 🔊' : (g.conectando ? ' (conectando)' : '');
+  return `${g.name}${sufixo}`;
+}
+
+function atualizarSelectGuildsVoz(guildId) {
+  const guildSel = document.getElementById('voz-guild');
+  if (!guildSel) return;
+  [...guildSel.options].forEach(opt => {
+    const g = (_guilds || []).find(item => item.id === opt.value);
+    if (g) opt.textContent = rotuloGuildVoz(g);
+  });
+  if (guildId) guildSel.value = guildId;
+  ajustarSelectLargura(guildSel);
+}
+
+function atualizarBotoesConexaoVoz(guildId) {
+  const guild = (_guilds || []).find(g => g.id === guildId);
+  const ativo = !!(guild?.canal_id || guild?.em_voz || guild?.conectando);
+  const conectado = !!guild?.canal_id;
+  const btnCon = document.getElementById('voz-btn-conectar');
+  const btnDis = document.getElementById('voz-btn-desconectar');
+  const btnRem = document.getElementById('voz-btn-remover-servidor');
+  if (btnCon) btnCon.style.display = ativo ? 'none' : '';
+  if (btnDis) btnDis.style.display = conectado ? '' : 'none';
+  if (btnRem) btnRem.style.display = guild ? '' : 'none';
+  atualizarSelectGuildsVoz(guildId);
 }
 
 
@@ -1944,17 +2021,11 @@ async function carregarCanaisVoz() {
     }
     // Reflete estado atual (bot já conectado?)
     const guild = (_guilds || []).find(g => g.id === guildId);
-    const btnCon = document.getElementById('voz-btn-conectar');
-    const btnDis = document.getElementById('voz-btn-desconectar');
     if (guild?.canal_id) {
       const opt = [...canalSel.options].find(o => o.value === guild.canal_id);
       if (opt) canalSel.value = guild.canal_id;
-      if (btnCon) btnCon.style.display = 'none';
-      if (btnDis) btnDis.style.display = '';
-    } else {
-      if (btnCon) btnCon.style.display = '';
-      if (btnDis) btnDis.style.display = 'none';
     }
+    atualizarBotoesConexaoVoz(guildId);
   } catch(e) {
     canalSel.innerHTML = '<option value="">Erro ao carregar</option>';
   }
@@ -1966,7 +2037,11 @@ async function conectarVoz() {
   const channelId = document.getElementById('voz-canal')?.value;
   if (!guildId || !channelId) { toast('Selecione um canal de voz.', 'err'); return; }
   const btn = document.getElementById('voz-btn-conectar');
+  const btnRem = document.getElementById('voz-btn-remover-servidor');
   if (btn) btn.disabled = true;
+  const gInicio = (_guilds || []).find(g => g.id === guildId);
+  if (gInicio) { gInicio.conectando = true; gInicio.em_voz = false; gInicio.canal_id = null; }
+  atualizarBotoesConexaoVoz(guildId);
   try {
     const r = await fetch('/api/voz/conectar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1975,18 +2050,28 @@ async function conectarVoz() {
     const res = await r.json();
     if (res.ok) {
       const g = (_guilds || []).find(g => g.id === guildId);
-      if (g) { g.em_voz = true; g.canal_id = channelId; }
+      if (g) { g.em_voz = true; g.conectando = false; g.canal_id = channelId; }
+      atualizarBotoesConexaoVoz(guildId);
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const dis = document.getElementById('voz-btn-desconectar');
       if (dis) dis.style.display = '';
+      if (btnRem) btnRem.disabled = false;
       toast('Bot conectado ao canal de voz!', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
+      const g = (_guilds || []).find(g => g.id === guildId);
+      if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
+      atualizarBotoesConexaoVoz(guildId);
       if (btn) btn.disabled = false;
+      if (btnRem) btnRem.disabled = false;
     }
   } catch(e) {
     toast('Falha ao conectar: ' + e.message, 'err');
+    const g = (_guilds || []).find(g => g.id === guildId);
+    if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
+    atualizarBotoesConexaoVoz(guildId);
     if (btn) btn.disabled = false;
+    if (btnRem) btnRem.disabled = false;
   }
 }
 
@@ -1994,7 +2079,9 @@ async function desconectarVoz() {
   const guildId = document.getElementById('voz-guild')?.value;
   if (!guildId) return;
   const btn = document.getElementById('voz-btn-desconectar');
+  const btnRem = document.getElementById('voz-btn-remover-servidor');
   if (btn) btn.disabled = true;
+  if (btnRem) btnRem.disabled = true;
   try {
     const r = await fetch('/api/voz/desconectar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2003,19 +2090,90 @@ async function desconectarVoz() {
     const res = await r.json();
     if (res.ok) {
       const g = (_guilds || []).find(g => g.id === guildId);
-      if (g) { g.em_voz = false; g.canal_id = null; }
+      if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
+      atualizarBotoesConexaoVoz(guildId);
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const con = document.getElementById('voz-btn-conectar');
       if (con) con.style.display = '';
+      if (btnRem) btnRem.disabled = false;
       toast('Bot desconectado do canal de voz.', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
       if (btn) btn.disabled = false;
+      if (btnRem) btnRem.disabled = false;
     }
   } catch(e) {
     toast('Falha ao desconectar: ' + e.message, 'err');
     if (btn) btn.disabled = false;
+    if (btnRem) btnRem.disabled = false;
   }
+}
+
+function removerGuildDaInterface(guildId) {
+  _guilds = (_guilds || []).filter(g => g.id !== guildId);
+  fecharCustomSelects();
+  if (_config) {
+    renderizar(_config);
+    return;
+  }
+
+  ['voz-guild', 'texto-guild'].forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    [...select.options].forEach(opt => {
+      if (opt.value === guildId) opt.remove();
+    });
+    if (select.options.length) select.value = select.options[0].value;
+    ajustarSelectLargura(select);
+  });
+}
+
+async function removerServidorSelecionado() {
+  const guildId = document.getElementById('voz-guild')?.value;
+  if (!guildId) return;
+  const guild = (_guilds || []).find(g => g.id === guildId);
+  const nomeServidor = guild?.name || guildId;
+  const confirmado = confirm(`Remover a Neve do servidor "${nomeServidor}"?\n\nEla vai sair deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.`);
+  if (!confirmado) return;
+  const btn = document.getElementById('voz-btn-remover-servidor');
+  const btnCon = document.getElementById('voz-btn-conectar');
+  const btnDis = document.getElementById('voz-btn-desconectar');
+  if (btn) btn.disabled = true;
+  if (btnCon) btnCon.disabled = true;
+  if (btnDis) btnDis.disabled = true;
+  try {
+    const r = await fetch('/api/guilds/remover', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ guild_id: guildId }),
+    });
+    const res = await r.json();
+    if (res.ok) {
+      removerGuildDaInterface(guildId);
+      toast(`Neve saiu de "${nomeServidor}".`, 'ok');
+    } else {
+      toast('Erro: ' + (res.erro || '?'), 'err');
+      if (btnCon) btnCon.disabled = false;
+      if (btnDis) btnDis.disabled = false;
+    }
+  } catch(e) {
+    toast('Falha ao remover servidor: ' + e.message, 'err');
+    if (btnCon) btnCon.disabled = false;
+    if (btnDis) btnDis.disabled = false;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function atualizarGuildsVoz(guildId) {
+  try {
+    const r = await fetch('/api/guilds');
+    const guilds = await r.json();
+    if (Array.isArray(guilds)) {
+      _guilds = guilds;
+      atualizarSelectGuildsVoz(guildId);
+      atualizarBotoesConexaoVoz(guildId);
+    }
+  } catch (_) {}
 }
 
 // ── Chat de Voz ──────────────────────────────────────────────────────────────
@@ -2258,7 +2416,7 @@ async function testarVoz() {
   try {
     const r = await fetch('/api/voz/testar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ texto: 'Oi, eu sou a Lou. Assim ficou minha voz agora.' }),
+      body: JSON.stringify({ texto: 'Oi, eu sou a Neve. Assim ficou minha voz agora.' }),
     });
     const res = await r.json();
     if (res.ok) toast('Teste de voz enviado ao Discord.', 'ok');
@@ -2600,16 +2758,18 @@ function preprocessarAudioMic(samples, sampleRate) {
   if (!rms.length) return samples;
   const ordenado = [...rms].sort((a, b) => a - b);
   const noise = ordenado[Math.floor(ordenado.length * 0.2)] || 0;
-  const threshold = Math.max(0.006, noise * 2.0);
+  const totalRms = Math.sqrt(samples.reduce((acc, v) => acc + (v * v), 0) / Math.max(1, samples.length));
+  const threshold = Math.max(0.003, noise * 1.45, totalRms * 0.18);
   let first = -1, last = -1;
   for (let i = 0; i < rms.length; i++) {
     if (rms[i] > threshold) { if (first < 0) first = i; last = i; }
   }
-  if (first < 0) return new Float32Array(0);
-  const pre = Math.floor(sampleRate * 0.28);
-  const post = Math.floor(sampleRate * 0.35);
+  if (first < 0) return samples;
+  const pre = Math.floor(sampleRate * 0.45);
+  const post = Math.floor(sampleRate * 0.60);
   const ini = Math.max(0, first * hop - pre);
   const fim = Math.min(samples.length, last * hop + frame + post);
+  if ((fim - ini) < sampleRate * 0.35 && samples.length > sampleRate * 0.70) return samples;
   const cortado = samples.slice(ini, fim);
 
   let sum = 0, peak = 0;
@@ -2620,7 +2780,7 @@ function preprocessarAudioMic(samples, sampleRate) {
   }
   const audioRms = Math.sqrt(sum / Math.max(1, cortado.length));
   if (audioRms > 0 && peak > 0) {
-    const gain = Math.min(0.08 / audioRms, 0.95 / peak, 8);
+    const gain = Math.min(0.08 / audioRms, 0.95 / peak, 6);
     if (gain > 1.05) {
       const out = new Float32Array(cortado.length);
       for (let i = 0; i < cortado.length; i++) out[i] = Math.max(-1, Math.min(1, cortado[i] * gain));

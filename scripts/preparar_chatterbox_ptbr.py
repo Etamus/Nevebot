@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -37,12 +38,13 @@ def main() -> None:
         local_dir=str(PTBR_MODEL_DIR),
     )
 
-    hf_hub_download(
+    cangjie_cache = hf_hub_download(
         repo_id="ResembleAI/chatterbox",
         repo_type="model",
         filename="Cangjie5_TC.json",
         cache_dir=str(PTBR_MODEL_DIR),
     )
+    shutil.copy2(cangjie_cache, PTBR_MODEL_DIR / "Cangjie5_TC.json")
 
     print("[Chatterbox] Pronto em models/chatterbox.")
 

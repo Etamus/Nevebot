@@ -13,6 +13,7 @@ import math
 import random
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,11 +31,13 @@ _PTBR_REQUIRED = (
     "t3_pt_br.safetensors",
     "s3gen_v3.pt",
     "grapheme_mtl_merged_expanded_v1.json",
+    "Cangjie5_TC.json",
 )
 
 _model: "_ChatterboxPTBR | None" = None
 _ref_key: tuple[str, int, int, float] | None = None
 _lock = threading.RLock()
+_infer_lock = threading.Lock()
 
 
 @dataclass
@@ -78,6 +81,7 @@ class _ChatterboxPTBR:
         from chatterbox.models.tokenizers import MTLTokenizer
         from chatterbox.models.voice_encoder import VoiceEncoder
 
+        _patch_tqdm()
         _patch_alignment_analyzer()
         base_dir = Path(base_dir)
         ptbr_dir = Path(ptbr_dir)
@@ -101,6 +105,7 @@ class _ChatterboxPTBR:
         )
         s3gen.to(device).eval()
 
+        _patch_tokenizer_local_assets(ptbr_dir)
         tokenizer = MTLTokenizer(str(ptbr_dir / "grapheme_mtl_merged_expanded_v1.json"))
         return cls(t3, s3gen, ve, tokenizer, device)
 
@@ -171,26 +176,110 @@ class _ChatterboxPTBR:
         text_tokens = F.pad(text_tokens, (1, 0), value=self.t3.hp.start_text_token)
         text_tokens = F.pad(text_tokens, (0, 1), value=self.t3.hp.stop_text_token)
 
-        with torch.inference_mode():
-            speech_tokens = self.t3.inference(
-                t3_cond=self.conds.t3,
-                text_tokens=text_tokens,
-                max_new_tokens=_estimar_max_speech_tokens(text),
-                temperature=float(temperature),
-                cfg_weight=float(cfg_weight),
-                repetition_penalty=float(repetition_penalty),
-                min_p=float(min_p),
-                top_p=float(top_p),
-            )[0]
-            speech_tokens = drop_invalid_tokens(speech_tokens).to(self.device)
-            wav, _ = self.s3gen.inference(speech_tokens=speech_tokens, ref_dict=self.conds.gen)
-            wav = wav.squeeze(0).detach().cpu().numpy()
+        with _infer_lock:
+            try:
+                with torch.inference_mode():
+                    inicio_t3 = time.perf_counter()
+                    speech_tokens = self.t3.inference(
+                        t3_cond=self.conds.t3,
+                        text_tokens=text_tokens,
+                        max_new_tokens=_estimar_max_speech_tokens(text),
+                        temperature=float(temperature),
+                        cfg_weight=float(cfg_weight),
+                        repetition_penalty=float(repetition_penalty),
+                        min_p=float(min_p),
+                        top_p=float(top_p),
+                    )[0]
+                    speech_tokens = drop_invalid_tokens(speech_tokens).to(self.device)
+                    log.info("[TTS] T3 tokens prontos em %.2fs (%d tokens)", time.perf_counter() - inicio_t3, int(speech_tokens.shape[-1]))
+                    cfm_timesteps = max(1, int(config.CHATTERBOX_CFM_TIMESTEPS))
+                    inicio_flow = time.perf_counter()
+                    output_mels = self.s3gen.flow_inference(
+                        speech_tokens=speech_tokens,
+                        ref_dict=self.conds.gen,
+                        n_cfm_timesteps=cfm_timesteps,
+                        finalize=True,
+                    )
+                    output_mels = output_mels.to(dtype=self.s3gen.dtype)
+                    log.info("[TTS] S3Gen flow pronto em %.2fs", time.perf_counter() - inicio_flow)
+                    inicio_hift = time.perf_counter()
+                    wav, _ = self.s3gen.hift_inference(output_mels, None)
+                    wav[:, : len(self.s3gen.trim_fade)] *= self.s3gen.trim_fade
+                    wav = wav.squeeze(0).detach().cpu().numpy()
+                    log.info("[TTS] HiFiGAN pronto em %.2fs", time.perf_counter() - inicio_hift)
+            finally:
+                _remover_alignment_hooks(getattr(self.t3, "tfmr", None))
 
         n_tokens = int(speech_tokens.shape[-1])
         st_len = max(1, n_tokens - 1)
         wav = wav[: st_len * (S3GEN_SR // S3_TOKEN_RATE)]
-        watermarked = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
-        return watermarked.astype(np.float32, copy=False)
+        if config.CHATTERBOX_WATERMARK:
+            wav = self.watermarker.apply_watermark(wav, sample_rate=self.sr)
+        return wav.astype(np.float32, copy=False)
+
+
+def _patch_tqdm() -> None:
+    """Remove a barra de progresso do Chatterbox dentro do bot."""
+    try:
+        import chatterbox.models.t3.t3 as t3_module
+
+        if getattr(t3_module, "_nevebot_tqdm_patch", False):
+            return
+
+        def _quiet_tqdm(iterable=None, *args, **kwargs):
+            return iterable if iterable is not None else ()
+
+        t3_module.tqdm = _quiet_tqdm
+        t3_module._nevebot_tqdm_patch = True
+    except Exception as exc:
+        log.debug("[TTS] Nao foi possivel desativar tqdm do Chatterbox: %s", exc)
+
+
+def _patch_tokenizer_local_assets(ptbr_dir: Path) -> None:
+    """Evita chamadas ao HuggingFace e inicializacao chinesa no tokenizer PT-BR."""
+    try:
+        import json
+        import chatterbox.models.tokenizers.tokenizer as tokenizer_module
+
+        if getattr(tokenizer_module, "_nevebot_local_assets_patch", False):
+            return
+
+        ptbr_dir = Path(ptbr_dir)
+
+        def _load_cangjie_mapping(self, model_dir=None):
+            cangjie_file = Path(model_dir or ptbr_dir) / "Cangjie5_TC.json"
+            if not cangjie_file.exists():
+                log.info("[TTS] Cangjie5_TC.json ausente; ignorando suporte chines no tokenizer PT-BR.")
+                return
+            try:
+                with cangjie_file.open("r", encoding="utf-8") as fp:
+                    data = json.load(fp)
+                for entry in data:
+                    word, code = entry.split("\t")[:2]
+                    self.word2cj[word] = code
+                    self.cj2word.setdefault(code, []).append(word)
+            except Exception as exc:
+                log.warning("[TTS] Falha ao carregar Cangjie local: %s", exc)
+
+        def _init_segmenter(self):
+            self.segmenter = None
+
+        tokenizer_module.ChineseCangjieConverter._load_cangjie_mapping = _load_cangjie_mapping
+        tokenizer_module.ChineseCangjieConverter._init_segmenter = _init_segmenter
+        tokenizer_module._nevebot_local_assets_patch = True
+    except Exception as exc:
+        log.debug("[TTS] Nao foi possivel ajustar tokenizer local: %s", exc)
+
+
+def _remover_alignment_hooks(tfmr) -> None:
+    handles = list(getattr(tfmr, "_nevebot_alignment_hook_handles", []) or []) if tfmr is not None else []
+    for handle in handles:
+        try:
+            handle.remove()
+        except Exception:
+            pass
+    if tfmr is not None:
+        tfmr._nevebot_alignment_hook_handles = []
 
 
 def _patch_alignment_analyzer() -> None:
@@ -200,27 +289,96 @@ def _patch_alignment_analyzer() -> None:
     if getattr(AlignmentStreamAnalyzer, "_nevebot_patch", False):
         return
 
+    def _add_attention_spy(self, tfmr, buffer_idx, layer_idx, head_idx):
+        if buffer_idx == 0:
+            _remover_alignment_hooks(tfmr)
+
+        def attention_forward_hook(module, input, output):
+            if isinstance(output, tuple) and len(output) > 1 and output[1] is not None:
+                step_attention = output[1].detach().cpu()
+                self.last_aligned_attns[buffer_idx] = step_attention[0, head_idx]
+
+        target_layer = tfmr.layers[layer_idx].self_attn
+        handle = target_layer.register_forward_hook(attention_forward_hook)
+        handles = list(getattr(tfmr, "_nevebot_alignment_hook_handles", []) or [])
+        handles.append(handle)
+        tfmr._nevebot_alignment_hook_handles = handles
+        if hasattr(tfmr, "config") and hasattr(tfmr.config, "output_attentions"):
+            self.original_output_attentions = tfmr.config.output_attentions
+            self.original_attn_implementation = getattr(tfmr.config, "_attn_implementation", None)
+            if getattr(tfmr.config, "_attn_implementation", None) == "sdpa":
+                tfmr.config._attn_implementation = "eager"
+            tfmr.config.output_attentions = True
+
+    def _aligned_attn_media(self, torch):
+        i, j = self.text_tokens_slice
+        validos = []
+        for attn in getattr(self, "last_aligned_attns", []) or []:
+            if not torch.is_tensor(attn):
+                continue
+            matriz = attn
+            while matriz.dim() > 2:
+                if matriz.shape[0] == 1:
+                    matriz = matriz.squeeze(0)
+                else:
+                    matriz = matriz.reshape(-1, matriz.shape[-1])
+                    break
+            if matriz.dim() != 2:
+                continue
+            rows, cols = int(matriz.shape[0]), int(matriz.shape[1])
+            if cols < j:
+                continue
+            if self.curr_frame_pos == 0 and rows <= j:
+                continue
+            if self.curr_frame_pos > 0 and rows < 1:
+                continue
+            validos.append(matriz)
+        if not validos:
+            if not getattr(self, "_nevebot_align_skip_logged", False):
+                log.debug("[TTS] Pulando analise de alinhamento: atencoes ainda incompletas.")
+                self._nevebot_align_skip_logged = True
+            return None
+
+        rows = min(int(m.shape[0]) for m in validos)
+        cols = min(int(m.shape[1]) for m in validos)
+        if cols < j or (self.curr_frame_pos == 0 and rows <= j):
+            return None
+        return torch.stack([m[:rows, :cols] for m in validos]).mean(dim=0)
+
     def step(self, logits, next_token=None):
         import torch
 
-        aligned_attn = torch.stack(self.last_aligned_attns).mean(dim=0)
+        aligned_attn = _aligned_attn_media(self, torch)
+        if aligned_attn is None:
+            self.curr_frame_pos += 1
+            return logits
+
         i, j = self.text_tokens_slice
         if self.curr_frame_pos == 0:
             a_chunk = aligned_attn[j:, i:j].clone().cpu()
         else:
             a_chunk = aligned_attn[:, i:j].clone().cpu()
+        if a_chunk.numel() == 0 or a_chunk.shape[-1] == 0:
+            self.curr_frame_pos += 1
+            return logits
 
         a_chunk[:, self.curr_frame_pos + 1:] = 0
         self.alignment = torch.cat((self.alignment, a_chunk), dim=0)
 
         a_mat = self.alignment
+        if a_mat.numel() == 0:
+            self.curr_frame_pos += 1
+            return logits
+
         _, text_len = a_mat.shape
-        cur_text_pos = a_chunk[-1].argmax()
+        cur_text_pos = int(a_chunk[-1].argmax().item())
         discontinuity = not (-4 < cur_text_pos - self.text_position < 7)
         if not discontinuity:
             self.text_position = cur_text_pos
 
-        false_start = (not self.started) and (a_mat[-2:, -2:].max() > 0.1 or a_mat[:, :4].max() < 0.5)
+        false_start = (not self.started) and (
+            a_mat[-2:, -2:].max() > 0.1 or a_mat[:, : min(4, text_len)].max() < 0.5
+        )
         self.started = not false_start
         if self.started and self.started_at is None:
             self.started_at = a_mat.shape[0]
@@ -229,8 +387,19 @@ def _patch_alignment_analyzer() -> None:
         if self.complete and self.completed_at is None:
             self.completed_at = a_mat.shape[0]
 
-        long_tail = self.complete and (a_mat[self.completed_at:, -3:].sum(dim=0).max() >= 5)
-        alignment_repetition = self.complete and (a_mat[self.completed_at:, :-5].max(dim=1).values.sum() > 5)
+        long_tail = bool(
+            self.complete
+            and self.completed_at is not None
+            and a_mat[self.completed_at:, -3:].numel()
+            and a_mat[self.completed_at:, -3:].sum(dim=0).max() >= 5
+        )
+        alignment_repetition = bool(
+            self.complete
+            and self.completed_at is not None
+            and text_len > 5
+            and a_mat[self.completed_at:, :-5].numel()
+            and a_mat[self.completed_at:, :-5].max(dim=1).values.sum() > 5
+        )
 
         if next_token is not None:
             token_id = next_token.item() if isinstance(next_token, torch.Tensor) else int(next_token)
@@ -256,13 +425,21 @@ def _patch_alignment_analyzer() -> None:
         self.curr_frame_pos += 1
         return logits
 
+    AlignmentStreamAnalyzer._add_attention_spy = _add_attention_spy
     AlignmentStreamAnalyzer.step = step
     AlignmentStreamAnalyzer._nevebot_patch = True
 
 
 def _estimar_max_speech_tokens(text: str) -> int:
     chars = max(1, len(text))
-    return max(90, min(1000, int(chars * 2.8) + 45))
+    return max(
+        int(config.CHATTERBOX_MIN_SPEECH_TOKENS),
+        min(
+            int(config.CHATTERBOX_MAX_SPEECH_TOKENS),
+            int(chars * float(config.CHATTERBOX_SPEECH_TOKENS_PER_CHAR))
+            + int(config.CHATTERBOX_SPEECH_TOKEN_BIAS),
+        ),
+    )
 
 
 def _dbfs(valor: float) -> float:
@@ -392,6 +569,14 @@ def carregar(device: str | None = None) -> None:
         import torch
 
         _verificar_modelos()
+        try:
+            torch.set_float32_matmul_precision("high")
+            if torch.cuda.is_available():
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+                torch.backends.cudnn.benchmark = False
+        except Exception:
+            pass
         chosen_device = (device or config.CHATTERBOX_DEVICE or "cuda").strip().lower()
         if chosen_device.startswith("cuda") and not torch.cuda.is_available():
             chosen_device = "cpu"
@@ -525,6 +710,7 @@ def gerar(
     texto = " ".join((texto or "").split())
     if not texto:
         return np.zeros(0, dtype=np.float32)
+    inicio_total = time.perf_counter()
 
     speed = max(0.85, min(float(speed or 1.0), 1.2))
     exaggeration = max(0.25, min(float(exaggeration or 0.5), 0.95))
@@ -533,21 +719,26 @@ def gerar(
     repetition_penalty = max(1.0, min(float(repetition_penalty or 1.2), 2.0))
 
     _set_seed(int(seed or 0))
+    inicio_ref = time.perf_counter()
     _garantir_referencia(exaggeration)
+    tempo_ref = time.perf_counter() - inicio_ref
 
     chunks = _quebrar_texto(texto, int(config.CHATTERBOX_MAX_CHARS))
     audios: list[np.ndarray] = []
     silence = np.zeros(int(_model.sr * 0.18), dtype=np.float32)
     log.info(
-        "[TTS] Gerando Chatterbox PT-BR: chunks=%d speed=%.2f exag=%.2f cfg=%.2f temp=%.2f",
+        "[TTS] Gerando Chatterbox PT-BR: chunks=%d speed=%.2f exag=%.2f cfg=%.2f temp=%.2f cfm_steps=%d",
         len(chunks),
         speed,
         exaggeration,
         cfg_weight,
         temperature,
+        max(1, int(config.CHATTERBOX_CFM_TIMESTEPS)),
     )
     for i, chunk in enumerate(chunks, start=1):
-        log.info("[TTS] Chunk %d/%d: %r", i, len(chunks), chunk[:90])
+        inicio_chunk = time.perf_counter()
+        max_tokens = _estimar_max_speech_tokens(chunk)
+        log.info("[TTS] Chunk %d/%d: %r (max_speech_tokens=%d)", i, len(chunks), chunk[:90], max_tokens)
         wav = _model.generate(
             chunk,
             exaggeration=exaggeration,
@@ -558,6 +749,7 @@ def gerar(
             top_p=top_p,
         )
         audios.append(wav)
+        log.info("[TTS] Chunk %d/%d gerado em %.2fs", i, len(chunks), time.perf_counter() - inicio_chunk)
         if i != len(chunks):
             audios.append(silence)
 
@@ -565,7 +757,15 @@ def gerar(
     if not math.isclose(speed, 1.0, rel_tol=1e-3, abs_tol=1e-3):
         import librosa
 
+        inicio_speed = time.perf_counter()
         audio = librosa.effects.time_stretch(audio, rate=speed).astype(np.float32, copy=False)
+        log.info("[TTS] Time-stretch aplicado em %.2fs", time.perf_counter() - inicio_speed)
+    log.info(
+        "[TTS] Geracao Chatterbox concluida em %.2fs (referencia=%.2fs chunks=%d)",
+        time.perf_counter() - inicio_total,
+        tempo_ref,
+        len(chunks),
+    )
     return audio
 
 
@@ -573,8 +773,11 @@ def precarregar_e_aquecer(voz_cfg: dict | None = None) -> None:
     voz_cfg = voz_cfg or {}
     carregar()
     _garantir_referencia(float(voz_cfg.get("voz_exaggeration", 0.5)))
+    if not config.CHATTERBOX_FULL_WARMUP:
+        log.info("[TTS] Warmup Chatterbox PT-BR: modelo e referencia prontos; amostragem completa pulada.")
+        return
     audio = gerar(
-        "Oi, tudo bem.",
+        "Oi.",
         speed=float(voz_cfg.get("velocidade", 1.0)),
         seed=int(voz_cfg.get("voz_seed", 42)),
         exaggeration=float(voz_cfg.get("voz_exaggeration", 0.5)),
@@ -601,6 +804,7 @@ def para_pcm_discord(
     """Converte audio mono float32 para PCM 48 kHz stereo 16-bit do Discord."""
     if audio is None or len(audio) == 0:
         return b""
+    inicio = time.perf_counter()
     log.info(
         "[TTS] Convertendo para PCM Discord: samples=%d sr=%d volume=%.2f pitch=%.1f",
         len(audio),
@@ -647,6 +851,7 @@ def para_pcm_discord(
         if resto:
             pcm_bytes += b"\x00" * (frame_size - resto)
         pcm_bytes += b"\x00" * (frame_size * max(0, int(tail_frames)))
+        log.info("[TTS] PCM Discord pronto em %.2fs (%d bytes)", time.perf_counter() - inicio, len(pcm_bytes))
         return pcm_bytes
     except Exception:
         log.exception("[TTS] ERRO ao converter PCM")

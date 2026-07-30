@@ -6,6 +6,7 @@ Rota                    Método  Descrição
 /api/config             GET     Retorna a config atual como JSON
 /api/config             POST    Salva nova config; aplica mudanças ao bot em tempo real
 /api/guilds             GET     Lista guilds do bot
+/api/guilds/remover     POST    Remove o bot de uma guild
 /api/voz/canais         GET     Lista canais de voz de uma guild
 /api/voz/conectar       POST    Conecta bot a um canal de voz
 /api/voz/desconectar    POST    Desconecta bot do canal de voz
@@ -24,6 +25,7 @@ import logging
 import re
 import threading
 import time
+from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -36,6 +38,14 @@ _WEB_DIR = Path(__file__).parent / "web"
 _SHUTDOWN_FLAG = Path(__file__).parent / "logs" / "ui_shutdown.flag"
 _bot_ref = None        # discord.ext.commands.Bot
 _loop_ref = None       # asyncio event loop do bot
+_voz_connect_locks: dict[int, asyncio.Lock] = {}
+_voz_connect_tasks: dict[int, asyncio.Task] = {}
+_guilds_removidas_ui: set[int] = set()
+_tts_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voz-tts")
+_TTS_STARTUP_ESTIMATE_MS = 1800
+_tts_state_lock = threading.Lock()
+_tts_session_id = 0
+_tts_futures: set[Future] = set()
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
 _voz_historico: deque = deque(maxlen=4)
@@ -45,7 +55,82 @@ _voz_lock = threading.Lock()
 _ptt_global_pressionado = False
 
 
-def _agendar_reproducao_pcm(guild_id: int, pcm: bytes, origem: str = "") -> bool:
+def _voz_connect_lock(guild_id: int) -> asyncio.Lock:
+    lock = _voz_connect_locks.get(guild_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _voz_connect_locks[guild_id] = lock
+    return lock
+
+
+async def _cancelar_tentativa_conexao_voz(guild_id: int, motivo: str = "") -> None:
+    task = _voz_connect_tasks.get(guild_id)
+    if task is None or task.done() or task is asyncio.current_task():
+        return
+    log.warning(
+        "[WEB] Cancelando tentativa de conexão de voz%s na guild %s.",
+        f" ({motivo})" if motivo else "",
+        guild_id,
+    )
+    task.cancel()
+    try:
+        await asyncio.wait_for(asyncio.shield(task), timeout=3)
+    except asyncio.CancelledError:
+        pass
+    except Exception:
+        pass
+
+
+async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
+    """Força a remoção do VoiceClient, inclusive quando handshake fica preso."""
+    if _bot_ref is None:
+        raise RuntimeError("Bot indisponivel")
+    guild = _bot_ref.get_guild(guild_id)
+    if not guild:
+        raise ValueError("Guild não encontrada")
+
+    vc = guild.voice_client
+    if vc is None:
+        return {"ok": True, "status": "sem_conexao"}
+
+    canal = getattr(getattr(vc, "channel", None), "name", None)
+    log.warning(
+        "[WEB] Limpando conexao de voz%s: guild=%s canal=%s conectado=%s",
+        f" ({motivo})" if motivo else "",
+        guild.name,
+        canal,
+        vc.is_connected(),
+    )
+    try:
+        if vc.is_playing():
+            vc.stop()
+    except Exception:
+        pass
+    try:
+        await asyncio.wait_for(vc.disconnect(force=True), timeout=8)
+    except Exception as exc:
+        log.warning("[WEB] Falha ao limpar VoiceClient da guild %s: %s", guild.name, exc)
+    try:
+        if guild.voice_client is vc:
+            vc.cleanup()
+    except Exception as exc:
+        log.warning("[WEB] Falha ao executar cleanup() do VoiceClient da guild %s: %s", guild.name, exc)
+    try:
+        if guild.voice_client is not None:
+            _bot_ref._connection._remove_voice_client(guild_id)
+    except Exception as exc:
+        log.warning("[WEB] Falha ao remover VoiceClient do cache da guild %s: %s", guild.name, exc)
+    await asyncio.sleep(0.35)
+    return {"ok": True, "status": "removido", "canal": canal}
+
+
+def _agendar_reproducao_pcm(
+    guild_id: int,
+    pcm: bytes,
+    origem: str = "",
+    *,
+    interromper: bool = False,
+) -> bool:
     """Agenda reproducao no Discord sem bloquear a resposta HTTP."""
     if _loop_ref is None or _bot_ref is None:
         log.warning("[WEB] Nao foi possivel agendar audio%s: bot/loop indisponivel.", origem)
@@ -54,7 +139,7 @@ def _agendar_reproducao_pcm(guild_id: int, pcm: bytes, origem: str = "") -> bool
         from cogs.voice_cog import reproduzir_pcm
 
         future = asyncio.run_coroutine_threadsafe(
-            reproduzir_pcm(_bot_ref, guild_id, pcm),
+            reproduzir_pcm(_bot_ref, guild_id, pcm, interromper=interromper),
             _loop_ref,
         )
 
@@ -71,6 +156,27 @@ def _agendar_reproducao_pcm(guild_id: int, pcm: bytes, origem: str = "") -> bool
     except Exception as exc:
         log.error("[WEB] ERRO ao agendar TTS%s: %s", origem, exc, exc_info=True)
         return False
+
+
+def _iniciar_sessao_tts(origem: str) -> int:
+    global _tts_session_id
+    cancelados = 0
+    with _tts_state_lock:
+        _tts_session_id += 1
+        sessao = _tts_session_id
+        for futuro in list(_tts_futures):
+            if futuro.done():
+                _tts_futures.discard(futuro)
+            elif futuro.cancel():
+                cancelados += 1
+                _tts_futures.discard(futuro)
+    log.info("[WEB] Nova sessao TTS %d%s; chunks pendentes cancelados=%d", sessao, f" {origem}" if origem else "", cancelados)
+    return sessao
+
+
+def _sessao_tts_atual(sessao: int) -> bool:
+    with _tts_state_lock:
+        return sessao == _tts_session_id
 
 
 def _duracao_pcm_ms(pcm: bytes) -> int:
@@ -150,29 +256,43 @@ def _fim_frase_pronta(texto: str) -> int | None:
     return None
 
 
-def _corte_frase_longa(texto: str, limite: int = 135) -> int | None:
+def _corte_frase_longa(texto: str, limite: int = 135, minimo: int = 60) -> int | None:
     candidatos = [m.start() for m in _INICIO_FRASE_SEM_PONTO.finditer(texto)]
     for pos in candidatos:
         prefixo = texto[:pos].rstrip().lower().split()
         ultima = prefixo[-1] if prefixo else ""
-        if 10 <= pos <= limite and ultima not in _PALAVRAS_LIGACAO_TTS:
+        if max(10, minimo - 20) <= pos <= limite and ultima not in _PALAVRAS_LIGACAO_TTS:
             return pos
     if len(texto) < limite:
         return None
     for marcador in (",", ";", ":"):
-        pos = texto.rfind(marcador, 60, limite)
-        if pos >= 60:
+        pos = texto.rfind(marcador, minimo, limite)
+        if pos >= minimo:
             return pos + 1
-    pos = texto.rfind(" ", 80, limite)
-    return pos if pos >= 80 else None
+    trecho = texto[:limite]
+    for match in reversed(list(re.finditer(r"\s+", trecho))):
+        pos = match.start()
+        if pos < minimo:
+            break
+        prefixo = texto[:pos].rstrip().lower().split()
+        ultima = prefixo[-1] if prefixo else ""
+        if ultima not in _PALAVRAS_LIGACAO_TTS:
+            return pos
+    return None
 
 
-def _extrair_frases_tts(buffer: str, *, force: bool = False) -> tuple[list[str], str]:
+def _extrair_frases_tts(
+    buffer: str,
+    *,
+    force: bool = False,
+    limite_corte: int = 135,
+    minimo_corte: int = 60,
+) -> tuple[list[str], str]:
     texto = _corrigir_mojibake(buffer or "").replace("\r", " ").replace("\n", " ").lstrip()
     frases: list[str] = []
     while texto:
         fim_pontuacao = _fim_frase_pronta(texto)
-        fim_corte = _corte_frase_longa(texto)
+        fim_corte = _corte_frase_longa(texto, limite=limite_corte, minimo=minimo_corte)
         if fim_corte is not None and (fim_pontuacao is None or fim_corte < fim_pontuacao):
             fim = fim_corte
         else:
@@ -276,17 +396,23 @@ class _Handler(BaseHTTPRequestHandler):
             payload = json.dumps({"pressionado": _ptt_global_pressionado}).encode("utf-8")
             self._respond(200, "application/json", payload)
         elif self.path == "/api/guilds":
-            # Retorna lista de servidores onde o bot está conectado a canais de voz
+            # Retorna lista de servidores onde o bot está instalado.
             guilds = []
             if _bot_ref:
                 for g in _bot_ref.guilds:
+                    if g.id in _guilds_removidas_ui:
+                        continue
                     vc = g.voice_client
+                    em_voz = vc is not None and vc.is_connected()
+                    conectando = vc is not None and not vc.is_connected()
+                    canal = getattr(vc, "channel", None) if vc else None
                     guilds.append({
                         "id": str(g.id),
                         "name": g.name,
-                        "em_voz": vc is not None and vc.is_connected(),
-                        "canal_voz": vc.channel.name if vc and vc.is_connected() else None,
-                        "canal_id": str(vc.channel.id) if vc and vc.is_connected() else None,
+                        "em_voz": em_voz,
+                        "conectando": conectando,
+                        "canal_voz": canal.name if canal and em_voz else None,
+                        "canal_id": str(canal.id) if canal and em_voz else None,
                     })
             self._respond(200, "application/json",
                           json.dumps(guilds, ensure_ascii=False).encode("utf-8"))
@@ -315,6 +441,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/voz/desconectar":
             self._handle_voz_desconectar()
+            return
+
+        if self.path == "/api/guilds/remover":
+            self._handle_guild_remover()
             return
 
         if self.path == "/api/voz/chat":
@@ -392,7 +522,11 @@ class _Handler(BaseHTTPRequestHandler):
         if not guild_id_str or _bot_ref is None:
             self._respond(400, "application/json", b'{"erro": "guild_id obrigatorio"}')
             return
-        guild = _bot_ref.get_guild(int(guild_id_str))
+        guild_id = int(guild_id_str)
+        if guild_id in _guilds_removidas_ui:
+            self._respond(404, "application/json", b'{"erro": "guild removida"}')
+            return
+        guild = _bot_ref.get_guild(guild_id)
         if not guild:
             self._respond(404, "application/json", b'{"erro": "guild nao encontrada"}')
             return
@@ -413,7 +547,11 @@ class _Handler(BaseHTTPRequestHandler):
         if not guild_id_str or _bot_ref is None:
             self._respond(400, "application/json", b'{"erro": "guild_id obrigatorio"}')
             return
-        guild = _bot_ref.get_guild(int(guild_id_str))
+        guild_id = int(guild_id_str)
+        if guild_id in _guilds_removidas_ui:
+            self._respond(404, "application/json", b'{"erro": "guild removida"}')
+            return
+        guild = _bot_ref.get_guild(guild_id)
         if not guild:
             self._respond(404, "application/json", b'{"erro": "guild nao encontrada"}')
             return
@@ -452,6 +590,9 @@ class _Handler(BaseHTTPRequestHandler):
         if not guild_id or not channel_id or not texto or _bot_ref is None or _loop_ref is None:
             self._respond(400, "application/json",
                           b'{"erro": "guild_id, channel_id e texto obrigatorios"}')
+            return
+        if guild_id in _guilds_removidas_ui:
+            self._respond(404, "application/json", b'{"erro": "guild removida"}')
             return
         if len(texto) > 2000:
             self._respond(400, "application/json", b'{"erro": "texto excede 2000 caracteres"}')
@@ -493,32 +634,112 @@ class _Handler(BaseHTTPRequestHandler):
 
         guild_id   = int(data.get("guild_id", 0))
         channel_id = int(data.get("channel_id", 0))
-        if not guild_id or not channel_id or _bot_ref is None:
+        if not guild_id or not channel_id or _bot_ref is None or _loop_ref is None:
             self._respond(400, "application/json",
                           b'{"erro": "guild_id e channel_id obrigatorios"}')
+            return
+        if guild_id in _guilds_removidas_ui:
+            self._respond(404, "application/json", b'{"erro": "guild removida"}')
             return
 
         async def _conectar():
             import discord as _discord
-            guild = _bot_ref.get_guild(guild_id)
-            if not guild:
-                raise ValueError("Guild não encontrada")
-            channel = guild.get_channel(channel_id)
-            if not channel or not isinstance(channel, _discord.VoiceChannel):
-                raise ValueError("Canal de voz não encontrado")
-            if guild.voice_client is not None:
-                if guild.voice_client.channel.id == channel_id:
-                    return  # já conectado neste canal
-                await guild.voice_client.disconnect()
-            await channel.connect()
+
+            async with _voz_connect_lock(guild_id):
+                if guild_id in _guilds_removidas_ui:
+                    raise ValueError("Guild removida")
+                task_atual = asyncio.current_task()
+                if task_atual is not None:
+                    _voz_connect_tasks[guild_id] = task_atual
+                guild = _bot_ref.get_guild(guild_id)
+                try:
+                    if not guild:
+                        raise ValueError("Guild não encontrada")
+                    channel = guild.get_channel(channel_id)
+                    if not channel or not isinstance(channel, _discord.VoiceChannel):
+                        raise ValueError("Canal de voz não encontrado")
+
+                    member = guild.me
+                    perms = channel.permissions_for(member) if member else None
+                    if perms and not (perms.view_channel and perms.connect):
+                        raise PermissionError("Bot sem permissão para conectar neste canal")
+
+                    vc = guild.voice_client
+                    if vc is not None:
+                        vc_channel = getattr(vc, "channel", None)
+                        if vc.is_connected():
+                            if vc_channel and vc_channel.id == channel_id:
+                                return {"ok": True, "status": "ja_conectado", "canal": channel.name}
+                            log.info("[WEB] Movendo voz: %s -> %s", getattr(vc_channel, "name", "?"), channel.name)
+                            try:
+                                await asyncio.wait_for(vc.move_to(channel), timeout=15)
+                                return {"ok": True, "status": "movido", "canal": channel.name}
+                            except Exception as exc:
+                                log.warning("[WEB] Falha ao mover voz; limpando e reconectando: %s", exc)
+                                await _limpar_conexao_voz(guild_id, "falha ao mover")
+                        else:
+                            await _limpar_conexao_voz(guild_id, "voice client preso antes de conectar")
+
+                    try:
+                        vc = await asyncio.wait_for(
+                            channel.connect(timeout=20, reconnect=False),
+                            timeout=25,
+                        )
+                    except asyncio.CancelledError:
+                        await _limpar_conexao_voz(guild_id, "tentativa cancelada")
+                        raise
+                    except Exception as exc:
+                        atual = guild.voice_client
+                        atual_canal = getattr(atual, "channel", None) if atual else None
+                        if atual and atual.is_connected() and atual_canal and atual_canal.id == channel_id:
+                            return {"ok": True, "status": "conectado", "canal": channel.name}
+                        await _limpar_conexao_voz(guild_id, "falha no handshake")
+                        raise RuntimeError(
+                            "Falha ao conectar ao canal de voz. "
+                            "A conexão foi limpa; tente novamente em alguns segundos."
+                        ) from exc
+
+                    if not vc.is_connected():
+                        await _limpar_conexao_voz(guild_id, "connect retornou sem is_connected")
+                        raise RuntimeError("Discord retornou conexão de voz incompleta.")
+                    return {"ok": True, "status": "conectado", "canal": channel.name}
+                finally:
+                    if _voz_connect_tasks.get(guild_id) is task_atual:
+                        _voz_connect_tasks.pop(guild_id, None)
 
         try:
-            asyncio.run_coroutine_threadsafe(_conectar(), _loop_ref).result(timeout=10)
-            self._respond(200, "application/json", b'{"ok": true}')
+            future = asyncio.run_coroutine_threadsafe(_conectar(), _loop_ref)
+            resultado = future.result(timeout=35)
+            self._respond(200, "application/json",
+                          json.dumps(resultado, ensure_ascii=False).encode("utf-8"))
+        except FutureTimeoutError:
+            future.cancel()
+            log.warning("Timeout em /api/voz/conectar; cancelando tentativa e limpando VoiceClient.")
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    _limpar_conexao_voz(guild_id, "timeout HTTP"),
+                    _loop_ref,
+                ).result(timeout=12)
+            except Exception:
+                log.exception("Falha ao limpar conexao de voz apos timeout.")
+            self._respond(
+                504,
+                "application/json",
+                json.dumps(
+                    {
+                        "erro": (
+                            "Tempo limite ao conectar no Discord. "
+                            "A conexão foi removida; tente novamente em alguns segundos."
+                        )
+                    },
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+            )
         except Exception as exc:
             log.exception("Erro em /api/voz/conectar")
             self._respond(500, "application/json",
-                          json.dumps({"erro": str(exc)}).encode("utf-8"))
+                          json.dumps({"erro": str(exc) or type(exc).__name__},
+                                     ensure_ascii=False).encode("utf-8"))
 
     def _handle_voz_desconectar(self) -> None:
         """POST /api/voz/desconectar — body: {guild_id}."""
@@ -531,21 +752,70 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         guild_id = int(data.get("guild_id", 0))
-        if not guild_id or _bot_ref is None:
+        if not guild_id or _bot_ref is None or _loop_ref is None:
             self._respond(400, "application/json", b'{"erro": "guild_id obrigatorio"}')
             return
 
         async def _desconectar():
-            guild = _bot_ref.get_guild(guild_id)
-            if guild and guild.voice_client:
-                await guild.voice_client.disconnect()
+            await _cancelar_tentativa_conexao_voz(guild_id, "desconectar")
+            async with _voz_connect_lock(guild_id):
+                return await _limpar_conexao_voz(guild_id, "desconectar")
 
         try:
-            asyncio.run_coroutine_threadsafe(_desconectar(), _loop_ref).result(timeout=5)
-            self._respond(200, "application/json", b'{"ok": true}')
+            resultado = asyncio.run_coroutine_threadsafe(_desconectar(), _loop_ref).result(timeout=12)
+            self._respond(200, "application/json",
+                          json.dumps(resultado, ensure_ascii=False).encode("utf-8"))
         except Exception as exc:
             self._respond(500, "application/json",
+                          json.dumps({"erro": str(exc) or type(exc).__name__},
+                                     ensure_ascii=False).encode("utf-8"))
+
+    def _handle_guild_remover(self) -> None:
+        """POST /api/guilds/remover — body: {guild_id}; faz o bot sair da guild."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except Exception as exc:
+            self._respond(400, "application/json",
                           json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
+
+        guild_id = int(data.get("guild_id", 0) or 0)
+        if not guild_id:
+            self._respond(400, "application/json", b'{"erro": "guild_id obrigatorio"}')
+            return
+        if _bot_ref is None or _loop_ref is None:
+            self._respond(400, "application/json", b'{"erro": "bot indisponivel"}')
+            return
+
+        async def _remover_guild():
+            guild = _bot_ref.get_guild(guild_id)
+            if guild is None:
+                raise ValueError("Servidor não encontrado")
+
+            guild_nome = guild.name
+            _guilds_removidas_ui.add(guild_id)
+            await _cancelar_tentativa_conexao_voz(guild_id, "remover servidor")
+            async with _voz_connect_lock(guild_id):
+                if guild.voice_client is not None:
+                    await _limpar_conexao_voz(guild_id, "remover servidor")
+                log.warning("[WEB] Removendo bot do servidor '%s' (%s) via UI.", guild_nome, guild_id)
+                await guild.leave()
+
+            _voz_connect_tasks.pop(guild_id, None)
+            _voz_connect_locks.pop(guild_id, None)
+            return {"ok": True, "guild_id": str(guild_id), "name": guild_nome}
+
+        try:
+            resultado = asyncio.run_coroutine_threadsafe(_remover_guild(), _loop_ref).result(timeout=30)
+            self._respond(200, "application/json",
+                          json.dumps(resultado, ensure_ascii=False).encode("utf-8"))
+        except Exception as exc:
+            _guilds_removidas_ui.discard(guild_id)
+            log.exception("Erro em /api/guilds/remover")
+            self._respond(500, "application/json",
+                          json.dumps({"erro": str(exc) or type(exc).__name__},
+                                     ensure_ascii=False).encode("utf-8"))
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -568,6 +838,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _handle_voz_chat(self) -> None:
         """POST /api/voz/chat — recebe áudio WAV, transcreve, gera resposta, fala."""
+        inicio_total = time.perf_counter()
         log.info("[WEB] POST /api/voz/chat recebido")
         length = int(self.headers.get("Content-Length", 0))
         wav_bytes = self.rfile.read(length)
@@ -583,13 +854,15 @@ class _Handler(BaseHTTPRequestHandler):
             from cogs.voice_cog import voz_estado
 
             # Carrega whisper com o modelo configurado
-            whisper_modelo = voz_estado.get("whisper_modelo", "small")
+            whisper_modelo = voz_estado.get("whisper_modelo", "large-v3-turbo")
             log.info("[WEB] Carregando Whisper '%s'...", whisper_modelo)
             stt_whisper.carregar(whisper_modelo)
 
             # 1. Transcrever áudio
             log.info("[WEB] Etapa 1: Transcrevendo áudio...")
+            inicio_stt = time.perf_counter()
             texto_usuario = stt_whisper.transcrever(wav_bytes, whisper_modelo)
+            tempo_stt = time.perf_counter() - inicio_stt
             log.info("[WEB] Transcrição: %r", texto_usuario)
             if not texto_usuario:
                 log.warning("[WEB] Transcrição vazia!")
@@ -600,12 +873,14 @@ class _Handler(BaseHTTPRequestHandler):
             # 2. Enviar ao LLM
             log.info("[WEB] Etapa 2: Gerando resposta LLM...")
             guild_com_voz = _encontrar_guild_com_voz()
+            inicio_llm = time.perf_counter()
             resposta_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
                 texto_usuario,
                 voz_estado,
                 guild_com_voz,
                 "/api/voz/chat",
             )
+            tempo_llm = time.perf_counter() - inicio_llm
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
             # 3. Gerar TTS e reproduzir no Discord
@@ -622,7 +897,18 @@ class _Handler(BaseHTTPRequestHandler):
                 "resposta": resposta_llm,
                 "falou_discord": falou,
                 "audio_ms": audio_ms if falou else 0,
+                "timings": {
+                    "stt_s": round(tempo_stt, 3),
+                    "llm_stream_s": round(tempo_llm, 3),
+                    "http_total_s": round(time.perf_counter() - inicio_total, 3),
+                },
             }
+            log.info(
+                "[WEB] Pipeline voz concluído: stt=%.2fs llm_stream=%.2fs http_total=%.2fs",
+                tempo_stt,
+                tempo_llm,
+                time.perf_counter() - inicio_total,
+            )
             self._respond(200, "application/json",
                           json.dumps(payload, ensure_ascii=False).encode("utf-8"))
 
@@ -657,10 +943,11 @@ class _Handler(BaseHTTPRequestHandler):
                 return
 
             log.info("[WEB] /api/voz/falar texto='%s'", texto[:60])
+            _iniciar_sessao_tts("/api/voz/falar")
             pcm = _gerar_pcm_tts(texto, voz_estado)
             audio_ms = _duracao_pcm_ms(pcm)
             log.info("[WEB] /api/voz/falar PCM gerado, %d bytes; agendando no Discord", len(pcm))
-            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/falar"):
+            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/falar", interromper=True):
                 self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
                 return
             log.info("[WEB] /api/voz/falar audio agendado com sucesso")
@@ -679,7 +966,7 @@ class _Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         except Exception:
             data = {}
-        texto = str(data.get("texto") or "Oi, eu sou a Lou. Assim ficou minha voz agora.").strip()
+        texto = str(data.get("texto") or "Oi, eu sou a Neve. Assim ficou minha voz agora.").strip()
         try:
             from cogs.voice_cog import voz_estado
 
@@ -689,9 +976,10 @@ class _Handler(BaseHTTPRequestHandler):
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
+            _iniciar_sessao_tts("/api/voz/testar")
             pcm = _gerar_pcm_tts(texto, voz_estado)
             audio_ms = _duracao_pcm_ms(pcm)
-            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/testar"):
+            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/testar", interromper=True):
                 self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
                 return
             payload = json.dumps({"ok": True, "audio_ms": audio_ms}).encode("utf-8")
@@ -796,6 +1084,7 @@ def _gerar_pcm_tts(texto: str, voz_cfg: dict, *, stream_chunk: bool = False) -> 
     """Gera TTS Chatterbox PT-BR e converte para PCM do Discord."""
     from services import tts_chatterbox
 
+    inicio = time.perf_counter()
     speed = float(voz_cfg.get("velocidade", 1.0))
     volume = float(voz_cfg.get("volume", 1.0))
     seed = int(voz_cfg.get("voz_seed", 42))
@@ -822,15 +1111,19 @@ def _gerar_pcm_tts(texto: str, voz_cfg: dict, *, stream_chunk: bool = False) -> 
         temperature=temperature,
     )
     if stream_chunk:
-        return tts_chatterbox.para_pcm_discord(
+        pcm = tts_chatterbox.para_pcm_discord(
             audio,
             volume=volume,
             pitch_semitones=pitch,
-            start_pad_s=0.08,
-            end_pad_s=0.22,
-            tail_frames=8,
+            start_pad_s=0.0,
+            end_pad_s=0.08,
+            tail_frames=2,
         )
-    return tts_chatterbox.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
+        log.info("[WEB] TTS chunk completo em %.2fs (%d bytes)", time.perf_counter() - inicio, len(pcm))
+        return pcm
+    pcm = tts_chatterbox.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
+    log.info("[WEB] TTS completo em %.2fs (%d bytes)", time.perf_counter() - inicio, len(pcm))
+    return pcm
 
 
 def _agendar_frase_tts(
@@ -843,8 +1136,67 @@ def _agendar_frase_tts(
     pcm = _gerar_pcm_tts(frase, voz_cfg, stream_chunk=True)
     audio_ms = _duracao_pcm_ms(pcm)
     log.info("[WEB] Frase TTS %d%s: %r", indice, origem, frase[:120])
-    falou = _agendar_reproducao_pcm(guild_id, pcm, f" {origem} frase {indice}")
+    falou = _agendar_reproducao_pcm(guild_id, pcm, f" {origem} frase {indice}", interromper=(indice == 1))
     return falou, audio_ms if falou else 0
+
+
+def _estimar_audio_tts_ms(texto: str, voz_cfg: dict) -> int:
+    palavras = max(1, len((texto or "").split()))
+    chars = len(texto or "")
+    speed = max(0.85, min(float(voz_cfg.get("velocidade", 1.0) or 1.0), 1.2))
+    return max(800, int(((palavras * 390) + (chars * 18)) / speed))
+
+
+def _submeter_frase_tts_async(
+    frase: str,
+    voz_cfg: dict,
+    guild_id: int,
+    origem: str,
+    indice: int,
+    sessao: int,
+) -> Future:
+    voz_cfg_snapshot = dict(voz_cfg)
+    inicio = time.perf_counter()
+    futuro = _tts_executor.submit(_gerar_pcm_tts, frase, voz_cfg_snapshot, stream_chunk=True)
+    with _tts_state_lock:
+        _tts_futures.add(futuro)
+
+    def _quando_pronto(fut: Future) -> None:
+        try:
+            pcm = fut.result()
+            audio_ms = _duracao_pcm_ms(pcm)
+        except CancelledError:
+            log.info("[WEB] TTS frase %d%s cancelado antes de gerar.", indice, origem)
+            return
+        except Exception as exc:
+            log.error("[WEB] ERRO ao gerar TTS assíncrono frase %d: %s", indice, exc, exc_info=True)
+            return
+        finally:
+            with _tts_state_lock:
+                _tts_futures.discard(fut)
+
+        if not _sessao_tts_atual(sessao):
+            log.info("[WEB] Descartando TTS frase %d%s: sessao antiga %d.", indice, origem, sessao)
+            return
+        log.info(
+            "[WEB] Frase TTS %d%s pronta em background em %.2fs: %r",
+            indice,
+            origem,
+            time.perf_counter() - inicio,
+            frase[:120],
+        )
+        if not _agendar_reproducao_pcm(
+            guild_id,
+            pcm,
+            f" {origem} frase {indice}",
+            interromper=(indice == 1),
+        ):
+            log.error("[WEB] Falha ao agendar TTS assíncrono frase %d.", indice)
+            return
+        log.info("[WEB] Frase TTS %d%s agendada (%d ms).", indice, origem, audio_ms)
+
+    futuro.add_done_callback(_quando_pronto)
+    return futuro
 
 
 def _gerar_resposta_voz_streaming(
@@ -866,6 +1218,7 @@ def _gerar_resposta_voz_streaming(
         historico = list(_voz_historico)
 
     tts_ativo = bool(guild_id and voz_cfg.get("falar_discord", True))
+    sessao_tts = _iniciar_sessao_tts(origem) if tts_ativo else 0
     partes: list[str] = []
     buffer_tts = ""
     falou = False
@@ -878,26 +1231,24 @@ def _gerar_resposta_voz_streaming(
             system_prompt,
             historico,
             max_tokens=config.LLM_VOZ_MAX_TOKENS,
+            temperature=config.LLM_VOZ_TEMPERATURE,
         ):
             partes.append(delta)
             if not tts_ativo:
                 continue
             buffer_tts += delta
-            frases, buffer_tts = _extrair_frases_tts(buffer_tts)
+            frases, buffer_tts = _extrair_frases_tts(
+                buffer_tts,
+                limite_corte=36 if frase_idx == 0 else 58,
+                minimo_corte=16 if frase_idx == 0 else 26,
+            )
             for frase in frases:
                 frase_idx += 1
-                try:
-                    agendou, audio_ms = _agendar_frase_tts(
-                        frase,
-                        voz_cfg,
-                        int(guild_id),
-                        origem,
-                        frase_idx,
-                    )
-                    falou = falou or agendou
-                    audio_ms_total += audio_ms
-                except Exception as exc:
-                    log.error("[WEB] ERRO ao gerar/agendar frase TTS: %s", exc, exc_info=True)
+                _submeter_frase_tts_async(frase, voz_cfg, int(guild_id), origem, frase_idx, sessao_tts)
+                falou = True
+                audio_ms_total += _estimar_audio_tts_ms(frase, voz_cfg)
+                if frase_idx == 1:
+                    audio_ms_total += _TTS_STARTUP_ESTIMATE_MS
     except Exception as exc:
         log.warning("[LLM-VOZ] Streaming falhou: %s", exc, exc_info=True)
         if not partes:
@@ -906,12 +1257,13 @@ def _gerar_resposta_voz_streaming(
                 historico,
                 max_tokens=config.LLM_VOZ_MAX_TOKENS,
                 continuar_se_cortar=False,
+                temperature=config.LLM_VOZ_TEMPERATURE,
             )
             resposta_fallback = _normalizar_resposta_voz_texto(resposta_fallback)
             if tts_ativo and resposta_fallback:
                 try:
                     pcm = _gerar_pcm_tts(resposta_fallback, voz_cfg)
-                    falou = _agendar_reproducao_pcm(int(guild_id), pcm, f" {origem} fallback")
+                    falou = _agendar_reproducao_pcm(int(guild_id), pcm, f" {origem} fallback", interromper=True)
                     audio_ms_total = _duracao_pcm_ms(pcm) if falou else 0
                 except Exception as tts_exc:
                     log.error("[WEB] ERRO ao gerar TTS fallback: %s", tts_exc, exc_info=True)
@@ -929,18 +1281,11 @@ def _gerar_resposta_voz_streaming(
         frases_finais, _ = _extrair_frases_tts(buffer_tts, force=True)
         for frase in frases_finais:
             frase_idx += 1
-            try:
-                agendou, audio_ms = _agendar_frase_tts(
-                    frase,
-                    voz_cfg,
-                    int(guild_id),
-                    origem,
-                    frase_idx,
-                )
-                falou = falou or agendou
-                audio_ms_total += audio_ms
-            except Exception as exc:
-                log.error("[WEB] ERRO ao gerar/agendar frase final TTS: %s", exc, exc_info=True)
+            _submeter_frase_tts_async(frase, voz_cfg, int(guild_id), origem, frase_idx, sessao_tts)
+            falou = True
+            audio_ms_total += _estimar_audio_tts_ms(frase, voz_cfg)
+            if frase_idx == 1:
+                audio_ms_total += _TTS_STARTUP_ESTIMATE_MS
 
     log.info(
         "[LLM-VOZ] Streaming concluido em %.2fs; frases_tts=%d resposta=%r",
@@ -980,6 +1325,7 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
             historico,
             max_tokens=config.LLM_VOZ_MAX_TOKENS,
             continuar_se_cortar=False,
+            temperature=config.LLM_VOZ_TEMPERATURE,
         )
         log.info("[LLM-VOZ] Tempo LLM: %.2fs", time.perf_counter() - inicio_llm)
         log.info("[LLM-VOZ] Resposta gerada: %r", resposta[:100] if resposta else "(vazio)")
