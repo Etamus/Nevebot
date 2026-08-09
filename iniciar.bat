@@ -34,18 +34,12 @@ if exist "logs\ui_shutdown.flag" del /q "logs\ui_shutdown.flag" >nul 2>&1
 echo Encerrando instancias antigas do Nevebot...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \"name = 'python.exe' or name = 'python3.exe'\" | Where-Object { $_.CommandLine -match 'nevebot\.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 
-timeout /t 2 /nobreak >nul
-
 set "PYTHONFAULTHANDLER=1"
 set "GGML_CUDA_NO_PINNED=1"
 set "PYTHONUTF8=1"
 set "LLAMA_CPP_DIR=%CD%\llama.cpp"
 set "LLAMA_CPP_SERVER_EXE=%CD%\llama.cpp\llama-server.exe"
-set "PATH=%CD%\llama.cpp;%PATH%"
-if defined CUDA_PATH if not exist "%CUDA_PATH%\bin" (
-    echo [AVISO] Ignorando CUDA_PATH invalido: %CUDA_PATH%
-    set "CUDA_PATH="
-)
+set "CUDA_PATH="
 
 echo Iniciando Nevebot... use Ctrl+C para desligar.
 echo.

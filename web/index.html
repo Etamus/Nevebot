@@ -462,7 +462,7 @@
     .voz-select::-ms-expand { display: none; }
     .voz-select:focus { border-color: var(--accent); }
 
-    .voz-select.custom-native-select {
+    select.custom-native-select {
       position: absolute;
       width: 1px !important;
       height: 1px !important;
@@ -1238,6 +1238,95 @@
       gap: .6rem;
       margin-top: .75rem;
     }
+    .server-manager-card,
+    .llm-card {
+      border: 1px solid rgba(255,255,255,.11);
+      background: linear-gradient(145deg, rgba(31,31,31,.80), rgba(12,12,12,.72));
+      backdrop-filter: blur(18px) saturate(135%);
+      box-shadow: 0 18px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.07);
+      padding: 1.2rem 1.35rem;
+      border-radius: 16px;
+    }
+    .server-manager-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .65rem;
+      align-items: end;
+      justify-content: start;
+      width: 400px;
+      max-width: 100%;
+    }
+    .server-manager-card {
+      width: fit-content;
+      max-width: 100%;
+    }
+    .server-manager-field,
+    .llm-field {
+      display: grid;
+      gap: .4rem;
+      min-width: 0;
+    }
+    .server-manager-field { grid-column: 1 / -1; }
+    .server-manager-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: .65rem;
+      grid-column: 1 / -1;
+    }
+    .server-manager-actions .voz-save-btn {
+      width: 120px;
+      min-height: 36px;
+      padding-inline: .55rem;
+    }
+    .server-manager-field .custom-select,
+    .llm-field .custom-select {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .llm-group + .llm-group {
+      border-top: 1px solid rgba(255,255,255,.09);
+      margin-top: 1.15rem;
+      padding-top: 1.15rem;
+    }
+    .llm-group-title {
+      color: #f4f4f5;
+      font-size: .82rem;
+      font-weight: 800;
+      margin-bottom: .8rem;
+    }
+    .llm-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .8rem;
+    }
+    .llm-field-wide { grid-column: 1 / -1; }
+    .llm-field-model { max-width: 400px; }
+    .llm-label {
+      color: #c7c7c7;
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    .llm-input {
+      width: 100%;
+      height: 40px;
+      padding: .5rem .65rem;
+      color: var(--text);
+      background: rgba(8,8,8,.50);
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 8px;
+      outline: none;
+      font: inherit;
+      font-size: .84rem;
+    }
+    .llm-input:focus {
+      border-color: rgba(255,255,255,.72);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.10);
+    }
+    .llm-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 1rem;
+    }
     .general-card { justify-content: space-between; }
     .general-card label, .voz-label, .vs-label { color: #c7c7c7; }
 
@@ -1421,6 +1510,8 @@
     .voz-card,
     .text-dispatch-card,
     .prompt-card,
+    .server-manager-card,
+    .llm-card,
     .voice-chat-card {
       border-radius: 16px;
     }
@@ -1467,6 +1558,11 @@
       .general-card, .voz-row { align-items: stretch; flex-direction: column; }
       .text-dispatch-head { flex-direction: column; }
       .text-dispatch-grid, .text-dispatch-bar { grid-template-columns: 1fr; }
+      .server-manager-row, .llm-grid { grid-template-columns: 1fr; }
+      .server-manager-card { width: 100%; }
+      .llm-field-wide { grid-column: 1; }
+      .llm-field-model { max-width: none; }
+      .server-manager-row { grid-template-columns: 1fr; }
       .voice-chat-header { grid-template-columns: 46px minmax(0, 1fr); }
       .voice-chat-header-actions { grid-column: 1 / -1; width: 100%; justify-content: space-between; }
       .voice-chat-bar { flex-wrap: wrap; }
@@ -1558,23 +1654,25 @@ const MSG_VARS = {
 const PROMPT_LABELS = {
   lou_voz: "Voz",
   lou: "Chat",
-  assistente: "Assistente",
-  terapeuta: "Terapeuta",
 };
 
 // Estado atual da config
 let _config = null;
 let _guilds = [];
+let _botInfo = null;
+let _guildMonitor = null;
 
 // ── Carrega config do servidor ──────────────────────────────────────────────
 async function carregar() {
   try {
-    const [rCfg, rGuilds] = await Promise.all([
+    const [rCfg, rGuilds, rBot] = await Promise.all([
       fetch('/api/config'),
       fetch('/api/guilds'),
+      fetch('/api/bot/info'),
     ]);
     _config = await rCfg.json();
     _guilds = await rGuilds.json().catch(() => []);
+    _botInfo = await rBot.json().catch(() => null);
     renderizar(_config);
   } catch(e) {
     document.getElementById('content').innerHTML =
@@ -1591,6 +1689,8 @@ function renderizar(cfg) {
   // Prefixo mantido de forma oculta para preservar a lógica de salvar config
   el.innerHTML += `<input id="inp-prefix" type="hidden" value="${esc(cfg.prefix)}" />`;
 
+  el.innerHTML += renderizarServidores();
+
   // ── Voz ──────────────────────────────────────────
   el.innerHTML += renderizarVoz();
   if (_guilds && _guilds.length) setTimeout(carregarCanaisVoz, 100);
@@ -1604,6 +1704,8 @@ function renderizar(cfg) {
   setTimeout(inicializarChatVoz, 100);
   el.innerHTML += renderizarPrompts(cfg);
   setTimeout(() => selecionarPrompt('lou_voz'), 0);
+
+  el.innerHTML += renderizarParametrosLLM(cfg);
 
   // ── Comandos ─────────────────────────────────────
   el.innerHTML += `<div class="section-title" style="margin-top:2rem">Comandos</div>
@@ -1799,7 +1901,7 @@ document.addEventListener('change', e => {
 function renderizarPrompts(cfg) {
   const prompts = cfg.prompts || {};
   const defaults = cfg._prompt_defaults || {};
-  const keys = ['lou_voz', 'lou', 'assistente', 'terapeuta'];
+  const keys = ['lou_voz', 'lou'];
   const tabs = keys.map(key => `
     <button type="button" class="prompt-tab" data-prompt-tab="${esc(key)}"
             onclick="selecionarPrompt('${esc(key)}')">${esc(PROMPT_LABELS[key] || key)}</button>
@@ -1841,6 +1943,146 @@ function restaurarPromptAtual() {
   const textarea = document.querySelector(`[data-prompt="${active}"]`);
   const valor = _config?._prompt_defaults?.[active] || '';
   if (textarea) textarea.value = valor;
+}
+
+function renderizarServidores() {
+  const options = (_guilds || [])
+    .map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`)
+    .join('');
+  return `
+  <div class="section-title" style="margin-top:2rem">Servidores</div>
+  <div class="server-manager-card">
+    <div class="server-manager-row">
+      <div class="server-manager-field">
+        <span class="llm-label">Servidor</span>
+        <select class="voz-select" id="servidor-gerenciar" ${options ? '' : 'disabled'}>
+          ${options || '<option value="">Nenhum servidor conectado</option>'}
+        </select>
+      </div>
+      <div class="server-manager-actions">
+        <button class="voz-save-btn" type="button" onclick="adicionarServidor()">Adicionar</button>
+        <button class="voz-save-btn voz-danger-btn" id="servidor-btn-remover" type="button"
+                onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>Remover</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function adicionarServidor() {
+  const url = _botInfo?.invite_url;
+  if (!url) {
+    toast('Link de convite indisponível.', 'err');
+    return;
+  }
+  let abriu = false;
+  try {
+    if (window.pywebview?.api?.abrir_url) {
+      abriu = await window.pywebview.api.abrir_url(url);
+    } else {
+      abriu = Boolean(window.open(url, '_blank', 'noopener,noreferrer'));
+    }
+  } catch (_) {}
+  if (!abriu) {
+    toast('Não foi possível abrir o navegador.', 'err');
+    return;
+  }
+  if (_guildMonitor) clearInterval(_guildMonitor);
+  let tentativas = 0;
+  _guildMonitor = setInterval(async () => {
+    tentativas += 1;
+    try {
+      const r = await fetch('/api/guilds', { cache: 'no-store' });
+      const guilds = await r.json();
+      const antes = (_guilds || []).map(g => g.id).sort().join(',');
+      const depois = (guilds || []).map(g => g.id).sort().join(',');
+      if (Array.isArray(guilds) && antes !== depois) {
+        _guilds = guilds;
+        clearInterval(_guildMonitor);
+        _guildMonitor = null;
+        renderizar(_config);
+        toast('Lista de servidores atualizada.', 'ok');
+      }
+    } catch (_) {}
+    if (tentativas >= 40 && _guildMonitor) {
+      clearInterval(_guildMonitor);
+      _guildMonitor = null;
+    }
+  }, 3000);
+}
+
+const LLM_GROUPS = [
+  {
+    title: 'Carregamento',
+    fields: [
+      { key: 'model_path', label: 'Modelo GGUF', type: 'model' },
+      { key: 'n_ctx', label: 'Contexto', type: 'number', min: 512, max: 131072, step: 512 },
+      { key: 'n_gpu_layers', label: 'Camadas na GPU', type: 'number', min: -1, max: 999, step: 1 },
+      { key: 'n_batch', label: 'Batch', type: 'number', min: 32, max: 8192, step: 32 },
+      { key: 'n_ubatch', label: 'Micro-batch', type: 'number', min: 32, max: 8192, step: 32 },
+      { key: 'n_threads', label: 'Threads', type: 'number', min: 1, max: 256, step: 1 },
+      { key: 'n_threads_batch', label: 'Threads do batch', type: 'number', min: 1, max: 256, step: 1 },
+      { key: 'kv_type', label: 'Cache KV', type: 'kv' },
+    ],
+  },
+  {
+    title: 'Geração',
+    fields: [
+      { key: 'max_tokens', label: 'Máximo de tokens', type: 'number', min: 1, max: 8192, step: 1 },
+      { key: 'temperature', label: 'Temperature', type: 'number', min: 0, max: 2, step: 0.01 },
+      { key: 'min_p', label: 'Min P', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'top_p', label: 'Top P', type: 'number', min: 0, max: 1, step: 0.01 },
+      { key: 'top_k', label: 'Top K', type: 'number', min: 0, max: 10000, step: 1 },
+      { key: 'dry_multiplier', label: 'DRY multiplier', type: 'number', min: 0, max: 5, step: 0.01 },
+      { key: 'dry_allowed_length', label: 'DRY allowed length', type: 'number', min: 0, max: 1000, step: 1 },
+    ],
+  },
+  {
+    title: 'Voz',
+    fields: [
+      { key: 'voz_max_tokens', label: 'Máximo de tokens', type: 'number', min: 1, max: 2048, step: 1 },
+      { key: 'voz_temperature', label: 'Temperature', type: 'number', min: 0, max: 2, step: 0.01 },
+    ],
+  },
+];
+
+function renderizarCampoLLM(field, llm, models) {
+  const valor = llm[field.key] ?? '';
+  const classe = `llm-field${field.wide ? ' llm-field-wide' : ''}${field.type === 'model' ? ' llm-field-model' : ''}`;
+  let controle = '';
+  if (field.type === 'model') {
+    const lista = models?.length ? models : [{ value: valor, label: String(valor).split(/[\\/]/).pop() }];
+    controle = `<select class="llm-input" data-llm="${esc(field.key)}">${lista.map(item =>
+      `<option value="${esc(item.value)}" ${item.value === valor ? 'selected' : ''}>${esc(item.label)}</option>`
+    ).join('')}</select>`;
+  } else if (field.type === 'kv') {
+    const tipos = ['', 'q8_0', 'q4_0', 'q4_1', 'q5_0', 'q5_1', 'iq4_nl', 'f16', 'bf16', 'f32'];
+    controle = `<select class="llm-input" data-llm="${esc(field.key)}">${tipos.map(tipo =>
+      `<option value="${esc(tipo)}" ${tipo === valor ? 'selected' : ''}>${esc(tipo || 'Padrão')}</option>`
+    ).join('')}</select>`;
+  } else {
+    const limites = field.type === 'number'
+      ? `min="${field.min}" max="${field.max}" step="${field.step}"`
+      : '';
+    controle = `<input class="llm-input" data-llm="${esc(field.key)}" type="${field.type}"
+                       value="${esc(valor)}" ${limites} />`;
+  }
+  return `<label class="${classe}"><span class="llm-label">${esc(field.label)}</span>${controle}</label>`;
+}
+
+function renderizarParametrosLLM(cfg) {
+  const llm = cfg.llm || {};
+  const models = cfg._llm_models || [];
+  const grupos = LLM_GROUPS.map(grupo => `
+    <section class="llm-group">
+      <div class="llm-group-title">${esc(grupo.title)}</div>
+      <div class="llm-grid">${grupo.fields.map(field => renderizarCampoLLM(field, llm, models)).join('')}</div>
+    </section>`).join('');
+  return `
+  <div class="section-title" style="margin-top:2rem">Parâmetros da LLM</div>
+  <div class="llm-card">
+    ${grupos}
+    <div class="llm-actions"><button class="voz-save-btn" type="button" onclick="salvar()">Salvar parâmetros</button></div>
+  </div>`;
 }
 
 function renderizarEnvioTexto() {
@@ -1898,10 +2140,9 @@ async function carregarCanaisTexto() {
     if (!Array.isArray(canais) || !canais.length) {
       canalSel.innerHTML = '<option value="">Nenhum canal disponível</option>';
     } else {
-      canalSel.innerHTML = canais.map(c => {
-        const categoria = c.category && c.category !== 'Sem categoria' ? `${esc(c.category)} / ` : '';
-        return `<option value="${esc(c.id)}">${categoria}#${esc(c.name)}</option>`;
-      }).join('');
+      canalSel.innerHTML = canais
+        .map(c => `<option value="${esc(c.id)}">#${esc(c.name)}</option>`)
+        .join('');
     }
   } catch(e) {
     canalSel.innerHTML = '<option value="">Erro ao carregar</option>';
@@ -1962,8 +2203,6 @@ function renderizarVoz() {
       <select class="voz-select" id="voz-canal"><option value="">Carregando...</option></select>
     </div>
     <div class="voz-row" style="justify-content:flex-end;gap:.5rem">
-      <button class="voz-save-btn voz-danger-btn" id="voz-btn-remover-servidor" onclick="removerServidorSelecionado()"
-              title="Faz a Neve sair do servidor selecionado">Remover servidor</button>
       <button class="voz-save-btn" id="voz-btn-conectar" onclick="conectarVoz()">Conectar</button>
       <button class="voz-save-btn" id="voz-btn-desconectar" onclick="desconectarVoz()"
               style="display:none">Desconectar</button>
@@ -1994,10 +2233,8 @@ function atualizarBotoesConexaoVoz(guildId) {
   const conectado = !!guild?.canal_id;
   const btnCon = document.getElementById('voz-btn-conectar');
   const btnDis = document.getElementById('voz-btn-desconectar');
-  const btnRem = document.getElementById('voz-btn-remover-servidor');
   if (btnCon) btnCon.style.display = ativo ? 'none' : '';
   if (btnDis) btnDis.style.display = conectado ? '' : 'none';
-  if (btnRem) btnRem.style.display = guild ? '' : 'none';
   atualizarSelectGuildsVoz(guildId);
 }
 
@@ -2037,7 +2274,6 @@ async function conectarVoz() {
   const channelId = document.getElementById('voz-canal')?.value;
   if (!guildId || !channelId) { toast('Selecione um canal de voz.', 'err'); return; }
   const btn = document.getElementById('voz-btn-conectar');
-  const btnRem = document.getElementById('voz-btn-remover-servidor');
   if (btn) btn.disabled = true;
   const gInicio = (_guilds || []).find(g => g.id === guildId);
   if (gInicio) { gInicio.conectando = true; gInicio.em_voz = false; gInicio.canal_id = null; }
@@ -2055,7 +2291,6 @@ async function conectarVoz() {
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const dis = document.getElementById('voz-btn-desconectar');
       if (dis) dis.style.display = '';
-      if (btnRem) btnRem.disabled = false;
       toast('Bot conectado ao canal de voz!', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
@@ -2063,7 +2298,6 @@ async function conectarVoz() {
       if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
       atualizarBotoesConexaoVoz(guildId);
       if (btn) btn.disabled = false;
-      if (btnRem) btnRem.disabled = false;
     }
   } catch(e) {
     toast('Falha ao conectar: ' + e.message, 'err');
@@ -2071,7 +2305,6 @@ async function conectarVoz() {
     if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
     atualizarBotoesConexaoVoz(guildId);
     if (btn) btn.disabled = false;
-    if (btnRem) btnRem.disabled = false;
   }
 }
 
@@ -2079,9 +2312,7 @@ async function desconectarVoz() {
   const guildId = document.getElementById('voz-guild')?.value;
   if (!guildId) return;
   const btn = document.getElementById('voz-btn-desconectar');
-  const btnRem = document.getElementById('voz-btn-remover-servidor');
   if (btn) btn.disabled = true;
-  if (btnRem) btnRem.disabled = true;
   try {
     const r = await fetch('/api/voz/desconectar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2095,17 +2326,14 @@ async function desconectarVoz() {
       if (btn) { btn.style.display = 'none'; btn.disabled = false; }
       const con = document.getElementById('voz-btn-conectar');
       if (con) con.style.display = '';
-      if (btnRem) btnRem.disabled = false;
       toast('Bot desconectado do canal de voz.', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
       if (btn) btn.disabled = false;
-      if (btnRem) btnRem.disabled = false;
     }
   } catch(e) {
     toast('Falha ao desconectar: ' + e.message, 'err');
     if (btn) btn.disabled = false;
-    if (btnRem) btnRem.disabled = false;
   }
 }
 
@@ -2129,18 +2357,14 @@ function removerGuildDaInterface(guildId) {
 }
 
 async function removerServidorSelecionado() {
-  const guildId = document.getElementById('voz-guild')?.value;
+  const guildId = document.getElementById('servidor-gerenciar')?.value;
   if (!guildId) return;
   const guild = (_guilds || []).find(g => g.id === guildId);
   const nomeServidor = guild?.name || guildId;
   const confirmado = confirm(`Remover a Neve do servidor "${nomeServidor}"?\n\nEla vai sair deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.`);
   if (!confirmado) return;
-  const btn = document.getElementById('voz-btn-remover-servidor');
-  const btnCon = document.getElementById('voz-btn-conectar');
-  const btnDis = document.getElementById('voz-btn-desconectar');
+  const btn = document.getElementById('servidor-btn-remover');
   if (btn) btn.disabled = true;
-  if (btnCon) btnCon.disabled = true;
-  if (btnDis) btnDis.disabled = true;
   try {
     const r = await fetch('/api/guilds/remover', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2152,13 +2376,9 @@ async function removerServidorSelecionado() {
       toast(`Neve saiu de "${nomeServidor}".`, 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
-      if (btnCon) btnCon.disabled = false;
-      if (btnDis) btnDis.disabled = false;
     }
   } catch(e) {
     toast('Falha ao remover servidor: ' + e.message, 'err');
-    if (btnCon) btnCon.disabled = false;
-    if (btnDis) btnDis.disabled = false;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -2535,7 +2755,7 @@ async function pararGravacao() {
     });
     const res = await r.json();
     if (res.transcript) adicionarMsgChat('user', res.transcript);
-    if (res.resposta) adicionarMsgChat('bot', res.resposta);
+    adicionarRespostaLLMChat(res);
     if (res.falou_discord) {
       audioDelayMs = calcularAguardoAudioDiscord(res);
       setVoiceStatus('Falando no Discord...');
@@ -2572,7 +2792,7 @@ async function enviarTextoVoz() {
       body: JSON.stringify({ texto }),
     });
     const res = await r.json();
-    if (res.resposta) adicionarMsgChat('bot', res.resposta);
+    adicionarRespostaLLMChat(res);
     if (res.falou_discord) {
       audioDelayMs = calcularAguardoAudioDiscord(res);
       setVoiceStatus('Falando no Discord...');
@@ -2589,6 +2809,13 @@ async function enviarTextoVoz() {
 }
 
 // ── Helpers de UI do chat ───────────────────────────────────────────────────
+function adicionarRespostaLLMChat(res) {
+  const mensagens = Array.isArray(res?.mensagens)
+    ? res.mensagens
+    : (res?.resposta ? [res.resposta] : []);
+  mensagens.filter(Boolean).forEach(texto => adicionarMsgChat('bot', texto));
+}
+
 function adicionarMsgChat(role, texto) {
   const container = document.getElementById('voice-chat-msgs');
   const empty = document.getElementById('voice-chat-empty');
@@ -2876,6 +3103,11 @@ function coletar() {
     nova.prompts[el.dataset.prompt] = el.value;
   });
 
+  nova.llm = nova.llm || {};
+  document.querySelectorAll('[data-llm]').forEach(el => {
+    nova.llm[el.dataset.llm] = el.type === 'number' ? Number(el.value) : el.value;
+  });
+
   // Campos dos cards
   document.querySelectorAll('[data-cmd]').forEach(el => {
     const cmdKey = el.dataset.cmd;
@@ -2907,7 +3139,12 @@ async function salvar() {
       _config = { ...nova, _prompt_defaults: promptDefaults };
       // Atualiza os tags de prefixo/nome nos headers sem re-renderizar tudo
       atualizarTags(nova);
-      toast('Configurações salvas com sucesso!', 'ok');
+      toast(
+        res.reinicio_necessario
+          ? 'Parâmetros salvos. Reinicie o bot para aplicar o carregamento da LLM.'
+          : 'Configurações salvas com sucesso!',
+        'ok'
+      );
     } else {
       toast('Erro ao salvar: ' + (res.erro || 'desconhecido'), 'err');
     }
@@ -2935,8 +3172,17 @@ function toggleCard(card) {
 async function desligar() {
   if (!confirm('Tem certeza que deseja desligar o bot?')) return;
   try {
-    await fetch('/api/shutdown', { method: 'POST' });
+    const resposta = await fetch('/api/shutdown', { method: 'POST' });
+    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
     toast('Bot desligado.', 'err');
+    setTimeout(() => {
+      if (window.pywebview?.api?.fechar_janela) {
+        window.pywebview.api.fechar_janela().catch(() => {});
+      } else {
+        window.open('', '_self');
+        window.close();
+      }
+    }, 50);
   } catch(e) {
     toast('Falha ao desligar.', 'err');
   }

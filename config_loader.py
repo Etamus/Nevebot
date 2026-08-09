@@ -14,10 +14,31 @@ _lock = threading.Lock()
 _DEFAULT: dict = {
     "prefix": "!",
     "prompts": {
-        "assistente": "",
         "lou": "",
         "lou_voz": "",
-        "terapeuta": "",
+    },
+    "llm": {
+        "model_path": None,
+        "n_ctx": None,
+        "max_tokens": None,
+        "n_gpu_layers": None,
+        "n_batch": None,
+        "n_ubatch": None,
+        "n_threads": None,
+        "n_threads_batch": None,
+        "kv_type": None,
+        "chat_template": None,
+        "voz_max_tokens": None,
+        "voz_temperature": None,
+        "temperature": None,
+        "min_p": None,
+        "top_p": None,
+        "top_k": None,
+        "dry_multiplier": None,
+        "dry_allowed_length": None,
+        "repeat_penalty": None,
+        "frequency_penalty": None,
+        "presence_penalty": None,
     },
     "commands": {
         "lou": {
@@ -26,22 +47,6 @@ _DEFAULT: dict = {
             "messages": {
                 "ja_ativo": "Já tô no modo casual aqui.",
                 "ativado": "Modo casual ativado."
-            }
-        },
-        "assistente": {
-            "name": "assistente",
-            "descricao": "Ativa o modo assistente neste canal.",
-            "messages": {
-                "ja_ativo": "Já estou no modo assistente aqui.",
-                "ativado": "Modo assistente ativado."
-            }
-        },
-        "terapeuta": {
-            "name": "terapeuta",
-            "descricao": "Ativa o modo terapeuta neste canal.",
-            "messages": {
-                "ja_ativo": "Já estou em modo terapeuta aqui.",
-                "ativado": "Modo terapeuta ativado. Pode falar."
             }
         },
         "limpar": {
@@ -63,7 +68,7 @@ _DEFAULT: dict = {
             "name": "bloquear",
             "descricao": "[Apenas dono] Bloqueia um usuário de receber respostas.",
             "messages": {
-                "sem_mencao": "Mencione um usuário. Ex: `!limitar @alguem`",
+                "sem_mencao": "Mencione um usuário. Ex: `!bloquear @alguem`",
                 "auto_bloqueio": "Você não pode se bloquear.",
                 "bloquear_bot": "Não posso me bloquear.",
                 "bloqueado": "**{nome}** não receberá mais respostas minhas."
@@ -164,9 +169,15 @@ def _deep_copy(d: dict) -> dict:
 def _merge_defaults(loaded: dict, default: dict) -> dict:
     """Adiciona chaves presentes no padrão que estejam faltando no carregado."""
     result = _deep_copy(default)
-    result.update({k: v for k, v in loaded.items() if k not in ("commands", "prompts")})
+    result.update({k: v for k, v in loaded.items() if k not in ("commands", "prompts", "llm")})
     if "prompts" in loaded:
-        result["prompts"].update(loaded.get("prompts", {}))
+        for prompt_key in result["prompts"]:
+            if prompt_key in loaded.get("prompts", {}):
+                result["prompts"][prompt_key] = loaded["prompts"][prompt_key]
+    if "llm" in loaded:
+        for llm_key in result["llm"]:
+            if llm_key in loaded.get("llm", {}):
+                result["llm"][llm_key] = loaded["llm"][llm_key]
     if "commands" in loaded:
         for cmd_key, cmd_val in loaded["commands"].items():
             if cmd_key in result["commands"]:

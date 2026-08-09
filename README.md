@@ -1,15 +1,13 @@
 # Nevebot
 
-Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via llama.cpp), recursos de voz (STT com faster-whisper e TTS com Chatterbox Multilingual V3 PT-BR) e uma interface web para configuração em tempo real. O projeto foca em conversas naturais em português, integração com canais de voz e controle fino via UI.
+Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via llama.cpp), recursos de voz (STT com faster-whisper e TTS com Chatterbox Multilingual V3 PT-BR) e uma interface desktop para configuração em tempo real. O projeto foca em conversas naturais em português, integração com canais de voz e controle fino via UI.
 
 ## Funcionalidades
 
 ### Inteligência Artificial (LLM)
 - Respostas locais usando modelos Llama (GGUF) hospedados no host.
-- Modos de operação:
-  - **Assistente**: respostas diretas e objetivas.
-  - **Neve casual**: persona casual e introspectiva (não admite ser IA).
-- Comandos especiais (via prefixo): `!resumir`, `!estilo`, `!limpar`, `!desligar`, `!bloquear`, entre outros.
+- Personalidade única da Neve para chat e voz, com prompt editável pela interface.
+- Comandos de controle via prefixo: `!casual`, `!limpar`, `!desligar`, `!bloquear` e `!desbloquear`.
 
 ### Recursos de Voz
 - Transcrição (STT): usa `faster-whisper` (CTranslate2 backend) com `large-v3-turbo` em PT-BR, quantização e decodificação rápida para balancear qualidade e latência.
@@ -20,13 +18,16 @@ Nevebot é um bot Discord avançado escrito em Python, com IA local (LLM via lla
 
 ### Interface Web
 - Servidor HTTP embutido para configuração via navegador (`web/index.html`).
-- Ajustes em tempo real: voz, velocidade, pitch, seed, prefixo, PTT, entre outros.
+- Área própria para convidar o bot a novos servidores ou removê-lo do servidor selecionado.
+- Painel para editar os parâmetros expostos da LLM; opções de carregamento avisam quando exigem reinicialização.
+- Ajustes em tempo real: voz, velocidade, pitch, seed, prompts, PTT e parâmetros de geração da LLM.
 - A seção de comandos na UI é somente leitura (uso/descrição); edição é feita via JSON/config.
 - Endpoints REST para enviar áudio, falar texto e obter/alterar config.
 
 ### Operações de Voz e UX
 - Arquivo de referência de voz: `data/voz_referencia.wav` (usado para voice-clone).
 - Push-To-Talk global: listener no host (Windows) via `pynput`; endpoint `/api/voz/ptt-estado` usado pela UI.
+- Interface desktop nativa via `pywebview`/WebView2, com fallback para o navegador padrao.
 - Gravações salvas em `gravacoes/` quando habilitado.
 
 ## Instalação
@@ -45,7 +46,7 @@ instalar.bat
 ```
 
 - O script cria/usa um `venv`, cria as pastas locais, copia `.env.example` para `.env` se necessário, instala as dependências de `requirements.txt` e prepara o `chatterbox-tts`.
-- Quando há NVIDIA disponível, o instalador prepara PyTorch com CUDA `cu128`; sem NVIDIA, usa fallback CPU.
+- Quando há NVIDIA disponível, o instalador prepara PyTorch com o runtime CUDA `cu128` já incluído; o NVIDIA CUDA Toolkit não é necessário. Sem NVIDIA, usa fallback CPU.
 - O `llama.cpp` oficial é baixado da última release do GitHub para `llama.cpp/`.
 - `faster-whisper`, Chatterbox e suas dependências são instaladas pelo instalador.
 - Os pesos locais do Chatterbox PT-BR são baixados para `models/chatterbox/`.
@@ -64,10 +65,10 @@ instalar.bat
 iniciar.bat
 ```
 
-2. Abra a interface web em `http://127.0.0.1:5000` para configurar voz, PTT, prefixos e ver logs simples.
+2. A interface desktop abre automaticamente. Se o WebView2 não estiver disponível, o projeto abre `http://127.0.0.1:5000` no navegador padrão.
 
 3. Use no Discord:
-- Use os comandos configurados (ex.: `!assistente`, `!casual`) para trocar modos.
+- Use `!casual` para manter a Neve ativa continuamente no canal selecionado.
 - Em canais de voz, fale para o bot — ele transcreve e pode responder por TTS no canal.
 
 ## Arquivos de Configuração
@@ -112,6 +113,7 @@ Nevebot/
 - `ctranslate2`, `onnxruntime`
 - `chatterbox-tts` (TTS) com pesos locais PT-BR
 - `pynput` (PTT global)
+- `pywebview` + Microsoft Edge WebView2 Runtime (interface desktop)
 
 Consulte `requirements.txt` para a lista completa e versões testadas.
 

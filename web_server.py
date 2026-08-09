@@ -5,6 +5,7 @@ Rota                    Método  Descrição
 /                       GET     Serve web/index.html
 /api/config             GET     Retorna a config atual como JSON
 /api/config             POST    Salva nova config; aplica mudanças ao bot em tempo real
+/api/bot/info           GET     Retorna identidade e link oficial de convite do bot
 /api/guilds             GET     Lista guilds do bot
 /api/guilds/remover     POST    Remove o bot de uma guild
 /api/voz/canais         GET     Lista canais de voz de uma guild
@@ -22,6 +23,7 @@ Inicie com:  start(bot, host="127.0.0.1", port=5000)
 import asyncio
 import json
 import logging
+import os
 import re
 import threading
 import time
@@ -46,6 +48,9 @@ _TTS_STARTUP_ESTIMATE_MS = 1800
 _tts_state_lock = threading.Lock()
 _tts_session_id = 0
 _tts_futures: set[Future] = set()
+_shutdown_solicitado = threading.Event()
+_http_server: ThreadingHTTPServer | None = None
+_server_lock = threading.Lock()
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
 _voz_historico: deque = deque(maxlen=4)
@@ -53,6 +58,28 @@ _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
 _ptt_global_pressionado = False
+
+
+def solicitar_desligamento(atraso: float = 0.8) -> None:
+    """Registra o desligamento da UI e encerra todo o processo apos a resposta HTTP."""
+    if _shutdown_solicitado.is_set():
+        return
+    _shutdown_solicitado.set()
+    try:
+        _SHUTDOWN_FLAG.parent.mkdir(parents=True, exist_ok=True)
+        _SHUTDOWN_FLAG.write_text("shutdown via web ui\n", encoding="utf-8")
+    except Exception:
+        log.exception("Falha ao registrar flag de desligamento da UI.")
+
+    timer = threading.Timer(max(0.0, atraso), lambda: os._exit(0))
+    timer.daemon = True
+    timer.start()
+
+
+def registrar_guild_adicionada(guild_id: int) -> None:
+    """Torna uma guild recém-adicionada visível novamente na interface."""
+    _guilds_removidas_ui.discard(int(guild_id))
+    log.info("[WEB] Servidor adicionado ou reativado na interface: %s", guild_id)
 
 
 def _voz_connect_lock(guild_id: int) -> asyncio.Lock:
@@ -130,6 +157,7 @@ def _agendar_reproducao_pcm(
     origem: str = "",
     *,
     interromper: bool = False,
+    sessao: int | None = None,
 ) -> bool:
     """Agenda reproducao no Discord sem bloquear a resposta HTTP."""
     if _loop_ref is None or _bot_ref is None:
@@ -138,8 +166,16 @@ def _agendar_reproducao_pcm(
     try:
         from cogs.voice_cog import reproduzir_pcm
 
+        agendado_em = time.perf_counter()
         future = asyncio.run_coroutine_threadsafe(
-            reproduzir_pcm(_bot_ref, guild_id, pcm, interromper=interromper),
+            reproduzir_pcm(
+                _bot_ref,
+                guild_id,
+                pcm,
+                interromper=interromper,
+                sessao=sessao,
+                agendado_em=agendado_em,
+            ),
             _loop_ref,
         )
 
@@ -158,7 +194,7 @@ def _agendar_reproducao_pcm(
         return False
 
 
-def _iniciar_sessao_tts(origem: str) -> int:
+def _iniciar_sessao_tts(origem: str, guild_id: int | None = None) -> int:
     global _tts_session_id
     cancelados = 0
     with _tts_state_lock:
@@ -171,6 +207,16 @@ def _iniciar_sessao_tts(origem: str) -> int:
                 cancelados += 1
                 _tts_futures.discard(futuro)
     log.info("[WEB] Nova sessao TTS %d%s; chunks pendentes cancelados=%d", sessao, f" {origem}" if origem else "", cancelados)
+    if guild_id and _loop_ref is not None and _bot_ref is not None:
+        try:
+            from cogs.voice_cog import iniciar_sessao_reproducao
+
+            asyncio.run_coroutine_threadsafe(
+                iniciar_sessao_reproducao(_bot_ref, guild_id, sessao),
+                _loop_ref,
+            )
+        except Exception as exc:
+            log.warning("[WEB] Falha ao iniciar sessao de reproducao %d: %s", sessao, exc)
     return sessao
 
 
@@ -182,21 +228,6 @@ def _sessao_tts_atual(sessao: int) -> bool:
 def _duracao_pcm_ms(pcm: bytes) -> int:
     # PCM bruto do Discord: 48 kHz, stereo, 16-bit = 192000 bytes/s.
     return max(0, int((len(pcm) / 192000) * 1000))
-
-
-_ABREVIACOES_TTS = {
-    "sr.",
-    "sra.",
-    "dr.",
-    "dra.",
-    "etc.",
-    "ex.",
-    "obs.",
-}
-_PALAVRAS_LIGACAO_TTS = {"que", "de", "do", "da", "para", "pra", "com", "por", "se", "e", "ou"}
-_INICIO_FRASE_SEM_PONTO = re.compile(
-    r"\s+(?=(?:Eu|Voc(?:e|ê)s?|Tudo|Isso|Mas|Ent(?:ao|ão)|S(?:o|ó)|A(?:i|í)|Agora|Talvez|N(?:ao|ão)|Sim|T(?:a|á)|Claro|Calma)\b)",
-)
 
 
 def _corrigir_mojibake(texto: str) -> str:
@@ -219,111 +250,10 @@ def _corrigir_mojibake(texto: str) -> str:
         return texto
 
 
-def _normalizar_frase_tts(texto: str) -> str:
-    texto = _corrigir_mojibake(texto)
-    texto = " ".join((texto or "").split())
-    texto = re.sub(r"<\|[^|]+\|>", "", texto)
-    texto = re.sub(r"</?[a-zA-Z][^>]*/?>", "", texto)
-    texto = re.sub(r"^\[[^\]]{1,50}\]\s*:?\s*", "", texto).strip()
-    texto = re.sub(r"\*[^*]+\*", "", texto)
-    texto = re.sub(r"(?<![\w])_([^_]+)_(?![\w])", "", texto)
-    texto = texto.strip().strip("\"'")
-    if not texto:
-        return ""
-    if texto[-1] in ",;:-":
-        texto = texto[:-1].rstrip()
-    if texto and texto[-1] not in ".!?":
-        texto += "."
-    return texto
-
-
-def _fim_frase_pronta(texto: str) -> int | None:
-    for i, char in enumerate(texto):
-        if char not in ".!?":
-            continue
-        if char == "." and i > 0 and i + 1 < len(texto) and texto[i - 1].isdigit() and texto[i + 1].isdigit():
-            continue
-        fim = i + 1
-        while fim < len(texto) and texto[fim] in ".!?":
-            fim += 1
-        while fim < len(texto) and texto[fim] in "\"')]}":
-            fim += 1
-        ultima = texto[:fim].strip().lower().split()
-        if ultima and ultima[-1] in _ABREVIACOES_TTS:
-            continue
-        if fim == len(texto) or texto[fim].isspace():
-            return fim
-    return None
-
-
-def _corte_frase_longa(texto: str, limite: int = 135, minimo: int = 60) -> int | None:
-    candidatos = [m.start() for m in _INICIO_FRASE_SEM_PONTO.finditer(texto)]
-    for pos in candidatos:
-        prefixo = texto[:pos].rstrip().lower().split()
-        ultima = prefixo[-1] if prefixo else ""
-        if max(10, minimo - 20) <= pos <= limite and ultima not in _PALAVRAS_LIGACAO_TTS:
-            return pos
-    if len(texto) < limite:
-        return None
-    for marcador in (",", ";", ":"):
-        pos = texto.rfind(marcador, minimo, limite)
-        if pos >= minimo:
-            return pos + 1
-    trecho = texto[:limite]
-    for match in reversed(list(re.finditer(r"\s+", trecho))):
-        pos = match.start()
-        if pos < minimo:
-            break
-        prefixo = texto[:pos].rstrip().lower().split()
-        ultima = prefixo[-1] if prefixo else ""
-        if ultima not in _PALAVRAS_LIGACAO_TTS:
-            return pos
-    return None
-
-
-def _extrair_frases_tts(
-    buffer: str,
-    *,
-    force: bool = False,
-    limite_corte: int = 135,
-    minimo_corte: int = 60,
-) -> tuple[list[str], str]:
-    texto = _corrigir_mojibake(buffer or "").replace("\r", " ").replace("\n", " ").lstrip()
-    frases: list[str] = []
-    while texto:
-        fim_pontuacao = _fim_frase_pronta(texto)
-        fim_corte = _corte_frase_longa(texto, limite=limite_corte, minimo=minimo_corte)
-        if fim_corte is not None and (fim_pontuacao is None or fim_corte < fim_pontuacao):
-            fim = fim_corte
-        else:
-            fim = fim_pontuacao
-        if fim is None:
-            break
-        frase = _normalizar_frase_tts(texto[:fim])
-        if frase:
-            frases.append(frase)
-        texto = texto[fim:].lstrip()
-    if force and texto.strip():
-        frase = _normalizar_frase_tts(texto)
-        if frase:
-            frases.append(frase)
-        texto = ""
-    return frases, texto
-
-
-def _normalizar_resposta_voz_texto(texto: str) -> str:
-    frases, resto = _extrair_frases_tts(_corrigir_mojibake(texto), force=True)
-    if frases:
-        return " ".join(frases)
-    return _normalizar_frase_tts(resto or texto)
-
-
 # ── Aplicação de mudanças ao bot em tempo real ────────────────────────────────
 
 async def _aplicar_mudancas(nova_config: dict, config_antiga: dict) -> None:
     """Aplica prefix e renomes de comandos ao bot sem reiniciar."""
-    from config_loader import cfg as _cfg
-
     bot = _bot_ref
     if bot is None:
         return
@@ -378,6 +308,19 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/config":
             from config_loader import cfg
             data = cfg.as_dict()
+            data["llm"] = config.exportar_config_llm()
+            modelos = sorted({
+                str(path.resolve())
+                for pasta in (config.MODELS_TEXTO_DIR, config.MODELS_DIR)
+                for path in pasta.glob("*.gguf")
+            })
+            atual = str(Path(config.LLM_MODEL_PATH).resolve())
+            if atual not in modelos:
+                modelos.insert(0, atual)
+            data["_llm_models"] = [
+                {"value": caminho, "label": Path(caminho).name}
+                for caminho in modelos
+            ]
             try:
                 from cogs.llm_cog import prompt_defaults
                 data["_prompt_defaults"] = prompt_defaults()
@@ -386,6 +329,33 @@ class _Handler(BaseHTTPRequestHandler):
                 data["_prompt_defaults"] = {}
             payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
             self._respond(200, "application/json", payload)
+        elif self.path == "/api/bot/info":
+            info = {"id": None, "name": None, "invite_url": None}
+            if _bot_ref is not None and _bot_ref.user is not None:
+                import discord as _discord
+
+                permissoes = _discord.Permissions.none()
+                permissoes.view_channel = True
+                permissoes.send_messages = True
+                permissoes.read_message_history = True
+                permissoes.add_reactions = True
+                permissoes.connect = True
+                permissoes.speak = True
+                permissoes.use_voice_activation = True
+                info = {
+                    "id": str(_bot_ref.user.id),
+                    "name": _bot_ref.user.name,
+                    "invite_url": _discord.utils.oauth_url(
+                        _bot_ref.user.id,
+                        permissions=permissoes,
+                        scopes=("bot", "applications.commands"),
+                    ),
+                }
+            self._respond(
+                200,
+                "application/json",
+                json.dumps(info, ensure_ascii=False).encode("utf-8"),
+            )
         elif self.path.startswith("/api/voz/canais"):
             self._handle_get_voz_canais()
         elif self.path.startswith("/api/texto/canais"):
@@ -426,13 +396,7 @@ class _Handler(BaseHTTPRequestHandler):
         if self.path == "/api/shutdown":
             self._respond(200, "application/json", b'{"ok": true}')
             log.info("Desligamento solicitado via UI web.")
-            try:
-                _SHUTDOWN_FLAG.parent.mkdir(parents=True, exist_ok=True)
-                _SHUTDOWN_FLAG.write_text("shutdown via web ui\n", encoding="utf-8")
-            except Exception:
-                log.exception("Falha ao registrar flag de desligamento da UI.")
-            import os, threading
-            threading.Timer(0.3, lambda: os._exit(0)).start()
+            solicitar_desligamento()
             return
 
         if self.path == "/api/voz/conectar":
@@ -493,11 +457,32 @@ class _Handler(BaseHTTPRequestHandler):
 
         from config_loader import cfg
         nova_config.pop("_prompt_defaults", None)
+        nova_config.pop("_llm_models", None)
+        try:
+            nova_config["llm"] = config.validar_config_llm(nova_config.get("llm", {}))
+        except ValueError as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
         config_antiga = cfg.as_dict()
+        llm_antiga = config.exportar_config_llm()
 
         # Salva a nova config
         cfg.save(nova_config)
+        config.aplicar_config_llm(nova_config["llm"])
         log.info("Config salva via UI web.")
+
+        parametros_reinicio = {
+            "model_path", "n_ctx", "n_gpu_layers", "n_batch", "n_ubatch",
+            "n_threads", "n_threads_batch", "kv_type", "chat_template",
+        }
+        reinicio_necessario = any(
+            llm_antiga.get(chave) != nova_config["llm"].get(chave)
+            for chave in parametros_reinicio
+        )
 
         # Aplica ao bot de forma thread-safe (bot roda em event loop asyncio)
         if _loop_ref is not None and _bot_ref is not None:
@@ -509,7 +494,11 @@ class _Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 log.warning("Falha ao aplicar mudanças ao bot: %s", exc)
 
-        self._respond(200, "application/json", b'{"ok": true}')
+        self._respond(
+            200,
+            "application/json",
+            json.dumps({"ok": True, "reinicio_necessario": reinicio_necessario}).encode("utf-8"),
+        )
 
     # ── Handlers Voz: Canais / Conectar / Desconectar ─────────────────────────
 
@@ -564,13 +553,9 @@ class _Handler(BaseHTTPRequestHandler):
             perms = c.permissions_for(member) if member else None
             if perms and not (perms.view_channel and perms.send_messages):
                 continue
-            canais.append({
-                "id": str(c.id),
-                "name": c.name,
-                "category": c.category.name if c.category else "Sem categoria",
-            })
+            canais.append({"id": str(c.id), "name": c.name})
 
-        canais.sort(key=lambda c: (c["category"].lower(), c["name"].lower()))
+        canais.sort(key=lambda c: c["name"].lower())
         self._respond(200, "application/json",
                       json.dumps(canais, ensure_ascii=False).encode("utf-8"))
 
@@ -874,12 +859,13 @@ class _Handler(BaseHTTPRequestHandler):
             log.info("[WEB] Etapa 2: Gerando resposta LLM...")
             guild_com_voz = _encontrar_guild_com_voz()
             inicio_llm = time.perf_counter()
-            resposta_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
+            mensagens_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
                 texto_usuario,
                 voz_estado,
                 guild_com_voz,
                 "/api/voz/chat",
             )
+            resposta_llm = "\n".join(mensagens_llm)
             tempo_llm = time.perf_counter() - inicio_llm
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
@@ -895,6 +881,7 @@ class _Handler(BaseHTTPRequestHandler):
             payload = {
                 "transcript": texto_usuario,
                 "resposta": resposta_llm,
+                "mensagens": mensagens_llm,
                 "falou_discord": falou,
                 "audio_ms": audio_ms if falou else 0,
                 "timings": {
@@ -943,11 +930,13 @@ class _Handler(BaseHTTPRequestHandler):
                 return
 
             log.info("[WEB] /api/voz/falar texto='%s'", texto[:60])
-            _iniciar_sessao_tts("/api/voz/falar")
+            sessao = _iniciar_sessao_tts("/api/voz/falar", guild_id)
             pcm = _gerar_pcm_tts(texto, voz_estado)
             audio_ms = _duracao_pcm_ms(pcm)
             log.info("[WEB] /api/voz/falar PCM gerado, %d bytes; agendando no Discord", len(pcm))
-            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/falar", interromper=True):
+            if not _agendar_reproducao_pcm(
+                guild_id, pcm, " em /api/voz/falar", interromper=True, sessao=sessao
+            ):
                 self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
                 return
             log.info("[WEB] /api/voz/falar audio agendado com sucesso")
@@ -976,10 +965,12 @@ class _Handler(BaseHTTPRequestHandler):
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
-            _iniciar_sessao_tts("/api/voz/testar")
+            sessao = _iniciar_sessao_tts("/api/voz/testar", guild_id)
             pcm = _gerar_pcm_tts(texto, voz_estado)
             audio_ms = _duracao_pcm_ms(pcm)
-            if not _agendar_reproducao_pcm(guild_id, pcm, " em /api/voz/testar", interromper=True):
+            if not _agendar_reproducao_pcm(
+                guild_id, pcm, " em /api/voz/testar", interromper=True, sessao=sessao
+            ):
                 self._respond(500, "application/json", b'{"erro": "falha ao agendar audio"}')
                 return
             payload = json.dumps({"ok": True, "audio_ms": audio_ms}).encode("utf-8")
@@ -1013,12 +1004,13 @@ class _Handler(BaseHTTPRequestHandler):
             # 1. LLM
             log.info("[WEB] Etapa 1: Gerando resposta LLM...")
             guild_com_voz = _encontrar_guild_com_voz()
-            resposta_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
+            mensagens_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
                 texto,
                 voz_estado,
                 guild_com_voz,
                 "/api/voz/chat-texto",
             )
+            resposta_llm = "\n".join(mensagens_llm)
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
             # 2. TTS + Discord
@@ -1032,6 +1024,7 @@ class _Handler(BaseHTTPRequestHandler):
 
             payload = {
                 "resposta": resposta_llm,
+                "mensagens": mensagens_llm,
                 "falou_discord": falou,
                 "audio_ms": audio_ms if falou else 0,
             }
@@ -1190,6 +1183,7 @@ def _submeter_frase_tts_async(
             pcm,
             f" {origem} frase {indice}",
             interromper=(indice == 1),
+            sessao=sessao,
         ):
             log.error("[WEB] Falha ao agendar TTS assíncrono frase %d.", indice)
             return
@@ -1204,100 +1198,80 @@ def _gerar_resposta_voz_streaming(
     voz_cfg: dict,
     guild_id: int | None,
     origem: str,
-) -> tuple[str, bool, int]:
-    """Gera resposta por streaming e agenda TTS assim que cada frase fica pronta."""
+) -> tuple[list[str], bool, int]:
+    """Recebe balões estruturados e agenda o TTS assim que cada item termina."""
     log.info("[LLM-VOZ] Gerando resposta streaming para: %r", texto_usuario[:80])
     cog = _bot_ref.get_cog("LLM") if _bot_ref else None
     if cog is None:
         log.error("[LLM-VOZ] Cog LLM nao encontrado para streaming.")
-        return "LLM nao carregado.", False, 0
+        return ["LLM nao carregado."], False, 0
 
     system_prompt = cog._construir_prompt_lou_voz(0)
     with _voz_lock:
         _voz_historico.append({"role": "user", "content": texto_usuario})
         historico = list(_voz_historico)
+    while historico and historico[0].get("role") != "user":
+        historico.pop(0)
 
     tts_ativo = bool(guild_id and voz_cfg.get("falar_discord", True))
-    sessao_tts = _iniciar_sessao_tts(origem) if tts_ativo else 0
-    partes: list[str] = []
-    buffer_tts = ""
+    sessao_tts = _iniciar_sessao_tts(origem, int(guild_id)) if tts_ativo else 0
+    mensagens: list[str] = []
     falou = False
     audio_ms_total = 0
-    frase_idx = 0
     inicio_llm = time.perf_counter()
 
     try:
-        for delta in cog._stream_resposta(
+        for mensagem in cog._stream_mensagens(
             system_prompt,
             historico,
             max_tokens=config.LLM_VOZ_MAX_TOKENS,
             temperature=config.LLM_VOZ_TEMPERATURE,
         ):
-            partes.append(delta)
-            if not tts_ativo:
+            mensagem = _corrigir_mojibake(mensagem).strip()
+            if not mensagem:
                 continue
-            buffer_tts += delta
-            frases, buffer_tts = _extrair_frases_tts(
-                buffer_tts,
-                limite_corte=36 if frase_idx == 0 else 58,
-                minimo_corte=16 if frase_idx == 0 else 26,
-            )
-            for frase in frases:
-                frase_idx += 1
-                _submeter_frase_tts_async(frase, voz_cfg, int(guild_id), origem, frase_idx, sessao_tts)
+            mensagens.append(mensagem)
+            if tts_ativo:
+                indice = len(mensagens)
+                _submeter_frase_tts_async(
+                    mensagem, voz_cfg, int(guild_id), origem, indice, sessao_tts
+                )
                 falou = True
-                audio_ms_total += _estimar_audio_tts_ms(frase, voz_cfg)
-                if frase_idx == 1:
+                audio_ms_total += _estimar_audio_tts_ms(mensagem, voz_cfg)
+                if indice == 1:
                     audio_ms_total += _TTS_STARTUP_ESTIMATE_MS
     except Exception as exc:
         log.warning("[LLM-VOZ] Streaming falhou: %s", exc, exc_info=True)
-        if not partes:
-            resposta_fallback = cog._gerar_resposta(
+        if not mensagens:
+            mensagens = cog._gerar_mensagens(
                 system_prompt,
                 historico,
                 max_tokens=config.LLM_VOZ_MAX_TOKENS,
-                continuar_se_cortar=False,
+                continuar_se_cortar=True,
                 temperature=config.LLM_VOZ_TEMPERATURE,
             )
-            resposta_fallback = _normalizar_resposta_voz_texto(resposta_fallback)
-            if tts_ativo and resposta_fallback:
-                try:
-                    pcm = _gerar_pcm_tts(resposta_fallback, voz_cfg)
-                    falou = _agendar_reproducao_pcm(int(guild_id), pcm, f" {origem} fallback", interromper=True)
-                    audio_ms_total = _duracao_pcm_ms(pcm) if falou else 0
-                except Exception as tts_exc:
-                    log.error("[WEB] ERRO ao gerar TTS fallback: %s", tts_exc, exc_info=True)
-            if resposta_fallback:
-                with _voz_lock:
-                    _voz_historico.append({"role": "assistant", "content": resposta_fallback})
-            return resposta_fallback, falou, audio_ms_total
-
-    resposta_bruta = "".join(partes)
-    resposta = _normalizar_resposta_voz_texto(cog._limpar_resposta(resposta_bruta))
-    if not resposta and resposta_bruta.strip():
-        resposta = _normalizar_resposta_voz_texto(resposta_bruta)
-
-    if tts_ativo:
-        frases_finais, _ = _extrair_frases_tts(buffer_tts, force=True)
-        for frase in frases_finais:
-            frase_idx += 1
-            _submeter_frase_tts_async(frase, voz_cfg, int(guild_id), origem, frase_idx, sessao_tts)
-            falou = True
-            audio_ms_total += _estimar_audio_tts_ms(frase, voz_cfg)
-            if frase_idx == 1:
-                audio_ms_total += _TTS_STARTUP_ESTIMATE_MS
+            mensagens = [_corrigir_mojibake(item).strip() for item in mensagens if item.strip()]
+            if tts_ativo:
+                for indice, mensagem in enumerate(mensagens, start=1):
+                    _submeter_frase_tts_async(
+                        mensagem, voz_cfg, int(guild_id), origem, indice, sessao_tts
+                    )
+                    falou = True
+                    audio_ms_total += _estimar_audio_tts_ms(mensagem, voz_cfg)
+                    if indice == 1:
+                        audio_ms_total += _TTS_STARTUP_ESTIMATE_MS
 
     log.info(
-        "[LLM-VOZ] Streaming concluido em %.2fs; frases_tts=%d resposta=%r",
+        "[LLM-VOZ] Streaming concluido em %.2fs; mensagens=%d resposta=%r",
         time.perf_counter() - inicio_llm,
-        frase_idx,
-        resposta[:100] if resposta else "(vazio)",
+        len(mensagens),
+        mensagens[:2] if mensagens else "(vazio)",
     )
 
-    if resposta:
+    if mensagens:
         with _voz_lock:
-            _voz_historico.append({"role": "assistant", "content": resposta})
-    return resposta or "", falou, audio_ms_total
+            _voz_historico.append({"role": "assistant", "content": "\n".join(mensagens)})
+    return mensagens, falou, audio_ms_total
 
 
 def _gerar_resposta_voz(texto_usuario: str) -> str:
@@ -1317,6 +1291,8 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
     with _voz_lock:
         _voz_historico.append({"role": "user", "content": texto_usuario})
         historico = list(_voz_historico)
+    while historico and historico[0].get("role") != "user":
+        historico.pop(0)
 
     try:
         inicio_llm = time.perf_counter()
@@ -1324,7 +1300,7 @@ def _gerar_resposta_voz(texto_usuario: str) -> str:
             system_prompt,
             historico,
             max_tokens=config.LLM_VOZ_MAX_TOKENS,
-            continuar_se_cortar=False,
+            continuar_se_cortar=True,
             temperature=config.LLM_VOZ_TEMPERATURE,
         )
         log.info("[LLM-VOZ] Tempo LLM: %.2fs", time.perf_counter() - inicio_llm)
@@ -1359,17 +1335,21 @@ def _encontrar_guild_com_voz() -> int | None:
 def start(bot, host: str = "127.0.0.1", port: int = 5000,
           loop: asyncio.AbstractEventLoop | None = None) -> None:
     """Inicia o servidor web em uma thread daemon (não bloqueia o bot)."""
-    global _bot_ref, _loop_ref
+    global _bot_ref, _loop_ref, _http_server
     _bot_ref = bot
     _loop_ref = loop or asyncio.get_event_loop()
 
-    # Inicia listener global de PTT (Shift direito)
-    _iniciar_ptt_global()
+    with _server_lock:
+        if _http_server is not None:
+            log.info("Interface web ja esta ativa em http://%s:%d", host, port)
+            return
 
-    server = ThreadingHTTPServer((host, port), _Handler)
-
-    thread = threading.Thread(target=server.serve_forever, daemon=True, name="web-ui")
-    thread.start()
+        # Inicia listener global de PTT (Shift direito)
+        _iniciar_ptt_global()
+        server = ThreadingHTTPServer((host, port), _Handler)
+        _http_server = server
+        thread = threading.Thread(target=server.serve_forever, daemon=True, name="web-ui")
+        thread.start()
     log.info("Interface web disponível em http://%s:%d", host, port)
 
 

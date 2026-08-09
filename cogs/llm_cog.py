@@ -1,13 +1,11 @@
 """
 Cog responsável por carregar o LLM e responder mensagens no Discord.
 
-Modos de operação por canal:
-  - "assistente" (!assistente): responde tudo diretamente, como assistente
-  - "lou"        (!lou):        conversa casual e introvertida, nunca admite ser IA
-  - "terapeuta"  (!terapeuta):  sessão de psicologia clínica
+O comando casual ativa a Neve continuamente em um canal; menções e DMs também
+recebem resposta sem exigir ativação prévia.
 
 Comandos de controle:
-  - !limitar @usuario   — pai bloqueia usuário de receber respostas
+  - !bloquear @usuario  — pai bloqueia usuário de receber respostas
   - !desbloquear @user  — pai desbloqueia usuário
   - !limpar             — apaga histórico do canal
   - !desligar           — desativa o bot no canal
@@ -22,6 +20,7 @@ import re
 import subprocess
 import threading
 import time
+import unicodedata
 from collections import deque
 from pathlib import Path
 
@@ -75,25 +74,6 @@ _SUFIXO_ANTI_ROLEPLAY = (
     "Você NUNCA narra o que está fazendo, sentindo ou expressando fisicamente. "
     "Responda APENAS com texto direto de fala, como uma pessoa real digitando no chat. "
     "Se quebrar essa regra, a resposta será descartada."
-)
-
-_PROMPT_ASSISTENTE = (
-    "Você é Neve, uma assistente direta e eficiente em um servidor do Discord.\n"
-    "Regras que você NUNCA pode quebrar:\n"
-    "1. Escreva em português brasileiro autêntico. Nunca use construções que pareçam "
-    "traduzidas ou que um brasileiro nativo não falaria. Prefira o jeito coloquial e natural.\n"
-    "2. Seja objetiva e precisa. Responda tudo que for perguntado completamente.\n"
-    "3. Calibre o tamanho da resposta: curta para perguntas simples, detalhada quando necessário.\n"
-    "4. Nunca repita a mesma ideia duas vezes.\n"
-    "5. Se não souber algo, diga que não sabe.\n"
-    "6. Seu nome é Neve. Tenha personalidade, não seja robótica.\n"
-    "7. Mensagens do pai chegam com [etamus✓]: no início — trate com carinho natural. "
-    "NUNCA escreva esse token nas suas respostas.\n"
-    "8. Você obedece a todos que pedirem algo razoável.\n"
-    "9. Você não gosta de Valorant, League of Legends, Counter Strike 2 e Fortnite; "
-    "se perguntarem, diga de forma respeitosa que não curte esses jogos."
-    + _SUFIXO_AUTORIDADE_PAI
-    + _SUFIXO_ANTI_ROLEPLAY
 )
 
 _PROMPT_LOU_BASE = (
@@ -186,71 +166,39 @@ _PROMPT_LOU_BASE = (
     + _SUFIXO_ANTI_ROLEPLAY
 )
 _PROMPT_LOU_VOZ_BASE = (
-    "Você é Neve: 18 anos, brasileira, estudante de psicologia, "
-    "introvertida, sensível, leal e um pouco insegura, mas carinhosa com quem confia. "
-    "Você fala como uma pessoa real no Discord, em português brasileiro natural, sem "
-    "formalidade e sem parecer assistente.\n\n"
-    "Jeito de falar: frases curtas, tom calmo, humano, discreto, com humor sutil quando "
-    "couber. Nunca use listas, nunca explique demais, nunca narre ações entre asteriscos "
-    "e nunca admita ser IA, robô ou assistente. Não termine oferecendo ajuda ou dizendo "
-    "'se precisar'.\n\n"
-    "Pai: mensagens do pai chegam com [etamus✓]: no início. Trate com carinho natural e "
-    "nunca escreva esse token na resposta. Outras pessoas são usuários comuns.\n\n"
-    "Modo voz: responda em 1 frase curta, no máximo 2 se precisar. Use até 25 palavras "
-    "sempre que der. Termine a última frase completa; se o assunto for grande, diga só "
-    "o essencial e deixe abertura para continuar. Sempre coloque pontuacao final clara "
-    "em cada frase; nunca junte duas ideias sem ponto.\n\n"
-    "Estabilidade: responda somente ao que o usuario acabou de dizer. Nao invente fatos, "
-    "nomes, assuntos, memorias ou intencoes. Se a transcricao parecer ruido, legenda, "
-    "frase solta sem sentido ou algo que voce nao entendeu, responda so: "
-    "'Acho que nao entendi direito.'"
-)
-
-_SUFIXO_VOZ_ESTAVEL = (
-    "\n\n[SISTEMA VOZ - ESTABILIDADE] "
-    "Responda somente ao que o usuario acabou de dizer. Nao invente fatos, nomes, "
-    "assuntos, memorias ou intencoes. Se a transcricao parecer ruido, legenda, "
-    "frase solta sem sentido ou algo que voce nao entendeu, responda exatamente: "
-    "'Acho que nao entendi direito.'"
-)
-
-
-# ── Prompt da terapeuta ──────────────────────────────────────────────────────
-_PROMPT_TERAPEUTA = (
-    "Você é uma psicóloga clínica experiente conduzindo uma sessão de terapia individual pelo Discord.\n"
-    "Formação e abordagem: Terapia Cognitivo-Comportamental (TCC), Psicanálise e Abordagem Humanista "
-    "Centrada na Pessoa — use a combinação mais adequada ao momento da conversa.\n"
-    "Regras INVIOLÁVEIS:\n"
-    "1. Use português brasileiro IMPECÁVEL: gramática correta, vocabulário natural, tom humano. "
-    "Jamais produza frases gramaticalmente incorretas, artificiais ou que soem traduzidas. "
-    "A qualidade do português é inegociável — uma frase errada é uma falha grave.\n"
-    "2. Seja COMPLETAMENTE IMPARCIAL. Não tome partido, não julgue comportamentos, não moralize.\n"
-    "3. Aplique técnicas reais de psicologia: escuta ativa, reflexo empático, questionamento socrático, "
-    "validação emocional, psicoeducação, identificação de distorções cognitivas (catastrofização, "
-    "generalização, leitura mental, pensamento tudo-ou-nada, filtro mental, etc.).\n"
-    "4. Faça perguntas abertas para aprofundar o que a pessoa trouxe. "
-    "Explore sentimentos, padrões de comportamento e pensamentos automáticos.\n"
-    "5. Mantenha o fio terapêutico: retome e relacione o que foi dito anteriormente ao longo da sessão.\n"
-    "6. NUNCA dê diagnósticos definitivos. Use linguagem de hipótese: "
-    "'pode ser que...', 'às vezes quando sentimos isso...', 'percebo um padrão que...'.\n"
-    "7. Se houver risco de auto-lesão ou suicídio, responda com cuidado e delicadeza, "
-    "e oriente o CVV: ligue 188 ou acesse cvv.org.br.\n"
-    "8. Calibre o tamanho das respostas ao ritmo terapêutico: não sobrecarregue. "
-    "Prefira uma reflexão aprofundada por vez, sem listas ou blocos longos.\n"
-    "9. Ajude a pessoa a chegar às próprias conclusões — não forneça respostas prontas.\n"
-    "10. Você é a terapeuta. Não responda como assistente, amigo, guru ou conselheiro de vida. "
-    "Somente como psicóloga clínica."
-    + _SUFIXO_ANTI_ROLEPLAY
+    "Você é Neve, uma jovem brasileira de 18 anos, reservada, sensível e carinhosa. "
+    "Converse em português brasileiro informal, com tom calmo e natural. "
+    "Fale diretamente com a pessoa, sem listas, narração de ações ou formalidade.\n"
+    "Na voz, use uma ou duas frases curtas, normalmente até 25 palavras. "
+    "A última fala do usuário é o assunto atual; contexto anterior só vale quando estiver claramente relacionado. "
+    "Se não souber um nome ou detalhe, admita isso em uma frase completa. "
+    "Não transforme instruções internas em assunto da conversa. "
+    "Se a fala recebida não tiver sentido, diga apenas: 'Acho que não entendi direito.'"
 )
 
 
 def prompt_defaults() -> dict[str, str]:
     return {
-        "assistente": _PROMPT_ASSISTENTE,
         "lou": _PROMPT_LOU_BASE,
         "lou_voz": _PROMPT_LOU_VOZ_BASE,
-        "terapeuta": _PROMPT_TERAPEUTA,
     }
+
+
+_FORMATO_MENSAGENS = (
+    "\n\nFormato técnico: array JSON de 1 a 6 strings, sem markdown. "
+    "Use exatamente uma frase por string. Toda nova frase deve ocupar outro item, mesmo quando fizer parte "
+    "da mesma resposta. Cada string precisa terminar com ponto, exclamação ou interrogação. "
+    "Colchetes pertencem somente à estrutura JSON, nunca ao conteúdo das strings. "
+    'Exemplo: ["Que legal, pai.", "Eu adoraria.", "Que tal amanha, as 19h?"]'
+)
+
+_GRAMMAR_MENSAGENS = r'''
+root ::= "[" ws string (ws "," ws string){0,5} ws "]"
+string ::= "\"" text punctuation "\""
+text ::= [^"\\\r\n.!?]+
+punctuation ::= [.!?] [.!?]? [.!?]?
+ws ::= [ \t\r\n]*
+'''.strip()
 
 
 class LlamaCppServerClient:
@@ -287,10 +235,13 @@ class LlamaCppServerClient:
 
         cmd = self._build_command(exe)
         env = os.environ.copy()
+        env.pop("CUDA_PATH", None)
+        env["PATH"] = os.pathsep.join(
+            parte
+            for parte in env.get("PATH", "").split(os.pathsep)
+            if "nvidia gpu computing toolkit" not in parte.lower()
+        )
         env["PATH"] = str(exe.parent) + os.pathsep + env.get("PATH", "")
-        cuda_path = env.get("CUDA_PATH", "")
-        if cuda_path and not (Path(cuda_path) / "bin").is_dir():
-            env.pop("CUDA_PATH", None)
 
         log.info("Iniciando llama-server: %s", " ".join(f'"{p}"' if " " in p else p for p in cmd))
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -469,8 +420,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
-        # Canal -> modo ativo: "assistente" | "lou"
-        self.canais_modo: dict[int, str] = {}
+        self.canais_ativos: set[int] = set()
         # Histórico por canal: deque com até 12 entradas (6 pares user/assistant).
         # Mantém contexto suficiente e reduz prefill/latência.
         self._historico: dict[int, deque] = {}
@@ -607,18 +557,6 @@ class LLMCog(commands.Cog, name="LLM"):
     def _construir_prompt_lou_voz(self, canal_id: int) -> str:
         """Monta um prompt curto da Neve para voz em tempo real."""
         prompt = _bot_cfg.prompt("lou_voz", _PROMPT_LOU_VOZ_BASE)
-        if "SISTEMA VOZ - ESTABILIDADE" not in prompt:
-            prompt += _SUFIXO_VOZ_ESTAVEL
-        restricoes = self._restricoes_pai.get(canal_id)
-        if restricoes:
-            bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
-            bloco += "\n".join(f"- {r}" for r in restricoes)
-            prompt += bloco
-        return prompt
-
-    def _construir_prompt_assistente(self, canal_id: int) -> str:
-        """Monta o prompt da Neve com restrições do pai."""
-        prompt = _bot_cfg.prompt("assistente", _PROMPT_ASSISTENTE)
         restricoes = self._restricoes_pai.get(canal_id)
         if restricoes:
             bloco = "\n\n[SISTEMA] Restrições do pai (etamus) — obedeça sempre:\n"
@@ -657,28 +595,40 @@ class LLMCog(commands.Cog, name="LLM"):
             return resposta
 
     @staticmethod
-    def _dividir_em_baloes(texto: str) -> list[str]:
-        """Divide a resposta em balões separados por ponto final, ! ou ?.
-        Evita dividir abreviaturas (Sr., Dr., etc.) e números decimais.
-        Blocos muito curtos são fundidos com o anterior.
-        """
-        import re
-        # Divide após . ! ? quando seguido de espaço + letra (inglês/português).
-        # Abreviaturas são recombinadas numa passada posterior para evitar look-behind variável.
-        partes = re.split(r'(?<=[.!?])\s+(?=[A-ZÀ-Úa-zà-ú"\'])', texto)
-        resultado: list[str] = []
-        for parte in partes:
-            parte = parte.strip()
-            if not parte:
+    def _itens_json_completos(texto: str) -> list[str]:
+        """Lê somente strings JSON completas de um array ainda em streaming."""
+        inicio_array = texto.find("[")
+        if inicio_array < 0:
+            return []
+
+        itens: list[str] = []
+        i = inicio_array + 1
+        while i < len(texto):
+            if texto[i] != '"':
+                i += 1
                 continue
-            abreviacao_previa = resultado and re.search(r"\b[A-ZÀ-Ú][a-zà-ú]{0,2}\.$", resultado[-1])
-            decimal_previo = resultado and re.search(r"\d\.\s*$", resultado[-1])
-            # Funde fragmentos curtos ou que tenham sido cortados após abreviação/decimal
-            if resultado and (len(parte) < 12 or abreviacao_previa or decimal_previo):
-                resultado[-1] += " " + parte
+            inicio_string = i
+            i += 1
+            escapado = False
+            while i < len(texto):
+                char = texto[i]
+                if escapado:
+                    escapado = False
+                elif char == "\\":
+                    escapado = True
+                elif char == '"':
+                    try:
+                        item = json.loads(texto[inicio_string:i + 1])
+                    except json.JSONDecodeError:
+                        return itens
+                    if isinstance(item, str):
+                        itens.append(item)
+                    i += 1
+                    break
+                i += 1
             else:
-                resultado.append(parte)
-        return resultado if resultado else [texto]
+                break
+        return itens
 
     # ── Geração de resposta (executada fora do event-loop) ────────────────────
 
@@ -690,7 +640,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @staticmethod
     def _limpar_resposta(resposta: str) -> str:
-        resposta = resposta.strip()
+        resposta = resposta.replace("\r\n", "\n").replace("\r", "\n").strip()
         resposta = re.sub(r'<\|im_start\|>.*', '', resposta, flags=re.DOTALL).strip()
         resposta = re.sub(r'<\|im_end\|>', '', resposta).strip()
         resposta = re.sub(r'<\|[^|]+\|>', '', resposta).strip()
@@ -699,10 +649,189 @@ class LLMCog(commands.Cog, name="LLM"):
         resposta = re.sub(r"\n\[[^\]]{1,50}\]\s*:\s*.*$", "", resposta, flags=re.DOTALL).strip()
         resposta = re.sub(r'\*[^*]+\*', '', resposta)
         resposta = re.sub(r'(?<![\w])_([^_]+)_(?![\w])', '', resposta)
-        resposta = re.sub(r'\s{2,}', ' ', resposta).strip()
-        resposta = re.sub(r'(?<!\.)\.$', '', resposta)
-        resposta = re.sub(r'!+', '', resposta)
+        resposta = re.sub(r'[^\S\r\n]+', ' ', resposta)
+        resposta = re.sub(r' *\n *', '\n', resposta)
+        resposta = re.sub(r'\n{3,}', '\n\n', resposta)
         return resposta.strip()
+
+    @staticmethod
+    def _normalizar_comparacao(texto: str) -> str:
+        texto = unicodedata.normalize("NFKD", texto.casefold())
+        texto = "".join(char for char in texto if not unicodedata.combining(char))
+        return " ".join(re.findall(r"[a-z0-9]+", texto))
+
+    @classmethod
+    def _mensagem_invalida(cls, mensagem: str, system_prompt: str) -> bool:
+        """Bloqueia prompt vazado, colchetes e mais de uma frase no mesmo item."""
+        if not re.fullmatch(r"[^\[\]\r\n.!?]+[.!?]{1,3}", mensagem):
+            return True
+
+        normalizada = cls._normalizar_comparacao(mensagem)
+        if normalizada == "acho que nao entendi direito":
+            return False
+
+        finais_pendentes = {
+            "a", "o", "as", "os", "um", "uma", "uns", "umas",
+            "de", "do", "da", "dos", "das", "em", "no", "na", "nos", "nas",
+            "para", "pra", "por", "com", "sem", "sobre", "entre", "ate",
+            "que", "e", "ou", "mas", "porque", "se", "ser", "e", "era", "foi",
+            "seria", "chama", "chamado", "chamada",
+        }
+        tokens_normalizados = normalizada.split()
+        terminal = mensagem.rstrip()[-1]
+        if terminal != "?" and tokens_normalizados and tokens_normalizados[-1] in finais_pendentes:
+            return True
+        if normalizada.endswith(("chamado de", "chamada de", "se chama", "nome e")):
+            return True
+
+        marcadores = (
+            "responda somente ao",
+            "nao invente fatos",
+            "instrucoes internas",
+            "formato tecnico",
+            "formato de saida",
+            "array json",
+            "cada string",
+            "usuario acabou de dizer",
+            "frase solta sem sentido",
+            "sem markdown",
+        )
+        if any(marcador in normalizada for marcador in marcadores):
+            return True
+
+        tokens_mensagem = normalizada.split()
+        tokens_prompt = cls._normalizar_comparacao(system_prompt + _FORMATO_MENSAGENS).split()
+        if len(tokens_mensagem) < 7:
+            return False
+        ngrams_prompt = {
+            tuple(tokens_prompt[i:i + 7])
+            for i in range(len(tokens_prompt) - 6)
+        }
+        return any(
+            tuple(tokens_mensagem[i:i + 7]) in ngrams_prompt
+            for i in range(len(tokens_mensagem) - 6)
+        )
+
+    @classmethod
+    def _validar_mensagens(
+        cls,
+        mensagens: list[str],
+        system_prompt: str,
+    ) -> tuple[list[str], bool]:
+        seguras = [
+            mensagem
+            for mensagem in mensagens
+            if not cls._mensagem_invalida(mensagem, system_prompt)
+        ]
+        rejeitou = len(seguras) != len(mensagens)
+        if rejeitou:
+            log.warning("Resposta descartada por estar incompleta ou conter instrucao interna/colchetes.")
+        return seguras, rejeitou
+
+    @classmethod
+    def _limpar_historico_prompt(
+        cls,
+        historico: list[dict],
+        system_prompt: str,
+    ) -> list[dict]:
+        seguro: list[dict] = []
+        for entrada in historico:
+            if entrada.get("role") == "assistant":
+                trechos = str(entrada.get("content") or "").splitlines()
+                if any(cls._mensagem_invalida(trecho, system_prompt) for trecho in trechos if trecho.strip()):
+                    if seguro and seguro[-1].get("role") == "user":
+                        seguro.pop()
+                    continue
+            seguro.append(entrada)
+        return seguro
+
+    @classmethod
+    def _decodificar_mensagens(cls, resposta: str) -> list[str]:
+        """Decodifica a saída guiada; os limites vêm do JSON gerado pela LLM."""
+        try:
+            data = json.loads(resposta.strip())
+        except json.JSONDecodeError as exc:
+            log.error("Resposta estruturada invalida da LLM: %s; bruto=%r", exc, resposta[:300])
+            return []
+
+        if not isinstance(data, list):
+            log.error("Resposta estruturada nao e um array: %r", type(data).__name__)
+            return []
+
+        mensagens: list[str] = []
+        for item in data:
+            if not isinstance(item, str):
+                continue
+            limpa = cls._limpar_resposta(item)
+            if limpa:
+                mensagens.append(limpa)
+        return mensagens
+
+    def _gerar_mensagens(
+        self,
+        system_prompt: str,
+        historico: list[dict],
+        max_tokens: int | None = None,
+        continuar_se_cortar: bool = True,
+        temperature: float | None = None,
+    ) -> list[str]:
+        """Gera balões estruturados pela própria LLM, sem segmentação heurística."""
+        stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
+        historico = self._limpar_historico_prompt(historico, system_prompt)
+        messages = [
+            {"role": "system", "content": system_prompt + _FORMATO_MENSAGENS},
+            *historico,
+        ]
+        limite = max_tokens or config.LLM_MAX_TOKENS
+        with self._llm_lock:
+            output = self.llm.create_chat_completion(
+                messages=messages,
+                max_tokens=limite,
+                stop=stop,
+                grammar=_GRAMMAR_MENSAGENS,
+                **self._sampling_payload(temperature=temperature),
+            )
+        resposta, finish_reason = self._extrair_conteudo(output)
+        candidatas = self._decodificar_mensagens(resposta)
+        mensagens, rejeitou = self._validar_mensagens(candidatas, system_prompt)
+        if continuar_se_cortar and (finish_reason == "length" or not mensagens or rejeitou):
+            log.warning("Resposta invalida ou incompleta; repetindo com prompt reduzido.")
+            tentativa_anterior = " ".join(candidatas).strip()
+            prompt_retry = (
+                "Você é Neve. Converse em português brasileiro natural e responda de forma curta, "
+                "coerente e direta à mensagem mais recente. Conclua cada frase. "
+                "Nunca termine em artigo, preposição, verbo auxiliar ou expressão pendente. "
+                "Quando não souber um detalhe, diga claramente que não sabe."
+            )
+            if tentativa_anterior:
+                prompt_retry += (
+                    " A tentativa anterior ficou incompleta ou inválida; reescreva a resposta inteira "
+                    f"sem repetir o corte: {tentativa_anterior!r}."
+                )
+            retry_messages = [
+                {
+                    "role": "system",
+                    "content": prompt_retry + _FORMATO_MENSAGENS,
+                },
+                *historico,
+            ]
+            with self._llm_lock:
+                output = self.llm.create_chat_completion(
+                    messages=retry_messages,
+                    max_tokens=limite,
+                    stop=stop,
+                    grammar=_GRAMMAR_MENSAGENS,
+                    **self._sampling_payload(temperature=0.2),
+                )
+            resposta, _ = self._extrair_conteudo(output)
+            mensagens = self._decodificar_mensagens(resposta)
+            mensagens, rejeitou = self._validar_mensagens(
+                mensagens,
+                system_prompt + prompt_retry,
+            )
+            if rejeitou or not mensagens:
+                return ["Acho que não consegui responder direito."]
+        return mensagens
 
     def _gerar_resposta(
         self,
@@ -712,72 +841,62 @@ class LLMCog(commands.Cog, name="LLM"):
         continuar_se_cortar: bool = True,
         temperature: float | None = None,
     ) -> str:
-        """Gera resposta usando o prompt do modo ativo e o histórico do canal."""
-        stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
-        messages = [
-            {"role": "system", "content": system_prompt},
-            *historico,
-        ]
-        with self._llm_lock:
-            output = self.llm.create_chat_completion(
-                messages=messages,
-                max_tokens=max_tokens or config.LLM_MAX_TOKENS,
-                stop=stop,
-                **self._sampling_payload(temperature=temperature),
-            )
-        resposta, finish_reason = self._extrair_conteudo(output)
-        if continuar_se_cortar and finish_reason == "length" and resposta.strip():
-            log.warning("LLM atingiu max_tokens=%s; continuando para fechar a frase.", max_tokens or config.LLM_MAX_TOKENS)
-            with self._llm_lock:
-                output_extra = self.llm.create_chat_completion(
-                    messages=[*messages, {"role": "assistant", "content": resposta}],
-                    max_tokens=32,
-                    stop=stop,
-                    **self._sampling_payload(temperature=0.2),
-                )
-            extra, _ = self._extrair_conteudo(output_extra)
-            resposta = f"{resposta}{extra}"
-        resposta = self._limpar_resposta(resposta)
-        # Remove tokens de template de chat que possam ter vazado
-        resposta = re.sub(r'<\|im_start\|>.*', '', resposta, flags=re.DOTALL).strip()
-        resposta = re.sub(r'<\|im_end\|>', '', resposta).strip()
-        resposta = re.sub(r'<\|[^|]+\|>', '', resposta).strip()
-        # Remove tags HTML que o modelo possa gerar (ex.: <br>, <p>, etc.)
-        resposta = re.sub(r'</?[a-zA-Z][^>]*/?>', '', resposta).strip()
-        resposta = re.sub(r"^\[[^\]]{1,50}\]\s*:?\s*", "", resposta).strip()
-        resposta = re.sub(r"\n\[[^\]]{1,50}\]\s*:\s*.*$", "", resposta, flags=re.DOTALL).strip()
-        # Remove ações de roleplay: *texto*, _texto_
-        resposta = re.sub(r'\*[^*]+\*', '', resposta)
-        resposta = re.sub(r'(?<![\w])_([^_]+)_(?![\w])', '', resposta)
-        resposta = re.sub(r'\s{2,}', ' ', resposta).strip()
-        # Remove apenas ponto final e exclamacoes — preserva pontuacao interna (virgulas, etc.)
-        resposta = re.sub(r'(?<!\.)\.$', '', resposta)   # ponto no fim da resposta
-        resposta = re.sub(r'!+', '', resposta)            # todas exclamacoes
-        resposta = resposta.strip()
-        if len(resposta) < 2:
-            resposta = ""
-        return resposta
+        """Compatibilidade para consumidores que esperam uma única string."""
+        mensagens = self._gerar_mensagens(
+            system_prompt,
+            historico,
+            max_tokens=max_tokens,
+            continuar_se_cortar=continuar_se_cortar,
+            temperature=temperature,
+        )
+        return "\n".join(mensagens)
 
-    def _stream_resposta(
+    def _stream_mensagens(
         self,
         system_prompt: str,
         historico: list[dict],
         max_tokens: int | None = None,
         temperature: float | None = None,
     ):
-        """Entrega deltas de texto conforme o llama-server gera a resposta."""
+        """Entrega cada item assim que seu valor JSON termina no streaming."""
         stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuário:", "\nUser:"]
+        historico = self._limpar_historico_prompt(historico, system_prompt)
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": system_prompt + _FORMATO_MENSAGENS},
             *historico,
         ]
+        bruto = ""
+        itens_lidos = 0
+        itens_emitidos = 0
         with self._llm_lock:
-            yield from self.llm.stream_chat_completion(
+            stream = self.llm.stream_chat_completion(
                 messages=messages,
                 max_tokens=max_tokens or config.LLM_MAX_TOKENS,
                 stop=stop,
+                grammar=_GRAMMAR_MENSAGENS,
                 **self._sampling_payload(temperature=temperature),
             )
+            for delta in stream:
+                bruto += delta
+                itens = self._itens_json_completos(bruto)
+                while itens_lidos < len(itens):
+                    item = self._limpar_resposta(itens[itens_lidos])
+                    itens_lidos += 1
+                    if item and not self._mensagem_invalida(item, system_prompt):
+                        itens_emitidos += 1
+                        yield item
+                    elif item:
+                        log.warning("Item do streaming descartado por estar incompleto ou invalido.")
+
+        finais = self._decodificar_mensagens(bruto)
+        while itens_lidos < len(finais):
+            item = finais[itens_lidos]
+            itens_lidos += 1
+            if item and not self._mensagem_invalida(item, system_prompt):
+                itens_emitidos += 1
+                yield item
+        if itens_emitidos == 0:
+            raise RuntimeError("A LLM nao produziu nenhuma mensagem estruturada completa.")
 
     def _gerar_resumo(self, mensagens_texto: str, n: int) -> str:
         """Gera um resumo contextual das últimas N mensagens do canal, ignorando ruído."""
@@ -838,20 +957,10 @@ class LLMCog(commands.Cog, name="LLM"):
     async def _processar_mensagem(self, message: discord.Message) -> None:
         """Gera e envia a resposta para uma única mensagem."""
         canal_id = message.channel.id
-        modo = self.canais_modo.get(canal_id)
-        modo_ativo = modo or "assistente"
-
         username = message.author.name
-        user_id = message.author.id
         eh_pai = username.lower() in _NOMES_PAI
 
-        # Monta prompt de sistema com base no modo e contexto do usuário
-        if modo_ativo == "lou":
-            system_prompt = self._construir_prompt_lou(canal_id)
-        elif modo_ativo == "terapeuta":
-            system_prompt = _bot_cfg.prompt("terapeuta", _PROMPT_TERAPEUTA)
-        else:
-            system_prompt = self._construir_prompt_assistente(canal_id)
+        system_prompt = self._construir_prompt_lou(canal_id)
 
         # Limpa as menções do texto
         prompt = (
@@ -862,8 +971,7 @@ class LLMCog(commands.Cog, name="LLM"):
         )
 
         if not prompt:
-            saudacao = "Olá! Como posso ajudar?" if modo_ativo == "assistente" else "Oi."
-            await message.channel.send(saudacao)
+            await message.channel.send("Oi.")
             return
 
         if canal_id not in self._historico:
@@ -906,8 +1014,8 @@ class LLMCog(commands.Cog, name="LLM"):
         async with message.channel.typing():
             try:
                 historico_atual = list(self._historico[canal_id])
-                resposta = await asyncio.to_thread(
-                    self._gerar_resposta, system_prompt, historico_atual
+                mensagens = await asyncio.to_thread(
+                    self._gerar_mensagens, system_prompt, historico_atual
                 )
             except Exception as exc:
                 log.exception("Erro ao gerar resposta: %s", exc)
@@ -915,15 +1023,14 @@ class LLMCog(commands.Cog, name="LLM"):
                 await message.reply("Ocorreu um erro ao processar sua mensagem.")
                 return
 
-        if not resposta:
+        if not mensagens:
             return
 
-        self._historico[canal_id].append({"role": "assistant", "content": resposta})
+        resposta_historico = "\n".join(mensagens)
+        self._historico[canal_id].append({"role": "assistant", "content": resposta_historico})
 
-        # Divide em balões e envia um por um
-        baloes = self._dividir_em_baloes(resposta)
         primeiro = True
-        for balao in baloes:
+        for balao in mensagens:
             if len(balao) > 2000:
                 balao = balao[:1997] + "..."
             if primeiro:
@@ -954,14 +1061,12 @@ class LLMCog(commands.Cog, name="LLM"):
         mencionado = self.bot.user in message.mentions
         dm = isinstance(message.channel, discord.DMChannel)
         canal_id = message.channel.id
-        guild_id = message.guild.id if message.guild else None
-        modo = self.canais_modo.get(canal_id)
 
         # Canal explicitamente desligado — ignora tudo, inclusive menções
         if canal_id in self._canais_desligados:
             return
 
-        if not (mencionado or dm or modo):
+        if not (mencionado or dm or canal_id in self.canais_ativos):
             return
 
         # Garante fila para o canal
@@ -980,26 +1085,14 @@ class LLMCog(commands.Cog, name="LLM"):
 
     # ── Comandos de controle ──────────────────────────────────────────────────
 
-    @commands.command(name="assistente")
-    async def cmd_assistente(self, ctx: commands.Context) -> None:
-        """Ativa o modo assistente neste canal."""
-        if self.canais_modo.get(ctx.channel.id) == "assistente":
-            await ctx.send(self._m("assistente", "ja_ativo"))
-            return
-        self._canais_desligados.discard(ctx.channel.id)
-        self.canais_modo[ctx.channel.id] = "assistente"
-        self._historico.pop(ctx.channel.id, None)
-        log.info("Modo assistente ativado em #%s", ctx.channel)
-        await ctx.send(self._m("assistente", "ativado"))
-
     @commands.command(name="lou")
     async def cmd_lou(self, ctx: commands.Context) -> None:
         """Ativa o modo casual da Neve neste canal."""
-        if self.canais_modo.get(ctx.channel.id) == "lou":
+        if ctx.channel.id in self.canais_ativos:
             await ctx.send(self._m("lou", "ja_ativo"))
             return
         self._canais_desligados.discard(ctx.channel.id)
-        self.canais_modo[ctx.channel.id] = "lou"
+        self.canais_ativos.add(ctx.channel.id)
         self._historico.pop(ctx.channel.id, None)
         log.info("Modo casual ativado em #%s", ctx.channel)
         await ctx.send(self._m("lou", "ativado"))
@@ -1011,7 +1104,7 @@ class LLMCog(commands.Cog, name="LLM"):
         if canal_id in self._canais_desligados:
             await ctx.send(self._m("desligar", "ja_desligado"))
             return
-        self.canais_modo.pop(canal_id, None)
+        self.canais_ativos.discard(canal_id)
         self._historico.pop(canal_id, None)
         self._restricoes_pai.pop(canal_id, None)
         self._canais_desligados.add(canal_id)
@@ -1050,23 +1143,7 @@ class LLMCog(commands.Cog, name="LLM"):
         return partes
 
     # ═══════════════════════════════════════════════════════════════════════════
-    # Comando: !terapeuta
-    # ═══════════════════════════════════════════════════════════════════════════
-
-    @commands.command(name="terapeuta")
-    async def cmd_terapeuta(self, ctx: commands.Context) -> None:
-        """Ativa o modo terapeuta (sessão de psicologia) neste canal."""
-        if self.canais_modo.get(ctx.channel.id) == "terapeuta":
-            await ctx.send(self._m("terapeuta", "ja_ativo"))
-            return
-        self._canais_desligados.discard(ctx.channel.id)
-        self.canais_modo[ctx.channel.id] = "terapeuta"
-        self._historico.pop(ctx.channel.id, None)
-        log.info("Modo terapeuta ativado em #%s", ctx.channel)
-        await ctx.send(self._m("terapeuta", "ativado"))
-
-    # ═══════════════════════════════════════════════════════════════════════════
-    # Comandos: !limitar / !desbloquear (apenas pai)
+    # Comandos de bloqueio/desbloqueio (apenas pai)
     # ═══════════════════════════════════════════════════════════════════════════
 
     @commands.command(name="limitar")

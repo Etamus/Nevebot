@@ -4,11 +4,12 @@ discord-ext-voice-recv==0.5.2a179
 python-dotenv==1.0.1
 requests==2.32.5
 pynput==1.8.1
+pywebview==6.2.1
 
 # Audio, STT e GPU
 numpy==1.26.4
 scipy==1.17.0
-# torch/torchaudio sao instalados pelo instalar.bat com CUDA cu128 quando possivel.
+# torch/torchaudio usam runtime CUDA proprio; o CUDA Toolkit nao e necessario.
 faster-whisper==1.2.1
 ctranslate2==4.7.1
 onnxruntime-gpu==1.24.3

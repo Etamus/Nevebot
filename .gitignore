@@ -24,6 +24,7 @@ logs/
 temp_llama/
 gravacoes/
 data/bloqueados.json
+data/pywebview*/
 
 # Modelos, caches e binarios grandes
 models/**

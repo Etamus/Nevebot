@@ -62,12 +62,8 @@ function Select-PreferredCudaAsset {
 }
 
 function Test-NvidiaAvailable {
-    $nvidiaSmi = Get-Command nvidia-smi -ErrorAction SilentlyContinue
-    if (-not $nvidiaSmi) {
-        return $false
-    }
-    & $nvidiaSmi.Source >$null 2>$null
-    return ($LASTEXITCODE -eq 0)
+    $driverDll = Join-Path $env:WINDIR "System32\nvcuda.dll"
+    return (Test-Path -LiteralPath $driverDll)
 }
 
 function Stop-LlamaProcessesInInstallDir {

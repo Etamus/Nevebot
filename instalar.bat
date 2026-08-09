@@ -2,6 +2,7 @@
 setlocal EnableExtensions
 
 cd /d "%~dp0"
+set "CUDA_PATH="
 
 echo ================================================
 echo  Nevebot - instalador
@@ -60,6 +61,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Verificando Microsoft Edge WebView2 Runtime...
+powershell -NoProfile -Command "$p=@('HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}','HKLM:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}','HKLM:\Software\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'); if ($p.Where({Test-Path $_}).Count) { exit 0 }; exit 1" >nul 2>&1
+if errorlevel 1 (
+    where winget >nul 2>&1
+    if not errorlevel 1 (
+        echo Instalando WebView2 Runtime para a interface nativa...
+        winget install --id Microsoft.EdgeWebView2Runtime -e --silent --accept-package-agreements --accept-source-agreements
+    )
+    powershell -NoProfile -Command "$p=@('HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}','HKLM:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}','HKLM:\Software\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'); if ($p.Where({Test-Path $_}).Count) { exit 0 }; exit 1" >nul 2>&1
+    if errorlevel 1 echo [AVISO] WebView2 indisponivel; a interface usara o navegador padrao.
+) else (
+    echo WebView2 Runtime encontrado.
+)
+
 echo Atualizando pip/setuptools/wheel...
 "%PY%" -m pip install --upgrade pip wheel "setuptools<81"
 if errorlevel 1 (
@@ -77,8 +92,7 @@ echo Removendo Chatterbox antigo antes de resolver dependencias...
 echo Preparando PyTorch para GPU, se disponivel...
 "%PY%" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
 if errorlevel 1 (
-    where nvidia-smi >nul 2>&1
-    if not errorlevel 1 (
+    if exist "%WINDIR%\System32\nvcuda.dll" (
         echo NVIDIA detectada; instalando PyTorch CUDA cu128...
         "%PY%" -m pip install --index-url https://download.pytorch.org/whl/cu128 torch==2.10.0+cu128 torchaudio==2.10.0+cu128
         if errorlevel 1 (
@@ -113,7 +127,7 @@ if errorlevel 1 (
 )
 
 echo Validando dependencias principais...
-"%PY%" -c "import discord, faster_whisper, chatterbox, torch; print('Dependencias principais OK.'); print('Torch CUDA:', torch.cuda.is_available())"
+"%PY%" -c "import discord, faster_whisper, chatterbox, torch, webview; print('Dependencias principais OK.'); print('Torch CUDA:', torch.cuda.is_available())"
 if errorlevel 1 (
     echo [ERRO] Alguma dependencia principal nao importou corretamente.
     pause

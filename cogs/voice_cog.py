@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import os
+import time
 from pathlib import Path
 
 import discord
@@ -41,6 +42,7 @@ _VOZ_OLD_KEYS = {"voz_age", "voz_pitch_style", "voz_instruct"}
 # Estado global de voz
 voz_estado: dict = {}
 _playback_locks: dict[int, asyncio.Lock] = {}
+_playback_sessions: dict[int, int] = {}
 
 
 def _carregar_config_voz() -> None:
@@ -66,12 +68,29 @@ def salvar_config_voz() -> None:
     )
 
 
+async def iniciar_sessao_reproducao(
+    bot: commands.Bot,
+    guild_id: int,
+    sessao: int,
+) -> None:
+    """Invalida audios antigos e interrompe a fala anterior imediatamente."""
+    _playback_sessions[guild_id] = sessao
+    guild = bot.get_guild(guild_id)
+    vc = guild.voice_client if guild is not None else None
+    if vc is not None and vc.is_connected() and vc.is_playing():
+        log.info("[VOZ] Interrompendo reproducao da sessao anterior.")
+        vc.stop()
+        await asyncio.sleep(0)
+
+
 async def reproduzir_pcm(
     bot: commands.Bot,
     guild_id: int,
     pcm_bytes: bytes,
     *,
     interromper: bool = False,
+    sessao: int | None = None,
+    agendado_em: float | None = None,
 ) -> None:
     """Reproduz áudio PCM bruto (48 kHz, estéreo, 16-bit) no canal de voz.
 
@@ -79,26 +98,39 @@ async def reproduzir_pcm(
     Espera até a reprodução terminar.
     """
     log.info(
-        "[VOZ] reproduzir_pcm chamado — guild_id=%s pcm_bytes=%d interromper=%s",
+        "[VOZ] reproduzir_pcm chamado — guild_id=%s pcm_bytes=%d interromper=%s sessao=%s",
         guild_id,
         len(pcm_bytes),
         interromper,
+        sessao,
     )
+
+    if sessao is not None:
+        sessao_atual = _playback_sessions.get(guild_id)
+        if sessao_atual is not None and sessao != sessao_atual:
+            log.info("[VOZ] Descartando audio antigo da sessao %s (atual=%s).", sessao, sessao_atual)
+            return
 
     lock = _playback_locks.get(guild_id)
     if lock is None:
         lock = asyncio.Lock()
         _playback_locks[guild_id] = lock
 
-    if interromper:
+    if interromper and sessao is not None and _playback_sessions.get(guild_id) != sessao:
+        await iniciar_sessao_reproducao(bot, guild_id, sessao)
+    elif interromper and sessao is None:
         guild = bot.get_guild(guild_id)
         vc = guild.voice_client if guild is not None else None
         if vc is not None and vc.is_connected() and vc.is_playing():
             log.info("[VOZ] Interrompendo reproducao anterior para tocar resposta nova.")
             vc.stop()
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0)
 
     async with lock:
+        if sessao is not None and _playback_sessions.get(guild_id) != sessao:
+            log.info("[VOZ] Descartando audio antigo da sessao %s apos aguardar a fila.", sessao)
+            return
+
         guild = bot.get_guild(guild_id)
         if guild is None:
             log.error("[VOZ] Guild %s não encontrada!", guild_id)
@@ -115,12 +147,14 @@ async def reproduzir_pcm(
         if vc.is_playing():
             log.info("[VOZ] Aguardando reprodução anterior terminar...")
         while vc.is_playing():
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.02)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         done = loop.create_future()
 
         def _after(error):
+            if done.done():
+                return
             if error:
                 log.error("[VOZ] Erro durante reprodução: %s", error)
                 loop.call_soon_threadsafe(done.set_exception, error)
@@ -128,9 +162,17 @@ async def reproduzir_pcm(
                 log.info("[VOZ] Reprodução concluída com sucesso.")
                 loop.call_soon_threadsafe(done.set_result, None)
 
-        log.info("[VOZ] Iniciando vc.play() com %d bytes de PCM...", len(pcm_bytes))
+        fila_ms = max(0.0, (time.perf_counter() - agendado_em) * 1000.0) if agendado_em else 0.0
+        log.info("[VOZ] Iniciando vc.play() com %d bytes de PCM (fila=%.0fms)...", len(pcm_bytes), fila_ms)
         source = discord.PCMAudio(io.BytesIO(pcm_bytes))
-        vc.play(source, after=_after)
+        vc.play(
+            source,
+            after=_after,
+            application="lowdelay",
+            bitrate=128,
+            bandwidth="full",
+            signal_type="voice",
+        )
         await done
 
 
@@ -162,7 +204,7 @@ class VoiceCog(commands.Cog, name="Voice"):
         try:
             from services import stt_whisper
             modelo = voz_estado.get("whisper_modelo", "large-v3-turbo")
-            delay = max(0.0, float(os.getenv("WHISPER_PREWARM_DELAY_S", "8.0")))
+            delay = max(0.0, float(os.getenv("WHISPER_PREWARM_DELAY_S", "0.0")))
             if delay:
                 log.info("[VOZ] Whisper '%s' será pré-aquecido em %.1fs.", modelo, delay)
                 await asyncio.sleep(delay)
