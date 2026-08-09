@@ -25,6 +25,8 @@ temp_llama/
 gravacoes/
 data/bloqueados.json
 data/pywebview*/
+data/nevebot.ico
+data/nevebot-favicon.ico
 
 # Modelos, caches e binarios grandes
 models/**

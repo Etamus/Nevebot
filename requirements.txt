@@ -5,6 +5,7 @@ python-dotenv==1.0.1
 requests==2.32.5
 pynput==1.8.1
 pywebview==6.2.1
+Pillow==12.2.0
 
 # Audio, STT e GPU
 numpy==1.26.4

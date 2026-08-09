@@ -17,6 +17,52 @@ _BASE_DIR = Path(__file__).parent
 _window = None
 
 
+def _configurar_identidade_windows() -> None:
+    """Define uma identidade própria para a janela na barra de tarefas."""
+    if sys.platform != "win32":
+        return
+    try:
+        from ctypes import windll
+
+        windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "Nevebot.ControlCenter"
+        )
+    except Exception:
+        log.warning("Nao foi possivel definir a identidade da janela do Nevebot.")
+
+
+def _preparar_icone_janela() -> str | None:
+    """Gera o ICO exigido pelo WinForms usando o favicon do projeto."""
+    favicon_path = _BASE_DIR / "web" / "favicon.png"
+    icon_path = _BASE_DIR / "data" / "nevebot-favicon.ico"
+    if not favicon_path.is_file():
+        log.warning("Favicon da interface nao encontrado em %s.", favicon_path)
+        return None
+
+    try:
+        if (
+            icon_path.is_file()
+            and icon_path.stat().st_mtime_ns >= favicon_path.stat().st_mtime_ns
+        ):
+            return str(icon_path)
+
+        from PIL import Image
+
+        icon_path.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(favicon_path) as source:
+            favicon = source.convert("RGBA")
+            favicon.save(
+                icon_path,
+                format="ICO",
+                sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64),
+                       (128, 128), (256, 256)],
+            )
+        return str(icon_path)
+    except Exception:
+        log.exception("Falha ao preparar o icone da janela a partir de %s.", favicon_path)
+        return None
+
+
 def _habilitar_microfone_local() -> None:
     """Autoriza somente o microfone solicitado pela interface HTTP local."""
     if sys.platform != "win32":
@@ -146,6 +192,7 @@ def iniciar_interface(url: str, bot_encerrado: threading.Event) -> bool:
         return False
 
     try:
+        _configurar_identidade_windows()
         _habilitar_microfone_local()
         _window = webview.create_window(
             "Nevebot",
@@ -174,6 +221,7 @@ def iniciar_interface(url: str, bot_encerrado: threading.Event) -> bool:
 
         storage_path = _BASE_DIR / "data" / "pywebview-v2"
         storage_path.mkdir(parents=True, exist_ok=True)
+        window_icon = _preparar_icone_janela()
 
         def validar_renderer() -> None:
             if webview.renderer != "edgechromium":
@@ -194,6 +242,7 @@ def iniciar_interface(url: str, bot_encerrado: threading.Event) -> bool:
             gui="edgechromium",
             private_mode=False,
             storage_path=str(storage_path),
+            icon=window_icon,
         )
         if not renderer_compativel.is_set():
             abrir_no_navegador(url)

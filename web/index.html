@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neve Bot</title>
-  <style>
+  <title>Nevebot Control Center</title>
+  <style media="not all">
     /* ── Reset & Variáveis ────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1574,29 +1574,39 @@
       .vs-actions .voz-save-btn { width: 100%; }
     }
   </style>
+  <link rel="stylesheet" href="/app.css" />
 </head>
 <body>
-<div class="app">
-
-  <!-- Header -->
-  <header>
-    <div class="header-logo">
-      <img class="header-logo-img" src="/logo.png" alt="Logo Nevebot" />
-      <span>Nevebot</span>
+<div class="app-shell">
+  <aside class="app-sidebar" aria-label="Navegação principal">
+    <div class="sidebar-brand">
+      <div><strong>Nevebot</strong></div>
     </div>
-    <div style="display:flex;gap:.6rem;">
-      <button class="btn-shutdown" onclick="desligar()">Desligar</button>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-nav="overview" onclick="navegar('overview')" title="Visão geral"><span class="icon-slot" data-icon="overview"></span><span>Visão geral</span></button>
+      <button class="nav-item" data-nav="conversation" onclick="navegar('conversation')" title="Conversa"><span class="icon-slot" data-icon="message"></span><span>Conversa</span></button>
+      <button class="nav-item" data-nav="voice" onclick="navegar('voice')" title="Voz"><span class="icon-slot" data-icon="audio"></span><span>Voz</span></button>
+      <button class="nav-item" data-nav="model" onclick="navegar('model')" title="Modelo"><span class="icon-slot" data-icon="cpu"></span><span>Modelo</span></button>
+      <button class="nav-item" data-nav="discord" onclick="navegar('discord')" title="Discord"><span class="icon-slot" data-icon="server"></span><span>Discord</span></button>
+      <button class="nav-item" data-nav="commands" onclick="navegar('commands')" title="Comandos"><span class="icon-slot" data-icon="terminal"></span><span>Comandos</span></button>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="sidebar-shutdown" onclick="desligar()" title="Desligar"><span class="icon-slot" data-icon="power"></span><span>Desligar</span></button>
     </div>
-  </header>
+  </aside>
 
-  <main>
-    <div id="content" class="loading">Carregando configurações...</div>
-  </main>
-
+  <div class="app-workspace">
+    <header class="workspace-header">
+      <div class="page-heading"><h1 id="page-title">Visão geral</h1><p id="page-subtitle">Estado atual do Nevebot e serviços configurados.</p></div>
+    </header>
+    <main class="workspace-main">
+      <div id="content" class="loading-state"><span class="loading-spinner"></span><span>Carregando o Control Center</span></div>
+    </main>
+  </div>
 </div>
 
-<!-- Toast -->
-<div id="toast"></div>
+<div id="dialog-root"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 // ── Labels humanos para cada chave de mensagem ──────────────────────────────
@@ -1661,78 +1671,382 @@ let _config = null;
 let _guilds = [];
 let _botInfo = null;
 let _guildMonitor = null;
+let _vozConfig = {};
+let _paginaAtiva = localStorage.getItem('nevebot-page') || 'overview';
+
+const PAGE_META = {
+  overview: {
+    title: 'Visão geral',
+  },
+  conversation: {
+    title: 'Conversa',
+  },
+  voice: {
+    title: 'Voz',
+  },
+  model: {
+    title: 'Modelo',
+  },
+  discord: {
+    title: 'Discord',
+  },
+  commands: {
+    title: 'Comandos',
+  },
+};
+
+const ICONS = {
+  overview: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  message: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>',
+  audio: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
+  cpu: '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/>',
+  server: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+  terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+  power: '<path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+  trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/>',
+  lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3M8 22h8"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  plug: '<path d="m12 22 3-3-2-2 4-4 2 2 3-3"/><path d="m2 12 3-3 2 2 4-4-2-2 3-3"/><path d="m8 16 8-8"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  alert: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+};
+
+function icone(nome, tamanho = 18) {
+  return `<svg class="ui-icon" width="${tamanho}" height="${tamanho}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[nome] || ''}</svg>`;
+}
+
+function aplicarIcones(root = document) {
+  root.querySelectorAll('[data-icon]').forEach(slot => {
+    slot.innerHTML = icone(slot.dataset.icon);
+  });
+}
+
+function navegar(pagina, persistir = true) {
+  if (!PAGE_META[pagina]) pagina = 'overview';
+  _paginaAtiva = pagina;
+  document.querySelectorAll('.app-page').forEach(el => {
+    el.hidden = el.dataset.page !== pagina;
+  });
+  document.querySelectorAll('[data-nav]').forEach(btn => {
+    const ativo = btn.dataset.nav === pagina;
+    btn.classList.toggle('active', ativo);
+    if (ativo) btn.setAttribute('aria-current', 'page');
+    else btn.removeAttribute('aria-current');
+  });
+  const meta = PAGE_META[pagina];
+  const titulo = document.getElementById('page-title');
+  const subtitulo = document.getElementById('page-subtitle');
+  if (titulo) titulo.textContent = meta.title;
+  if (subtitulo) subtitulo.textContent = meta.subtitle;
+  if (persistir) localStorage.setItem('nevebot-page', pagina);
+  document.querySelector('.workspace-main')?.scrollTo({ top: 0, behavior: 'auto' });
+  const ativa = document.querySelector(`.app-page[data-page="${pagina}"]`);
+  if (ativa) setTimeout(() => ajustarTodosSelects(ativa), 0);
+}
+
+function atualizarEstadoGlobal(estado, texto) {
+  document.documentElement.dataset.appState = estado;
+  document.documentElement.dataset.appStateLabel = texto;
+}
+
+function definirBotaoOcupado(botao, ocupado) {
+  if (!botao) return;
+  botao.disabled = ocupado;
+  botao.classList.toggle('is-loading', ocupado);
+  botao.setAttribute('aria-busy', ocupado ? 'true' : 'false');
+}
+
+function atualizarVisaoGeral() {
+  const pagina = document.querySelector('.app-page[data-page="overview"]');
+  if (!pagina || !_config) return;
+  pagina.innerHTML = renderizarVisaoGeral(_config);
+  atualizarStatusMicrofone();
+}
 
 // ── Carrega config do servidor ──────────────────────────────────────────────
 async function carregar() {
+  atualizarEstadoGlobal('loading', 'Inicializando');
   try {
-    const [rCfg, rGuilds, rBot] = await Promise.all([
+    const [rCfg, rGuilds, rBot, rVoz] = await Promise.all([
       fetch('/api/config'),
       fetch('/api/guilds'),
       fetch('/api/bot/info'),
+      fetch('/api/voz/config'),
     ]);
+    if (!rCfg.ok) throw new Error(`Configuração indisponível (${rCfg.status})`);
     _config = await rCfg.json();
-    _guilds = await rGuilds.json().catch(() => []);
-    _botInfo = await rBot.json().catch(() => null);
+    _guilds = rGuilds.ok ? await rGuilds.json().catch(() => []) : [];
+    _botInfo = rBot.ok ? await rBot.json().catch(() => null) : null;
+    _vozConfig = rVoz.ok ? await rVoz.json().catch(() => ({})) : {};
     renderizar(_config);
+    atualizarEstadoGlobal('online', 'Online');
   } catch(e) {
-    document.getElementById('content').innerHTML =
-      '<div class="loading">Erro ao conectar ao servidor local. Verifique se o bot está rodando.</div>';
+    atualizarEstadoGlobal('error', 'Indisponível');
+    document.getElementById('content').innerHTML = `
+      <div class="error-state">
+        <span class="error-state-icon">${icone('alert', 22)}</span>
+        <h2>Não foi possível carregar o Nevebot</h2>
+        <p>Verifique se o processo local está em execução e tente novamente.</p>
+        <button class="button" type="button" onclick="carregar()">Tentar novamente</button>
+      </div>`;
+  }
+}
+
+function linhaStatus(nome, valor, estado, classe = '') {
+  const ponto = classe === 'success' ? 'is-online' : classe === 'warning' ? 'is-warning' : '';
+  return `
+    <div class="status-row">
+      <span class="status-name"><span class="status-dot ${ponto}"></span>${esc(nome)}</span>
+      <span class="status-value" title="${esc(valor)}">${esc(valor)}</span>
+      <span class="status-state ${classe}">${esc(estado)}</span>
+    </div>`;
+}
+
+function renderizarVisaoGeral(cfg) {
+  const llm = cfg.llm || {};
+  const guildVoz = (_guilds || []).find(g => g.canal_id || g.em_voz || g.conectando);
+  const discordValor = _botInfo?.name
+    ? `${_botInfo.name} · ${_guilds.length} servidor${_guilds.length === 1 ? '' : 'es'}`
+    : 'Conta do bot não disponível';
+  const discordEstado = _botInfo?.id ? 'Conectado' : 'Indisponível';
+  const vozValor = guildVoz?.canal_voz
+    ? `${guildVoz.name} · ${guildVoz.canal_voz}`
+    : guildVoz?.conectando ? guildVoz.name : 'Nenhum canal conectado';
+  const vozEstado = guildVoz?.canal_id || guildVoz?.em_voz
+    ? 'Conectado'
+    : guildVoz?.conectando ? 'Conectando' : 'Desconectado';
+  const llmConfigurada = Boolean(llm.model_path);
+  const whisperConfigurado = Boolean(_vozConfig.whisper_modelo);
+  const ttsConfigurado = Boolean(_vozConfig.tts_model);
+  const modelo = nomeArquivo(llm.model_path) || 'Modelo não informado';
+  const whisper = _vozConfig.whisper_modelo || 'Modelo não informado';
+  const tts = _vozConfig.tts_model === 'chatterbox-ptbr-v3'
+    ? 'Chatterbox Multilingual V3'
+    : (_vozConfig.tts_model || 'Modelo não informado');
+  const referencia = nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
+  const micRow = linhaStatus('Microfone', 'Verificando dispositivo...', 'Carregando', 'warning')
+    .replace('class="status-value"', 'class="status-value" id="overview-mic-device"')
+    .replace('class="status-state warning"', 'class="status-state warning" id="overview-mic-state"');
+
+  return `
+    <div class="page-stack">
+      <div class="page-intro">
+        <div>
+          <h2>Nevebot</h2>
+          <p>Confira conexões antes de iniciar uma conversa.</p>
+        </div>
+        <div class="section-actions">
+          <button class="button" type="button" onclick="navegar('model')">${icone('cpu')}Ajustar modelo</button>
+          <button class="button" type="button" onclick="navegar('discord')">${icone('plug')}Conectar voz</button>
+          <button class="button button-primary" type="button" onclick="navegar('conversation')">${icone('message')}Abrir conversa</button>
+        </div>
+      </div>
+      <div class="overview-grid">
+        <section class="overview-panel">
+          <header class="overview-panel-header"><h2>Estado do sistema</h2></header>
+          <div class="status-list">
+            ${linhaStatus('Discord', discordValor, discordEstado, _botInfo?.id ? 'success' : 'warning')}
+            ${linhaStatus('Canal de voz', vozValor, vozEstado, guildVoz?.canal_id || guildVoz?.em_voz ? 'success' : 'warning')}
+            ${linhaStatus('LLM', modelo, llmConfigurada ? 'Configurado' : 'Não informado', llmConfigurada ? 'success' : 'warning')}
+            ${linhaStatus('Reconhecimento', whisper, whisperConfigurado ? 'Configurado' : 'Não informado', whisperConfigurado ? 'success' : 'warning')}
+            ${linhaStatus('Síntese', tts, ttsConfigurado ? 'Configurado' : 'Não informado', ttsConfigurado ? 'success' : 'warning')}
+            ${micRow}
+          </div>
+        </section>
+        <div>
+          <section class="overview-panel">
+            <header class="overview-panel-header"><h2>Configuração atual</h2></header>
+            <div class="setup-list">
+              <div class="setup-row"><span>Modelo de texto</span><strong title="${esc(modelo)}">${esc(modelo)}</strong></div>
+              <div class="setup-row"><span>Contexto</span><strong>${esc(llm.n_ctx || 'Padrão')} tokens</strong></div>
+              <div class="setup-row"><span>Idioma</span><strong>${esc(_vozConfig.voz_language || 'pt-BR')}</strong></div>
+              <div class="setup-row"><span>Voz de referência</span><strong title="${esc(referencia)}">${esc(referencia)}</strong></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderizarComandos(cfg) {
+  const comandos = Object.entries(cfg.commands || {}).map(([cmdKey, cmdData]) => `
+    <div class="cmd-card" data-key="${esc(cmdKey)}">
+      <div class="cmd-header">
+        <span class="cmd-tag">${esc(cfg.prefix)}${esc(cmdData.name)}</span>
+        <span class="cmd-desc">${esc(cmdData.descricao || '')}</span>
+      </div>
+    </div>`).join('');
+  return comandos || '<div class="empty-state">Nenhum comando configurado.</div>';
+}
+
+function organizarConfiguracoesVoz() {
+  const painel = document.querySelector('.voice-settings-panel');
+  if (!painel || painel.dataset.organizado === 'true') return;
+  const itens = [...painel.querySelectorAll(':scope > .vs-item')];
+  const acoes = painel.querySelector(':scope > .vs-actions');
+  const principais = document.createElement('div');
+  principais.className = 'settings-list';
+  [0, 1, 4, 5].forEach(i => itens[i] && principais.appendChild(itens[i]));
+
+  const avancado = document.createElement('details');
+  avancado.className = 'advanced-disclosure';
+  avancado.innerHTML = '<summary>Configurações avançadas</summary><div class="advanced-content settings-list"></div>';
+  const conteudo = avancado.querySelector('.advanced-content');
+  [2, 3, 6, 7].forEach(i => itens[i] && conteudo.appendChild(itens[i]));
+
+  painel.replaceChildren(principais, avancado);
+  if (acoes) painel.appendChild(acoes);
+  painel.dataset.organizado = 'true';
+}
+
+async function atualizarStatusMicrofone() {
+  let nome = 'Dispositivo padrão';
+  let estado = 'Será solicitado ao usar';
+  let classe = 'warning';
+  try {
+    if (!navigator.mediaDevices?.enumerateDevices) throw new Error('API de mídia indisponível');
+    const dispositivos = await navigator.mediaDevices.enumerateDevices();
+    const entrada = dispositivos.find(item => item.kind === 'audioinput');
+    if (entrada?.label) nome = entrada.label;
+    if (navigator.permissions?.query) {
+      try {
+        const permissao = await navigator.permissions.query({ name: 'microphone' });
+        if (permissao.state === 'granted') {
+          estado = 'Permitido';
+          classe = 'success';
+        } else if (permissao.state === 'denied') {
+          estado = 'Bloqueado';
+          classe = 'error';
+        }
+      } catch (_) {}
+    }
+  } catch (_) {
+    nome = 'Microfone indisponível';
+    estado = 'Indisponível';
+    classe = 'error';
+  }
+  const dispositivo = document.getElementById('overview-mic-device');
+  const status = document.getElementById('overview-mic-state');
+  const vozDispositivo = document.getElementById('voice-mic-device');
+  if (dispositivo) dispositivo.textContent = nome;
+  if (vozDispositivo) vozDispositivo.textContent = nome;
+  if (status) {
+    status.textContent = estado;
+    status.className = `status-state ${classe}`;
   }
 }
 
 // ── Renderiza o formulário ──────────────────────────────────────────────────
 function renderizar(cfg) {
   const el = document.getElementById('content');
+  document.querySelectorAll('.custom-select-menu-portal').forEach(menu => menu.remove());
   el.className = '';
-  el.innerHTML = '';
+  const whisper = _vozConfig.whisper_modelo || 'Não informado';
+  const idioma = _vozConfig.voz_language || 'pt-BR';
+  const referencia = nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
+  el.innerHTML = `
+    <input id="inp-prefix" type="hidden" value="${esc(cfg.prefix)}" />
 
-  // Prefixo mantido de forma oculta para preservar a lógica de salvar config
-  el.innerHTML += `<input id="inp-prefix" type="hidden" value="${esc(cfg.prefix)}" />`;
+    <section class="app-page" data-page="overview">
+      ${renderizarVisaoGeral(cfg)}
+    </section>
 
-  el.innerHTML += renderizarServidores();
+    <section class="app-page" data-page="conversation" hidden>
+      <div class="page-stack">
+        <div class="page-intro">
+          <div><h2>Conversa em tempo real</h2><p>Use texto, microfone ou mantenha o push-to-talk pressionado para falar.</p></div>
+        </div>
+        ${renderizarChatVoz()}
+      </div>
+    </section>
 
-  // ── Voz ──────────────────────────────────────────
-  el.innerHTML += renderizarVoz();
-  if (_guilds && _guilds.length) setTimeout(carregarCanaisVoz, 100);
+    <section class="app-page" data-page="voice" hidden>
+      <div class="page-stack">
+        <div class="page-intro">
+          <div><h2>Pipeline de áudio</h2><p>Entrada, reconhecimento e síntese de voz.</p></div>
+        </div>
+        <section class="product-section">
+          <header class="section-header"><div><h2>Entrada e reconhecimento</h2><p>Dispositivo usado pela conversa e modelo local de transcrição.</p></div></header>
+          <div class="voice-runtime-grid">
+            <div class="runtime-item"><span>Microfone</span><strong id="voice-mic-device">Verificando dispositivo...</strong></div>
+            <div class="runtime-item"><span>Reconhecimento</span><strong>${esc(whisper)}</strong></div>
+            <div class="runtime-item"><span>Idioma</span><strong>${esc(idioma)}</strong></div>
+          </div>
+        </section>
+        <section class="product-section">
+          <header class="section-header"><div><h2>Síntese de voz</h2><p>Clonagem baseada em <strong>${esc(referencia)}</strong>.</p></div></header>
+          <div id="voice-settings-mount"></div>
+        </section>
+      </div>
+    </section>
 
-  // ── Envio de mensagem em canais de texto ─────────
-  el.innerHTML += renderizarEnvioTexto();
-  if (_guilds && _guilds.length) setTimeout(carregarCanaisTexto, 100);
+    <section class="app-page" data-page="model" hidden>
+      <div class="page-stack">
+        <div class="page-intro">
+          <div><h2>Modelo e comportamento</h2><p>Altere geração e prompts sem trocar os contratos usados pelo servidor local.</p></div>
+        </div>
+        <section class="product-section">
+          <header class="section-header"><div><h2>Parâmetros</h2><p>Carregamento e amostragem do modelo GGUF.</p></div></header>
+          ${renderizarParametrosLLM(cfg)}
+        </section>
+        <section class="product-section">
+          <header class="section-header"><div><h2>Prompts do sistema</h2><p>Comportamento separado para conversa por voz e chat.</p></div></header>
+          ${renderizarPrompts(cfg)}
+        </section>
+      </div>
+    </section>
 
-  // ── Chat de Voz ──────────────────────────────────
-  el.innerHTML += renderizarChatVoz();
-  setTimeout(inicializarChatVoz, 100);
-  el.innerHTML += renderizarPrompts(cfg);
-  setTimeout(() => selecionarPrompt('lou_voz'), 0);
+    <section class="app-page" data-page="discord" hidden>
+      <div class="page-stack">
+        <div class="page-intro">
+          <div><h2>Integração com Discord</h2><p>Gerencie servidores, canal de voz e envio de mensagens.</p></div>
+        </div>
+        <div class="discord-layout">
+          <section class="product-section">
+            <header class="section-header"><div><h2>Servidores</h2><p>Adicione a Neve ou remova o bot de um servidor.</p></div></header>
+            ${renderizarServidores()}
+          </section>
+          <section class="product-section">
+            <header class="section-header"><div><h2>Conexão de voz</h2><p>Canal em que a Neve deve ouvir e falar.</p></div></header>
+            ${renderizarVoz()}
+          </section>
+        </div>
+        <section class="product-section">
+          <header class="section-header"><div><h2>Enviar mensagem</h2><p>Publique uma mensagem como o bot em um canal de texto.</p></div></header>
+          ${renderizarEnvioTexto()}
+        </section>
+      </div>
+    </section>
 
-  el.innerHTML += renderizarParametrosLLM(cfg);
+    <section class="app-page" data-page="commands" hidden>
+      <div class="page-stack">
+        <div class="page-intro"><div><h2>Comandos do bot</h2><p>Comandos disponíveis no Discord.</p></div></div>
+        <section class="product-section">
+          <div class="cmd-grid command-list">${renderizarComandos(cfg)}</div>
+        </section>
+      </div>
+    </section>`;
 
-  // ── Comandos ─────────────────────────────────────
-  el.innerHTML += `<div class="section-title" style="margin-top:2rem">Comandos</div>
-  <div class="cmd-grid" id="cmd-grid"></div>`;
-
-  const grid = el.querySelector('#cmd-grid');
-
-  for (const [cmdKey, cmdData] of Object.entries(cfg.commands)) {
-    const card = document.createElement('div');
-    card.className = 'cmd-card';
-    card.dataset.key = cmdKey;
-
-    // Cabeçalho do card (somente leitura)
-    card.innerHTML = `
-      <div class="cmd-header">
-        <span class="cmd-tag">${esc(cfg.prefix)}${esc(cmdData.name)}</span>
-        <span class="cmd-desc">${esc(cmdData.descricao || '')}</span>
-      </div>`;
-
-    grid.appendChild(card);
+  const painelVoz = el.querySelector('.voice-settings-panel');
+  const destinoVoz = el.querySelector('#voice-settings-mount');
+  if (painelVoz && destinoVoz) destinoVoz.appendChild(painelVoz);
+  organizarConfiguracoesVoz();
+  aplicarIcones(document);
+  navegar(_paginaAtiva, false);
+  selecionarPrompt('lou_voz');
+  inicializarChatVoz();
+  atualizarStatusMicrofone();
+  if (_guilds?.length) {
+    carregarCanaisVoz();
+    carregarCanaisTexto();
   }
-
-  setTimeout(ajustarTodosSelects, 0);
+  setTimeout(() => ajustarTodosSelects(el), 0);
 }
 
-// ── Selects com largura dinâmica ───────────────────────────────────────────
-let _selectMeasureCanvas = null;
+// ── Selects customizados ───────────────────────────────────────────────────
 let _customSelectId = 0;
 let _customSelectAberto = null;
 
@@ -1768,27 +2082,11 @@ function posicionarMenuCustomSelect(custom) {
   menu.style.setProperty('--custom-select-menu-top', `${top}px`);
 }
 
-function medirTextoSelect(select, texto) {
-  if (!_selectMeasureCanvas) _selectMeasureCanvas = document.createElement('canvas');
-  const ctx = _selectMeasureCanvas.getContext('2d');
-  const custom = select.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
-  const st = getComputedStyle(custom || select);
-  ctx.font = `${st.fontStyle} ${st.fontVariant} ${st.fontWeight} ${st.fontSize} / ${st.lineHeight} ${st.fontFamily}`;
-  return ctx.measureText(texto || '').width;
-}
-
 function ajustarSelectLargura(select) {
   if (!select || select.tagName !== 'SELECT') return;
   inicializarCustomSelect(select);
-  const option = select.options[select.selectedIndex] || select.options[0];
-  const texto = option ? option.textContent.trim() : '';
   const custom = select.nextElementSibling?.classList?.contains('custom-select') ? select.nextElementSibling : null;
-  const st = getComputedStyle(custom || select);
-  const extra = 74;
-  const largura = Math.ceil(medirTextoSelect(select, texto) + extra);
-  const min = parseFloat(st.minWidth) || 0;
-  const alvo = custom || select;
-  alvo.style.width = `${Math.max(min, largura)}px`;
+  (custom || select).style.removeProperty('width');
   atualizarCustomSelect(select);
 }
 
@@ -1843,7 +2141,10 @@ function atualizarCustomSelect(select) {
   const menu = obterMenuCustomSelect(custom);
   const trigger = custom.querySelector('.custom-select-trigger');
   if (label) label.textContent = option ? option.textContent.trim() : '';
-  if (trigger) trigger.setAttribute('aria-expanded', custom.classList.contains('open') ? 'true' : 'false');
+  if (trigger) {
+    trigger.disabled = select.disabled;
+    trigger.setAttribute('aria-expanded', custom.classList.contains('open') ? 'true' : 'false');
+  }
   if (!menu) return;
   menu.innerHTML = [...select.options].map(opt => {
     const selected = opt.value === select.value;
@@ -1923,8 +2224,8 @@ function renderizarPrompts(cfg) {
     <div class="prompt-tabs">${tabs}</div>
     ${editors}
     <div class="prompt-actions">
-      <button class="voz-save-btn" type="button" onclick="restaurarPromptAtual()">Restaurar padrão</button>
-      <button class="voz-save-btn" type="button" onclick="salvar()">Salvar prompt</button>
+      <button class="voz-save-btn button-quiet" type="button" onclick="restaurarPromptAtual()">${icone('rotate')}Restaurar padrão</button>
+      <button class="voz-save-btn primary" type="button" onclick="salvar()">${icone('save')}Salvar prompt</button>
     </div>
   </div>`;
 }
@@ -1960,9 +2261,9 @@ function renderizarServidores() {
         </select>
       </div>
       <div class="server-manager-actions">
-        <button class="voz-save-btn" type="button" onclick="adicionarServidor()">Adicionar</button>
+        <button class="voz-save-btn" type="button" onclick="adicionarServidor()">${icone('plus')}Adicionar</button>
         <button class="voz-save-btn voz-danger-btn" id="servidor-btn-remover" type="button"
-                onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>Remover</button>
+                onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>${icone('trash')}Remover</button>
       </div>
     </div>
   </div>`;
@@ -2012,16 +2313,11 @@ async function adicionarServidor() {
 
 const LLM_GROUPS = [
   {
-    title: 'Carregamento',
+    title: 'Modelo e execução',
     fields: [
       { key: 'model_path', label: 'Modelo GGUF', type: 'model' },
       { key: 'n_ctx', label: 'Contexto', type: 'number', min: 512, max: 131072, step: 512 },
       { key: 'n_gpu_layers', label: 'Camadas na GPU', type: 'number', min: -1, max: 999, step: 1 },
-      { key: 'n_batch', label: 'Batch', type: 'number', min: 32, max: 8192, step: 32 },
-      { key: 'n_ubatch', label: 'Micro-batch', type: 'number', min: 32, max: 8192, step: 32 },
-      { key: 'n_threads', label: 'Threads', type: 'number', min: 1, max: 256, step: 1 },
-      { key: 'n_threads_batch', label: 'Threads do batch', type: 'number', min: 1, max: 256, step: 1 },
-      { key: 'kv_type', label: 'Cache KV', type: 'kv' },
     ],
   },
   {
@@ -2030,6 +2326,23 @@ const LLM_GROUPS = [
       { key: 'max_tokens', label: 'Máximo de tokens', type: 'number', min: 1, max: 8192, step: 1 },
       { key: 'temperature', label: 'Temperature', type: 'number', min: 0, max: 2, step: 0.01 },
       { key: 'min_p', label: 'Min P', type: 'number', min: 0, max: 1, step: 0.01 },
+    ],
+  },
+  {
+    title: 'Desempenho',
+    advanced: true,
+    fields: [
+      { key: 'n_batch', label: 'Batch', type: 'number', min: 32, max: 8192, step: 32 },
+      { key: 'n_ubatch', label: 'Micro-batch', type: 'number', min: 32, max: 8192, step: 32 },
+      { key: 'n_threads', label: 'Threads', type: 'number', min: 1, max: 256, step: 1 },
+      { key: 'n_threads_batch', label: 'Threads do batch', type: 'number', min: 1, max: 256, step: 1 },
+      { key: 'kv_type', label: 'Cache KV', type: 'kv' },
+    ],
+  },
+  {
+    title: 'Amostragem',
+    advanced: true,
+    fields: [
       { key: 'top_p', label: 'Top P', type: 'number', min: 0, max: 1, step: 0.01 },
       { key: 'top_k', label: 'Top K', type: 'number', min: 0, max: 10000, step: 1 },
       { key: 'dry_multiplier', label: 'DRY multiplier', type: 'number', min: 0, max: 5, step: 0.01 },
@@ -2038,6 +2351,7 @@ const LLM_GROUPS = [
   },
   {
     title: 'Voz',
+    advanced: true,
     fields: [
       { key: 'voz_max_tokens', label: 'Máximo de tokens', type: 'number', min: 1, max: 2048, step: 1 },
       { key: 'voz_temperature', label: 'Temperature', type: 'number', min: 0, max: 2, step: 0.01 },
@@ -2072,16 +2386,22 @@ function renderizarCampoLLM(field, llm, models) {
 function renderizarParametrosLLM(cfg) {
   const llm = cfg.llm || {};
   const models = cfg._llm_models || [];
-  const grupos = LLM_GROUPS.map(grupo => `
+  const renderGrupo = grupo => `
     <section class="llm-group">
       <div class="llm-group-title">${esc(grupo.title)}</div>
       <div class="llm-grid">${grupo.fields.map(field => renderizarCampoLLM(field, llm, models)).join('')}</div>
-    </section>`).join('');
+    </section>`;
+  const grupos = LLM_GROUPS.filter(grupo => !grupo.advanced).map(renderGrupo).join('');
+  const avancados = LLM_GROUPS.filter(grupo => grupo.advanced).map(renderGrupo).join('');
   return `
   <div class="section-title" style="margin-top:2rem">Parâmetros da LLM</div>
   <div class="llm-card">
     ${grupos}
-    <div class="llm-actions"><button class="voz-save-btn" type="button" onclick="salvar()">Salvar parâmetros</button></div>
+    <details class="advanced-disclosure llm-advanced">
+      <summary>Parâmetros avançados</summary>
+      <div class="advanced-content">${avancados}</div>
+    </details>
+    <div class="llm-actions"><button class="voz-save-btn primary" type="button" onclick="salvar()">${icone('save')}Salvar parâmetros</button></div>
   </div>`;
 }
 
@@ -2114,14 +2434,11 @@ function renderizarEnvioTexto() {
         <input class="text-dispatch-input" id="texto-msg-input" maxlength="2000"
                placeholder="Digite a mensagem que o bot vai enviar..."
                onkeydown="if(event.key==='Enter')enviarMensagemServidor()" />
-        <button class="text-dispatch-send" id="texto-send-btn" onclick="enviarMensagemServidor()" title="Enviar">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 19V5"/>
-            <path d="M5 12l7-7 7 7"/>
-          </svg>
+        <button class="text-dispatch-send" id="texto-send-btn" onclick="enviarMensagemServidor()" title="Enviar" aria-label="Enviar mensagem">
+          ${icone('send', 18)}
         </button>
       </div>
-    </div>` : '<div style="color:var(--muted);text-align:center;padding:1rem">Nenhum servidor disponível.</div>'}
+    </div>` : '<div class="inline-empty">Nenhum servidor disponível.</div>'}
   </div>`;
 }
 
@@ -2158,7 +2475,7 @@ async function enviarMensagemServidor() {
   const texto = input?.value?.trim();
   if (!guildId || !channelId) { toast('Selecione servidor e canal de texto.', 'err'); return; }
   if (!texto) { toast('Digite uma mensagem para enviar.', 'err'); return; }
-  if (btn) btn.disabled = true;
+  definirBotaoOcupado(btn, true);
   try {
     const r = await fetch('/api/texto/enviar', {
       method: 'POST',
@@ -2175,7 +2492,7 @@ async function enviarMensagemServidor() {
   } catch(e) {
     toast('Falha ao enviar mensagem: ' + e.message, 'err');
   } finally {
-    if (btn) btn.disabled = false;
+    definirBotaoOcupado(btn, false);
   }
 }
 
@@ -2203,16 +2520,16 @@ function renderizarVoz() {
       <select class="voz-select" id="voz-canal"><option value="">Carregando...</option></select>
     </div>
     <div class="voz-row" style="justify-content:flex-end;gap:.5rem">
-      <button class="voz-save-btn" id="voz-btn-conectar" onclick="conectarVoz()">Conectar</button>
+      <button class="voz-save-btn primary" id="voz-btn-conectar" onclick="conectarVoz()">${icone('plug')}Conectar</button>
       <button class="voz-save-btn" id="voz-btn-desconectar" onclick="desconectarVoz()"
               style="display:none">Desconectar</button>
-    </div>` : '<div style="color:var(--muted);text-align:center;padding:1rem">Nenhum servidor disponível.</div>'}
+    </div>` : '<div class="inline-empty">Nenhum servidor disponível.</div>'}
   </div>`;
 }
 
 function rotuloGuildVoz(g) {
   if (!g) return '';
-  const sufixo = g.em_voz ? ' 🔊' : (g.conectando ? ' (conectando)' : '');
+  const sufixo = g.em_voz ? ' · conectado' : (g.conectando ? ' · conectando' : '');
   return `${g.name}${sufixo}`;
 }
 
@@ -2274,10 +2591,11 @@ async function conectarVoz() {
   const channelId = document.getElementById('voz-canal')?.value;
   if (!guildId || !channelId) { toast('Selecione um canal de voz.', 'err'); return; }
   const btn = document.getElementById('voz-btn-conectar');
-  if (btn) btn.disabled = true;
+  definirBotaoOcupado(btn, true);
   const gInicio = (_guilds || []).find(g => g.id === guildId);
   if (gInicio) { gInicio.conectando = true; gInicio.em_voz = false; gInicio.canal_id = null; }
   atualizarBotoesConexaoVoz(guildId);
+  atualizarVisaoGeral();
   try {
     const r = await fetch('/api/voz/conectar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2288,23 +2606,26 @@ async function conectarVoz() {
       const g = (_guilds || []).find(g => g.id === guildId);
       if (g) { g.em_voz = true; g.conectando = false; g.canal_id = channelId; }
       atualizarBotoesConexaoVoz(guildId);
-      if (btn) { btn.style.display = 'none'; btn.disabled = false; }
+      if (btn) btn.style.display = 'none';
       const dis = document.getElementById('voz-btn-desconectar');
       if (dis) dis.style.display = '';
+      atualizarVisaoGeral();
       toast('Bot conectado ao canal de voz!', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
       const g = (_guilds || []).find(g => g.id === guildId);
       if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
       atualizarBotoesConexaoVoz(guildId);
-      if (btn) btn.disabled = false;
+      atualizarVisaoGeral();
     }
   } catch(e) {
     toast('Falha ao conectar: ' + e.message, 'err');
     const g = (_guilds || []).find(g => g.id === guildId);
     if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
     atualizarBotoesConexaoVoz(guildId);
-    if (btn) btn.disabled = false;
+    atualizarVisaoGeral();
+  } finally {
+    definirBotaoOcupado(btn, false);
   }
 }
 
@@ -2312,7 +2633,7 @@ async function desconectarVoz() {
   const guildId = document.getElementById('voz-guild')?.value;
   if (!guildId) return;
   const btn = document.getElementById('voz-btn-desconectar');
-  if (btn) btn.disabled = true;
+  definirBotaoOcupado(btn, true);
   try {
     const r = await fetch('/api/voz/desconectar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2323,17 +2644,18 @@ async function desconectarVoz() {
       const g = (_guilds || []).find(g => g.id === guildId);
       if (g) { g.em_voz = false; g.conectando = false; g.canal_id = null; }
       atualizarBotoesConexaoVoz(guildId);
-      if (btn) { btn.style.display = 'none'; btn.disabled = false; }
+      if (btn) btn.style.display = 'none';
       const con = document.getElementById('voz-btn-conectar');
       if (con) con.style.display = '';
+      atualizarVisaoGeral();
       toast('Bot desconectado do canal de voz.', 'ok');
     } else {
       toast('Erro: ' + (res.erro || '?'), 'err');
-      if (btn) btn.disabled = false;
     }
   } catch(e) {
     toast('Falha ao desconectar: ' + e.message, 'err');
-    if (btn) btn.disabled = false;
+  } finally {
+    definirBotaoOcupado(btn, false);
   }
 }
 
@@ -2356,15 +2678,54 @@ function removerGuildDaInterface(guildId) {
   });
 }
 
+function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = false }) {
+  return new Promise(resolve => {
+    const root = document.getElementById('dialog-root');
+    const fechar = valor => {
+      root.replaceChildren();
+      document.removeEventListener('keydown', aoTeclado);
+      resolve(valor);
+    };
+    const aoTeclado = event => {
+      if (event.key === 'Escape') fechar(false);
+    };
+    root.innerHTML = `
+      <div class="dialog-backdrop" role="presentation">
+        <section class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-message">
+          <div class="dialog-body">
+            <h2 id="dialog-title">${esc(titulo)}</h2>
+            <p id="dialog-message">${esc(mensagem)}</p>
+          </div>
+          <div class="dialog-actions">
+            <button class="button button-quiet" type="button" data-dialog-cancel>Cancelar</button>
+            <button class="button ${perigo ? 'button-danger' : 'button-primary'}" type="button" data-dialog-confirm>${esc(confirmar)}</button>
+          </div>
+        </section>
+      </div>`;
+    root.querySelector('[data-dialog-cancel]').addEventListener('click', () => fechar(false));
+    root.querySelector('[data-dialog-confirm]').addEventListener('click', () => fechar(true));
+    root.querySelector('.dialog-backdrop').addEventListener('click', event => {
+      if (event.target === event.currentTarget) fechar(false);
+    });
+    document.addEventListener('keydown', aoTeclado);
+    root.querySelector('[data-dialog-confirm]').focus();
+  });
+}
+
 async function removerServidorSelecionado() {
   const guildId = document.getElementById('servidor-gerenciar')?.value;
   if (!guildId) return;
   const guild = (_guilds || []).find(g => g.id === guildId);
   const nomeServidor = guild?.name || guildId;
-  const confirmado = confirm(`Remover a Neve do servidor "${nomeServidor}"?\n\nEla vai sair deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.`);
+  const confirmado = await confirmarAcao({
+    titulo: `Remover ${nomeServidor}?`,
+    mensagem: 'A Neve sairá deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.',
+    confirmar: 'Remover servidor',
+    perigo: true,
+  });
   if (!confirmado) return;
   const btn = document.getElementById('servidor-btn-remover');
-  if (btn) btn.disabled = true;
+  definirBotaoOcupado(btn, true);
   try {
     const r = await fetch('/api/guilds/remover', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2380,7 +2741,7 @@ async function removerServidorSelecionado() {
   } catch(e) {
     toast('Falha ao remover servidor: ' + e.message, 'err');
   } finally {
-    if (btn) btn.disabled = false;
+    definirBotaoOcupado(btn, false);
   }
 }
 
@@ -2418,45 +2779,31 @@ function renderizarChatVoz() {
     <div class="voice-chat-header compact">
       <div class="voice-chat-header-actions">
         <span class="voice-status-pill" id="voice-status"></span>
-        <button class="voice-clear-btn" onclick="limparChatVoz()" title="Limpar chat">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          </svg>
+        <button class="voice-clear-btn" onclick="limparChatVoz()" title="Limpar chat" aria-label="Limpar conversa">
+          ${icone('trash', 17)}
         </button>
       </div>
     </div>
 
     <!-- Messages -->
     <div class="voice-chat-messages" id="voice-chat-msgs">
+      <div class="voice-chat-empty" id="voice-chat-empty">Suas conversas aparecerão aqui</div>
     </div>
 
     <!-- Input bar -->
     <div class="voice-chat-bar">
       <button class="voice-ptt-toggle" id="ptt-toggle" onclick="togglePTT()" title="Push-to-Talk (Shift direito — funciona fora do navegador)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
+        ${icone('lock', 15)}
         <span id="ptt-label">PTT</span>
       </button>
       <div class="input-action-wrap">
-        <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" y1="19" x2="12" y2="23"/>
-            <line x1="8" y1="23" x2="16" y2="23"/>
-          </svg>
+        <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar" aria-label="Gravar pelo microfone">
+          ${icone('mic', 18)}
         </button>
         <input type="text" class="voice-chat-input" id="voice-chat-input"
                 placeholder="Digite algo para a Neve responder..." onkeydown="if(event.key==='Enter')enviarTextoVoz()" />
-        <button class="voice-send-btn" id="voice-send-btn" onclick="enviarTextoVoz()" title="Enviar">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 19V5"/>
-            <path d="M5 12l7-7 7 7"/>
-          </svg>
+        <button class="voice-send-btn" id="voice-send-btn" onclick="enviarTextoVoz()" title="Enviar" aria-label="Enviar mensagem">
+          ${icone('send', 18)}
         </button>
       </div>
     </div>
@@ -2551,8 +2898,8 @@ function renderizarChatVoz() {
       </div>
 
       <div class="vs-actions">
-        <button class="voz-save-btn" onclick="testarVoz()" style="margin-right:.5rem;background:linear-gradient(135deg,#ffffff,#bdbdbd);color:#070707">Testar voz</button>
-        <button class="voz-save-btn" onclick="salvarConfigVoz()">Salvar</button>
+        <button class="voz-save-btn" id="voz-test-btn" onclick="testarVoz()">Testar voz</button>
+        <button class="voz-save-btn primary" id="voz-config-save" onclick="salvarConfigVoz()">${icone('save')}Salvar</button>
       </div>
     </div>
 
@@ -2605,6 +2952,7 @@ function inicializarChatVoz() {
 }
 
 async function salvarConfigVoz() {
+  const btn = document.getElementById('voz-config-save');
   const cfg = {
     tts_model: 'chatterbox-ptbr-v3',
     voz_language: 'pt-BR',
@@ -2617,20 +2965,29 @@ async function salvarConfigVoz() {
     voz_seed: parseInt(document.getElementById('voz-seed-input')?.value || '42', 10),
     pitch: parseFloat(document.getElementById('voz-pitch-slider')?.value || '0'),
   };
+  definirBotaoOcupado(btn, true);
   try {
     const r = await fetch('/api/voz/config', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(cfg),
     });
     const res = await r.json();
-    if (res.ok) toast('Config de voz salva!', 'ok');
+    if (res.ok) {
+      _vozConfig = { ..._vozConfig, ...cfg };
+      atualizarVisaoGeral();
+      toast('Config de voz salva!', 'ok');
+    }
     else toast('Erro: ' + (res.erro || '?'), 'err');
   } catch(e) {
     toast('Falha ao salvar config de voz.', 'err');
+  } finally {
+    definirBotaoOcupado(btn, false);
   }
 }
 
 async function testarVoz() {
+  const btn = document.getElementById('voz-test-btn');
+  definirBotaoOcupado(btn, true);
   await salvarConfigVoz();
   setVoiceStatus('Testando voz...');
   try {
@@ -2644,6 +3001,7 @@ async function testarVoz() {
   } catch(e) {
     toast('Falha ao testar voz.', 'err');
   } finally {
+    definirBotaoOcupado(btn, false);
     setTimeout(() => setVoiceStatus(''), 2500);
   }
 }
@@ -2669,6 +3027,7 @@ async function iniciarGravacao() {
         channelCount: 1,
       }
     });
+    atualizarStatusMicrofone();
     _vozAudioCtx = new AudioContext();
     _vozSourceNode = _vozAudioCtx.createMediaStreamSource(_vozMediaStream);
     _vozProcessorNode = _vozAudioCtx.createScriptProcessor(4096, 1, 1);
@@ -2859,7 +3218,7 @@ function _finalizarProcessamentoVoz({ retomarPTT = true, delayMs = 0 } = {}) {
 
 async function limparChatVoz() {
   const container = document.getElementById('voice-chat-msgs');
-  if (container) container.innerHTML = '';
+  if (container) container.innerHTML = '<div class="voice-chat-empty" id="voice-chat-empty">Suas conversas aparecerão aqui</div>';
   try { await fetch('/api/voz/limpar', { method: 'POST' }); } catch(e) {}
   toast('Histórico de voz limpo.', 'ok');
 }
@@ -3128,6 +3487,8 @@ function coletar() {
 async function salvar() {
   const promptDefaults = _config?._prompt_defaults || {};
   const nova = coletar();
+  const botoes = [...document.querySelectorAll('button[onclick="salvar()"]')];
+  botoes.forEach(botao => definirBotaoOcupado(botao, true));
   try {
     const r = await fetch('/api/config', {
       method:  'POST',
@@ -3139,6 +3500,7 @@ async function salvar() {
       _config = { ...nova, _prompt_defaults: promptDefaults };
       // Atualiza os tags de prefixo/nome nos headers sem re-renderizar tudo
       atualizarTags(nova);
+      atualizarVisaoGeral();
       toast(
         res.reinicio_necessario
           ? 'Parâmetros salvos. Reinicie o bot para aplicar o carregamento da LLM.'
@@ -3150,6 +3512,8 @@ async function salvar() {
     }
   } catch(e) {
     toast('Falha de conexão com o servidor.', 'err');
+  } finally {
+    botoes.forEach(botao => definirBotaoOcupado(botao, false));
   }
 }
 
@@ -3170,7 +3534,13 @@ function toggleCard(card) {
 
 // ── Desligar bot ───────────────────────────────────────────────────────────
 async function desligar() {
-  if (!confirm('Tem certeza que deseja desligar o bot?')) return;
+  const confirmado = await confirmarAcao({
+    titulo: 'Desligar o Nevebot?',
+    mensagem: 'O processo local, console e a janela serão encerrados.',
+    confirmar: 'Desligar',
+    perigo: true,
+  });
+  if (!confirmado) return;
   try {
     const resposta = await fetch('/api/shutdown', { method: 'POST' });
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
@@ -3220,6 +3590,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Inicia
+aplicarIcones(document);
 carregar();
 </script>
 </body>

@@ -303,6 +303,8 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/", "/index.html"):
             self._serve_file(_WEB_DIR / "index.html", "text/html; charset=utf-8")
+        elif self.path == "/app.css":
+            self._serve_file(_WEB_DIR / "app.css", "text/css; charset=utf-8")
         elif self.path == "/logo.png":
             self._serve_file(_WEB_DIR / "logo.png", "image/png")
         elif self.path == "/api/config":
