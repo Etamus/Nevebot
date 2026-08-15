@@ -313,6 +313,7 @@ button { color: inherit; }
 .voz-save-btn,
 .btn-save-top,
 .btn-shutdown {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -367,15 +368,32 @@ button:disabled { cursor: not-allowed !important; opacity: .45 !important; }
   padding: 0 !important;
 }
 .is-loading { pointer-events: none; }
+.button.is-loading,
+.voz-save-btn.is-loading {
+  color: transparent !important;
+}
 .button.is-loading::before,
 .voz-save-btn.is-loading::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   content: "";
   width: 13px;
   height: 13px;
-  border: 2px solid currentColor;
+  box-sizing: border-box;
+  border: 2px solid var(--text);
   border-right-color: transparent;
   border-radius: 50%;
-  animation: spin .7s linear infinite;
+  animation: button-loading-spin .7s linear infinite;
+}
+.button-primary.is-loading::before,
+.voz-save-btn.primary.is-loading::before {
+  border-color: var(--accent-text);
+  border-right-color: transparent;
+}
+@keyframes button-loading-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
