@@ -1,21 +1,48 @@
-MIT License
+Copyright (c) 2026
+Author: Mateus Lopes
+All rights reserved.
 
-Copyright (c) 2026 Mateus Lopes
+1. SUBJECT MATTER
+This document regulates the use, access, distribution, and any form of interaction with the software developed and identified as an intellectual work solely owned by the Author.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+2. OWNERSHIP AND INTELLECTUAL PROPERTY
+2.1. All source code, components, functionalities, architecture, documentation, design, structures, algorithms, and other elements of the software are protected by copyright laws and belong solely to the Author.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2.2. This license does NOT transfer ownership of the software. However, the Author grants permission to use, modify, and adapt the software under the conditions established in this license.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. PERMITTED USES AND RESTRICTIONS
+3.1. The following actions are permitted:
+     a) personal, academic, corporate, and commercial use of the software;
+     b) modification, alteration, and creation of derivative works;
+     c) internal distribution of modified versions.
+
+3.2. It is expressly prohibited, without prior written authorization from the Author, to:
+     a) remove, conceal, or alter the original brand name, copyright notices, or author identification;
+     b) redistribute modified versions without clearly preserving the original attribution to the Author;
+     c) sell or sublicense the software while falsely claiming authorship of the original work;
+     d) perform illegal use of the software or violate applicable copyright laws.
+
+3.3. Any redistributed or modified version must:
+     a) retain visible attribution to the original Author;
+     b) preserve the original brand or project name when shared publicly;
+     c) include a copy of this license document.
+
+4. CONFIDENTIALITY
+4.1. If the software is provided privately, the user undertakes to maintain confidentiality regarding any non-public material explicitly identified as confidential by the Author.
+
+5. LIABILITY AND PENALTIES
+5.1. Any violation of this license may result in:
+     a) immediate removal requests via formal notices (DMCA or equivalents);
+     b) civil liability for damages;
+     c) criminal liability in accordance with applicable legislation.
+
+6. NO TACIT PERMISSION
+6.1. The Author's lack of response does NOT constitute authorization beyond the permissions expressly granted in this license.
+
+7. UPDATES AND AMENDMENTS
+7.1. Updated versions of this license shall apply only to future distributions or versions released by the Author.
+
+8. ACCEPTANCE
+8.1. Use, access, reading, storage, or possession of the software implies acceptance of the terms established herein.
+
+This document governs the use of the software in all territories subject to copyright protection.
