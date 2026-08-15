@@ -36,6 +36,7 @@ WHISPER_ALIASES = {
 }
 REQUIRED_MODULES = {
     "discord": "discord.py",
+    "discord.ext.voice_recv": "discord-ext-voice-recv",
     "dotenv": "python-dotenv",
     "requests": "requests",
     "pynput": "pynput",
@@ -44,6 +45,7 @@ REQUIRED_MODULES = {
     "numpy": "numpy",
     "scipy": "scipy",
     "soundfile": "soundfile",
+    "sounddevice": "sounddevice",
     "librosa": "librosa",
     "faster_whisper": "faster-whisper",
     "ctranslate2": "ctranslate2",

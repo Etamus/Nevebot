@@ -201,6 +201,7 @@ def iniciar_interface(url: str, bot_encerrado: threading.Event) -> bool:
             width=1280,
             height=820,
             min_size=(900, 620),
+            maximized=True,
             background_color="#0a0a0a",
             text_select=True,
         )

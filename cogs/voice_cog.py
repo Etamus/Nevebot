@@ -68,6 +68,15 @@ def salvar_config_voz() -> None:
     )
 
 
+def _parar_reproducao(vc: discord.VoiceClient) -> None:
+    """Interrompe apenas o envio, preservando um receptor de voz ativo."""
+    stop_playing = getattr(vc, "stop_playing", None)
+    if callable(stop_playing):
+        stop_playing()
+    else:
+        vc.stop()
+
+
 async def iniciar_sessao_reproducao(
     bot: commands.Bot,
     guild_id: int,
@@ -79,7 +88,7 @@ async def iniciar_sessao_reproducao(
     vc = guild.voice_client if guild is not None else None
     if vc is not None and vc.is_connected() and vc.is_playing():
         log.info("[VOZ] Interrompendo reproducao da sessao anterior.")
-        vc.stop()
+        _parar_reproducao(vc)
         await asyncio.sleep(0)
 
 
@@ -123,7 +132,7 @@ async def reproduzir_pcm(
         vc = guild.voice_client if guild is not None else None
         if vc is not None and vc.is_connected() and vc.is_playing():
             log.info("[VOZ] Interrompendo reproducao anterior para tocar resposta nova.")
-            vc.stop()
+            _parar_reproducao(vc)
             await asyncio.sleep(0)
 
     async with lock:

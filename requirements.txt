@@ -16,6 +16,7 @@ ctranslate2==4.7.1
 onnxruntime-gpu==1.24.3
 librosa==0.11.0
 soundfile==0.13.1
+sounddevice==0.5.5
 safetensors==0.7.0
 huggingface_hub==1.4.1
 

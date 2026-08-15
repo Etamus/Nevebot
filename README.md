@@ -26,6 +26,7 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Sintetiza com Chatterbox Multilingual V3 e o pacote dedicado a PT-BR.
 - Clona automaticamente a voz de `data/voz_referencia.wav` e detecta a troca do arquivo na geração seguinte.
 - Reproduz PCM diretamente no Discord, sem depender de FFmpeg.
+- Recebe e reproduz localmente as pessoas do canal de voz, com seleção de saída e volume, sem gravar ou transcrever.
 - Pré-carrega LLM, STT, TTS e a referência de voz durante a inicialização.
 
 ### Interface
@@ -38,7 +39,7 @@ As páginas atuais são:
 - **Conversa:** chat por texto, gravação pelo microfone e push-to-talk.
 - **Voz:** entrada, reconhecimento, referência e parâmetros do Chatterbox.
 - **Modelo:** seleção do GGUF, parâmetros de execução, sampling e prompts.
-- **Discord:** servidores, conexão de voz e envio de mensagens em canais de texto.
+- **Discord:** servidores, conexão, monitor local do canal e envio de mensagens por texto ou voz.
 - **Comandos:** referência dos comandos disponíveis no bot.
 
 ## Requisitos
@@ -121,6 +122,7 @@ O instalador já baixa `large-v3-turbo` para `models/whisper/`. O primeiro carre
 3. Coloque o token em `DISCORD_TOKEN` no `.env`.
 4. Inicie o Nevebot e use **Adicionar** na página Discord da interface.
 5. Selecione um servidor e um canal de voz, depois use **Conectar**.
+6. Em **Escutar canal**, selecione a saída de áudio e use **Ouvir canal** para acompanhar as pessoas pelo Nevebot.
 
 O convite criado pela interface solicita as permissões usadas pelo projeto: ver canais, enviar mensagens, ler histórico, adicionar reações, conectar, falar e usar atividade de voz.
 
@@ -177,8 +179,9 @@ Nevebot/
 |   |-- llm_cog.py              # llama.cpp, chat e comandos
 |   `-- voice_cog.py            # conexão e reprodução de voz
 |-- services/
-|   |-- stt_whisper.py          # STT PT-BR com faster-whisper
-|   `-- tts_chatterbox.py       # Chatterbox V3 PT-BR e clonagem
+|   |-- discord_audio_monitor.py # recepção, DAVE, mixer e saída local
+|   |-- stt_whisper.py           # STT PT-BR com faster-whisper
+|   `-- tts_chatterbox.py        # Chatterbox V3 PT-BR e clonagem
 |-- scripts/
 |   |-- baixar_llama_cpp.ps1
 |   |-- preparar_chatterbox_ptbr.py
@@ -234,7 +237,7 @@ Nevebot/
 
 ## Privacidade
 
-Prompts, históricos em memória, transcrição, geração de texto, clonagem e síntese de voz são processados localmente. O Discord recebe as mensagens e o áudio enviados aos seus canais, conforme o uso normal da plataforma. O Nevebot não exige serviços comerciais de IA.
+Prompts, históricos em memória, transcrição, geração de texto, clonagem e síntese de voz são processados localmente. O monitor do canal mantém apenas uma fila curta em memória para reprodução e não grava nem envia as falas recebidas ao Whisper ou à LLM. O Discord recebe as mensagens e o áudio enviados aos seus canais, conforme o uso normal da plataforma. O Nevebot não exige serviços comerciais de IA.
 
 ## Licença
 

@@ -13,18 +13,26 @@ Rota                    Método  Descrição
 /api/voz/desconectar    POST    Desconecta bot do canal de voz
 /api/voz/chat           POST    Recebe WAV, transcreve, gera resposta LLM, fala no Discord
 /api/voz/falar          POST    Recebe texto, gera TTS e fala no Discord
+/api/voz/monitor        GET     Retorna estado do monitor local do canal
+/api/voz/monitor        POST    Inicia, configura ou encerra o monitor local
 /api/voz/config         GET     Retorna config de voz
 /api/voz/config         POST    Salva config de voz
+/api/voz/referencia     POST    Substitui o WAV usado para clonar a voz
 /api/voz/limpar         POST    Limpa histórico do chat de voz
 
 Inicie com:  start(bot, host="127.0.0.1", port=5000)
 """
 
 import asyncio
+import hashlib
+import io
 import json
 import logging
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -38,6 +46,9 @@ log = logging.getLogger("web_server")
 
 _WEB_DIR = Path(__file__).parent / "web"
 _SHUTDOWN_FLAG = Path(__file__).parent / "logs" / "ui_shutdown.flag"
+_VOICE_REFERENCE_PATH = Path(__file__).parent / "data" / "voz_referencia.wav"
+_VOICE_REFERENCE_BACKUP_DIR = Path(__file__).parent / "data" / "voz_referencias"
+_MAX_VOICE_REFERENCE_BYTES = 32 * 1024 * 1024
 _bot_ref = None        # discord.ext.commands.Bot
 _loop_ref = None       # asyncio event loop do bot
 _voz_connect_locks: dict[int, asyncio.Lock] = {}
@@ -51,6 +62,7 @@ _tts_futures: set[Future] = set()
 _shutdown_solicitado = threading.Event()
 _http_server: ThreadingHTTPServer | None = None
 _server_lock = threading.Lock()
+_voice_reference_lock = threading.Lock()
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
 _voz_historico: deque = deque(maxlen=4)
@@ -58,6 +70,179 @@ _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
 _ptt_global_pressionado = False
+
+
+def _validar_wav_referencia(dados: bytes) -> dict:
+    """Valida o WAV antes de substituir a referencia ativa."""
+    import numpy as np
+    import soundfile as sf
+
+    if not dados:
+        raise ValueError("O arquivo WAV está vazio.")
+    if len(dados) > _MAX_VOICE_REFERENCE_BYTES:
+        raise ValueError("O arquivo WAV deve ter no máximo 32 MB.")
+
+    try:
+        buffer = io.BytesIO(dados)
+        info = sf.info(buffer)
+        buffer.seek(0)
+        audio, sample_rate = sf.read(buffer, dtype="float32", always_2d=True)
+    except Exception as exc:
+        raise ValueError("O arquivo enviado não é um WAV de áudio válido.") from exc
+
+    if not str(info.format).upper().startswith("WAV"):
+        raise ValueError("O arquivo precisa estar no formato WAV.")
+    if info.channels not in (1, 2):
+        raise ValueError("Use um WAV mono ou estéreo.")
+    if sample_rate < 8000 or sample_rate > 192000:
+        raise ValueError("A taxa de amostragem do WAV não é compatível.")
+
+    duracao = float(info.frames) / float(sample_rate)
+    if duracao < 1.0:
+        raise ValueError("A referência precisa ter pelo menos 1 segundo de voz.")
+    if duracao > 120.0:
+        raise ValueError("A referência deve ter no máximo 2 minutos.")
+    if audio.size == 0 or not np.isfinite(audio).all():
+        raise ValueError("O WAV não contém áudio utilizável.")
+
+    mono = audio.mean(axis=1)
+    pico = float(np.max(np.abs(mono)))
+    rms = float(np.sqrt(np.mean(np.square(mono, dtype=np.float64))))
+    if pico < 1e-4 or rms < 1e-5:
+        raise ValueError("O WAV está vazio ou silencioso demais para clonar a voz.")
+
+    return {
+        "duracao_s": round(duracao, 3),
+        "sample_rate": int(sample_rate),
+        "canais": int(info.channels),
+        "tamanho": len(dados),
+        "sha256": hashlib.sha256(dados).hexdigest(),
+    }
+
+
+def _salvar_wav_referencia(dados: bytes) -> dict:
+    """Salva a referencia de forma atomica e preserva a versao anterior."""
+    meta = _validar_wav_referencia(dados)
+    destino = _VOICE_REFERENCE_PATH
+    backup = None
+
+    with _voice_reference_lock:
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        if destino.exists():
+            hash_atual = hashlib.sha256(destino.read_bytes()).hexdigest()
+            if hash_atual == meta["sha256"]:
+                return {**meta, "alterado": False, "backup": None}
+
+            _VOICE_REFERENCE_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+            carimbo = time.strftime("%Y%m%d-%H%M%S")
+            backup = _VOICE_REFERENCE_BACKUP_DIR / f"voz_referencia-{carimbo}-{hash_atual[:8]}.wav"
+            if backup.exists():
+                backup = _VOICE_REFERENCE_BACKUP_DIR / (
+                    f"voz_referencia-{carimbo}-{hash_atual[:8]}-{time.time_ns()}.wav"
+                )
+            shutil.copy2(destino, backup)
+
+        fd, temporario_nome = tempfile.mkstemp(
+            prefix=".voz_referencia-",
+            suffix=".tmp",
+            dir=destino.parent,
+        )
+        temporario = Path(temporario_nome)
+        try:
+            with os.fdopen(fd, "wb") as arquivo:
+                arquivo.write(dados)
+                arquivo.flush()
+                os.fsync(arquivo.fileno())
+            os.replace(temporario, destino)
+        finally:
+            temporario.unlink(missing_ok=True)
+
+    backup_relativo = None
+    if backup is not None:
+        try:
+            backup_relativo = backup.relative_to(Path(__file__).parent).as_posix()
+        except ValueError:
+            backup_relativo = backup.as_posix()
+    return {**meta, "alterado": True, "backup": backup_relativo}
+
+
+def _caminhos_llama_locais(cliente=None) -> set[Path]:
+    """Retorna somente executaveis llama-server pertencentes a esta instalacao."""
+    caminhos = {
+        Path(config.LLAMA_CPP_SERVER_EXE).resolve(),
+        (Path(__file__).parent / "temp_llama" / "llama" / "llama-server.exe").resolve(),
+    }
+    processo = getattr(cliente, "process", None)
+    argumentos = getattr(processo, "args", None)
+    if isinstance(argumentos, (list, tuple)) and argumentos:
+        caminhos.add(Path(str(argumentos[0])).resolve())
+    return caminhos
+
+
+def _encerrar_llama_server() -> None:
+    """Encerra o cliente ativo e remove processos locais orfaos do llama-server."""
+    cliente = None
+    try:
+        cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
+        cliente = getattr(cog, "llm", None)
+        if cliente is not None:
+            cliente.close()
+    except Exception:
+        log.exception("Falha ao encerrar o llama-server pelo cliente da LLM.")
+
+    if os.name != "nt":
+        return
+
+    caminhos = [str(caminho) for caminho in _caminhos_llama_locais(cliente) if caminho.is_file()]
+    if not caminhos:
+        return
+
+    alvos = ",".join("'" + caminho.replace("'", "''") + "'" for caminho in caminhos)
+    script = (
+        f"$targets=@({alvos});"
+        "$stopped=@();"
+        "Get-CimInstance Win32_Process -Filter \"Name = 'llama-server.exe'\" | "
+        "Where-Object { $_.ExecutablePath -and "
+        "($targets -contains [IO.Path]::GetFullPath($_.ExecutablePath)) } | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; "
+        "$stopped += $_.ProcessId };"
+        "$stopped -join ','"
+    )
+    try:
+        resultado = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        pids = resultado.stdout.strip()
+        if pids:
+            log.info("Processos llama-server locais encerrados: %s", pids)
+        elif resultado.returncode != 0:
+            log.warning("Limpeza do llama-server retornou codigo %s.", resultado.returncode)
+    except Exception:
+        log.exception("Falha na limpeza residual do llama-server local.")
+
+
+def _finalizar_desligamento() -> None:
+    try:
+        try:
+            from services.discord_audio_monitor import obter_monitor
+
+            obter_monitor().parar()
+        except Exception:
+            log.exception("Falha ao encerrar o monitor local de voz.")
+        _encerrar_llama_server()
+        if _bot_ref is not None and _loop_ref is not None and _loop_ref.is_running():
+            try:
+                future = asyncio.run_coroutine_threadsafe(_bot_ref.close(), _loop_ref)
+                future.result(timeout=8)
+            except Exception:
+                log.exception("Falha ao encerrar a conexao do Discord durante o desligamento.")
+    finally:
+        os._exit(0)
 
 
 def solicitar_desligamento(atraso: float = 0.8) -> None:
@@ -71,7 +256,7 @@ def solicitar_desligamento(atraso: float = 0.8) -> None:
     except Exception:
         log.exception("Falha ao registrar flag de desligamento da UI.")
 
-    timer = threading.Timer(max(0.0, atraso), lambda: os._exit(0))
+    timer = threading.Timer(max(0.0, atraso), _finalizar_desligamento)
     timer.daemon = True
     timer.start()
 
@@ -115,6 +300,13 @@ async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
     guild = _bot_ref.get_guild(guild_id)
     if not guild:
         raise ValueError("Guild não encontrada")
+
+    try:
+        from services.discord_audio_monitor import obter_monitor
+
+        obter_monitor().parar_se_guild(guild_id)
+    except Exception as exc:
+        log.warning("[WEB] Falha ao encerrar monitor de voz da guild %s: %s", guild.name, exc)
 
     vc = guild.voice_client
     if vc is None:
@@ -295,7 +487,7 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name")
         self.end_headers()
 
     # ── GET ───────────────────────────────────────────────────────────────────
@@ -362,6 +554,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_get_voz_canais()
         elif self.path.startswith("/api/texto/canais"):
             self._handle_get_texto_canais()
+        elif self.path.startswith("/api/voz/monitor"):
+            self._handle_get_voz_monitor()
         elif self.path == "/api/voz/config":
             self._handle_get_voz_config()
         elif self.path == "/api/voz/ptt-estado":
@@ -427,6 +621,14 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/voz/chat-texto":
             self._handle_voz_chat_texto()
+            return
+
+        if self.path == "/api/voz/monitor":
+            self._handle_post_voz_monitor()
+            return
+
+        if self.path == "/api/voz/referencia":
+            self._handle_post_voz_referencia()
             return
 
         if self.path == "/api/voz/config":
@@ -668,8 +870,14 @@ class _Handler(BaseHTTPRequestHandler):
                             await _limpar_conexao_voz(guild_id, "voice client preso antes de conectar")
 
                     try:
+                        from discord.ext import voice_recv
+
                         vc = await asyncio.wait_for(
-                            channel.connect(timeout=20, reconnect=False),
+                            channel.connect(
+                                timeout=20,
+                                reconnect=False,
+                                cls=voice_recv.VoiceRecvClient,
+                            ),
                             timeout=25,
                         )
                     except asyncio.CancelledError:
@@ -1042,6 +1250,187 @@ class _Handler(BaseHTTPRequestHandler):
         from cogs.voice_cog import voz_estado
         self._respond(200, "application/json",
                       json.dumps(voz_estado, ensure_ascii=False).encode("utf-8"))
+
+    def _handle_get_voz_monitor(self) -> None:
+        """GET /api/voz/monitor — retorna escuta ativa e dispositivos locais."""
+        from urllib.parse import parse_qs, urlparse
+
+        from services.discord_audio_monitor import listar_dispositivos_saida, obter_monitor
+
+        query = parse_qs(urlparse(self.path).query)
+        payload = obter_monitor().estado()
+        payload["ok"] = True
+        if query.get("dispositivos", ["0"])[0] == "1":
+            try:
+                dispositivos, padrao = listar_dispositivos_saida()
+                payload["dispositivos"] = dispositivos
+                payload["dispositivo_padrao"] = padrao
+            except Exception as exc:
+                log.exception("Falha ao listar dispositivos locais de saida.")
+                payload["dispositivos"] = []
+                payload["dispositivo_padrao"] = None
+                payload["erro_dispositivos"] = str(exc)
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        )
+
+    def _handle_post_voz_monitor(self) -> None:
+        """POST /api/voz/monitor — inicia, configura ou para a escuta local."""
+        length = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            ativo = bool(data.get("ativo"))
+            volume = float(data.get("volume", 1.0))
+            dispositivo_raw = data.get("dispositivo")
+            dispositivo = None if dispositivo_raw in (None, "") else int(dispositivo_raw)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": f"Configuração inválida: {exc}"}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        from services.discord_audio_monitor import obter_monitor
+
+        monitor = obter_monitor()
+        try:
+            if not ativo:
+                estado = monitor.parar()
+            else:
+                guild_id = int(data.get("guild_id", 0) or 0)
+                if not guild_id or _bot_ref is None:
+                    raise ValueError("Selecione um servidor conectado a um canal de voz.")
+                guild = _bot_ref.get_guild(guild_id)
+                if guild is None:
+                    raise ValueError("Servidor não encontrado.")
+                voice_client = guild.voice_client
+                if voice_client is None or not voice_client.is_connected():
+                    raise ValueError("Conecte a Neve a um canal de voz primeiro.")
+
+                from discord.ext import voice_recv
+
+                if not isinstance(voice_client, voice_recv.VoiceRecvClient):
+                    raise RuntimeError(
+                        "Esta conexão foi criada sem recepção de áudio. "
+                        "Desconecte e conecte a Neve novamente."
+                    )
+                estado = monitor.iniciar(
+                    voice_client,
+                    dispositivo=dispositivo,
+                    volume=volume,
+                )
+
+            self._respond(
+                200,
+                "application/json",
+                json.dumps({"ok": True, **estado}, ensure_ascii=False).encode("utf-8"),
+            )
+        except (ValueError, RuntimeError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+        except Exception as exc:
+            log.exception("Falha ao alterar o monitor local de voz.")
+            self._respond(
+                500,
+                "application/json",
+                json.dumps({"erro": str(exc) or type(exc).__name__}, ensure_ascii=False).encode("utf-8"),
+            )
+
+    def _handle_post_voz_referencia(self) -> None:
+        """POST /api/voz/referencia — valida, preserva e troca a referencia."""
+        from urllib.parse import unquote
+
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            length = 0
+        if length <= 0:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": "Nenhum arquivo WAV foi enviado."}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+        if length > _MAX_VOICE_REFERENCE_BYTES:
+            self._respond(
+                413,
+                "application/json",
+                json.dumps({"erro": "O arquivo WAV deve ter no máximo 32 MB."}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        nome_enviado = Path(unquote(self.headers.get("X-File-Name", "voz_referencia.wav"))).name
+        if not nome_enviado.lower().endswith(".wav"):
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": "Selecione um arquivo com extensão .wav."}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        try:
+            dados = self.rfile.read(length)
+            if len(dados) != length:
+                raise ValueError("O upload do WAV foi interrompido antes de terminar.")
+            resultado = _salvar_wav_referencia(dados)
+        except ValueError as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+        except OSError as exc:
+            log.exception("Falha ao salvar a nova referencia de voz.")
+            self._respond(
+                500,
+                "application/json",
+                json.dumps({"erro": f"Não foi possível salvar a referência: {exc}"}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        preparando = False
+        if resultado["alterado"]:
+            from cogs.voice_cog import voz_estado
+            from services import tts_chatterbox
+
+            _iniciar_sessao_tts("/api/voz/referencia")
+            voz_cfg = dict(voz_estado)
+
+            def _preparar_nova_referencia() -> None:
+                tts_chatterbox.limpar_cache_referencia()
+                tts_chatterbox.precarregar_e_aquecer(voz_cfg)
+
+            future = _tts_executor.submit(_preparar_nova_referencia)
+            preparando = True
+
+            def _registrar_preparo(fut: Future) -> None:
+                try:
+                    fut.result()
+                except Exception:
+                    log.exception("Falha ao preparar a nova referencia de voz.")
+                else:
+                    log.info("Nova referencia de voz preparada para o Chatterbox.")
+
+            future.add_done_callback(_registrar_preparo)
+
+        payload = {
+            "ok": True,
+            "arquivo": _VOICE_REFERENCE_PATH.name,
+            "preparando": preparando,
+            **resultado,
+        }
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+        )
 
     def _handle_post_voz_config(self) -> None:
         """POST /api/voz/config — salva config de voz."""

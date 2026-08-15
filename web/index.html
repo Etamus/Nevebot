@@ -1586,8 +1586,8 @@
       <button class="nav-item active" data-nav="overview" onclick="navegar('overview')" title="Visão geral"><span class="icon-slot" data-icon="overview"></span><span>Visão geral</span></button>
       <button class="nav-item" data-nav="conversation" onclick="navegar('conversation')" title="Conversa"><span class="icon-slot" data-icon="message"></span><span>Conversa</span></button>
       <button class="nav-item" data-nav="voice" onclick="navegar('voice')" title="Voz"><span class="icon-slot" data-icon="audio"></span><span>Voz</span></button>
-      <button class="nav-item" data-nav="model" onclick="navegar('model')" title="Modelo"><span class="icon-slot" data-icon="cpu"></span><span>Modelo</span></button>
-      <button class="nav-item" data-nav="discord" onclick="navegar('discord')" title="Discord"><span class="icon-slot" data-icon="server"></span><span>Discord</span></button>
+      <button class="nav-item" data-nav="model" onclick="navegar('model')" title="Modelo"><span class="icon-slot" data-icon="tool"></span><span>Modelo</span></button>
+      <button class="nav-item" data-nav="discord" onclick="navegar('discord')" title="Discord"><span class="icon-slot" data-icon="discord"></span><span>Discord</span></button>
       <button class="nav-item" data-nav="commands" onclick="navegar('commands')" title="Comandos"><span class="icon-slot" data-icon="terminal"></span><span>Comandos</span></button>
     </nav>
     <div class="sidebar-footer">
@@ -1598,6 +1598,12 @@
   <div class="app-workspace">
     <header class="workspace-header">
       <div class="page-heading"><h1 id="page-title">Visão geral</h1><p id="page-subtitle">Estado atual do Nevebot e serviços configurados.</p></div>
+      <div class="workspace-header-actions" id="conversation-header-actions" hidden>
+        <span class="voice-status-pill" id="voice-status"></span>
+        <button class="voice-clear-btn" type="button" onclick="limparChatVoz()" title="Limpar chat" aria-label="Limpar conversa">
+          <span class="icon-slot" data-icon="trash"></span>
+        </button>
+      </div>
     </header>
     <main class="workspace-main">
       <div id="content" class="loading-state"><span class="loading-spinner"></span><span>Carregando o Control Center</span></div>
@@ -1672,6 +1678,10 @@ let _guilds = [];
 let _botInfo = null;
 let _guildMonitor = null;
 let _vozConfig = {};
+let _monitorVozEstado = { ativo: false, volume: 1 };
+let _monitorVozDispositivos = [];
+let _monitorVozPoll = null;
+let _monitorVozCarregando = false;
 let _paginaAtiva = localStorage.getItem('nevebot-page') || 'overview';
 
 const PAGE_META = {
@@ -1700,17 +1710,23 @@ const ICONS = {
   message: '<path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>',
   audio: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/>',
   cpu: '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/>',
+  tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94Z"/>',
   server: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+  discord: '<path class="brand-fill" d="M19.27 5.33A16.3 16.3 0 0 0 15.44 4l-.48 1.02a15.1 15.1 0 0 0-5.92 0L8.56 4a16.3 16.3 0 0 0-4.1 1.34C1.86 9.17 1.16 12.9 1.51 16.58a16.6 16.6 0 0 0 5.03 2.54l1.23-1.68a10.7 10.7 0 0 1-1.93-.92l.47-.36c3.72 1.72 7.76 1.72 11.44 0l.48.36c-.62.36-1.27.67-1.94.92l1.23 1.68a16.6 16.6 0 0 0 5.03-2.54c.41-4.27-.7-7.96-3.28-11.25ZM8.86 14.25c-1.12 0-2.04-1.03-2.04-2.3s.9-2.3 2.04-2.3c1.15 0 2.07 1.04 2.05 2.3 0 1.27-.9 2.3-2.05 2.3Zm6.28 0c-1.12 0-2.04-1.03-2.04-2.3s.9-2.3 2.04-2.3c1.15 0 2.07 1.04 2.05 2.3 0 1.27-.9 2.3-2.05 2.3Z"/>',
   terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
   power: '<path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/>',
   send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+  'arrow-up': '<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/>',
   lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3M8 22h8"/>',
+  headphones: '<path d="M4 14a8 8 0 0 1 16 0"/><path d="M18 19v-5a2 2 0 0 1 2-2h1v7h-3z"/><path d="M6 19v-5a2 2 0 0 0-2-2H3v7h3z"/>',
+  square: '<rect x="6" y="6" width="12" height="12" rx="1"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   plug: '<path d="m12 22 3-3-2-2 4-4 2 2 3-3"/><path d="m2 12 3-3 2 2 4-4-2-2 3-3"/><path d="m8 16 8-8"/>',
   rotate: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v4H4v-4"/>',
   alert: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
 };
 
@@ -1741,10 +1757,14 @@ function navegar(pagina, persistir = true) {
   const subtitulo = document.getElementById('page-subtitle');
   if (titulo) titulo.textContent = meta.title;
   if (subtitulo) subtitulo.textContent = meta.subtitle;
+  const acoesConversa = document.getElementById('conversation-header-actions');
+  if (acoesConversa) acoesConversa.hidden = pagina !== 'conversation';
   if (persistir) localStorage.setItem('nevebot-page', pagina);
   document.querySelector('.workspace-main')?.scrollTo({ top: 0, behavior: 'auto' });
   const ativa = document.querySelector(`.app-page[data-page="${pagina}"]`);
   if (ativa) setTimeout(() => ajustarTodosSelects(ativa), 0);
+  if (pagina === 'discord') iniciarPollingMonitorVoz();
+  else pararPollingMonitorVoz();
 }
 
 function atualizarEstadoGlobal(estado, texto) {
@@ -1796,10 +1816,9 @@ async function carregar() {
 }
 
 function linhaStatus(nome, valor, estado, classe = '') {
-  const ponto = classe === 'success' ? 'is-online' : classe === 'warning' ? 'is-warning' : '';
   return `
     <div class="status-row">
-      <span class="status-name"><span class="status-dot ${ponto}"></span>${esc(nome)}</span>
+      <span class="status-name">${esc(nome)}</span>
       <span class="status-value" title="${esc(valor)}">${esc(valor)}</span>
       <span class="status-state ${classe}">${esc(estado)}</span>
     </div>`;
@@ -1809,7 +1828,7 @@ function renderizarVisaoGeral(cfg) {
   const llm = cfg.llm || {};
   const guildVoz = (_guilds || []).find(g => g.canal_id || g.em_voz || g.conectando);
   const discordValor = _botInfo?.name
-    ? `${_botInfo.name} · ${_guilds.length} servidor${_guilds.length === 1 ? '' : 'es'}`
+    ? `${_guilds.length} servidor${_guilds.length === 1 ? '' : 'es'}`
     : 'Conta do bot não disponível';
   const discordEstado = _botInfo?.id ? 'Conectado' : 'Indisponível';
   const vozValor = guildVoz?.canal_voz
@@ -1833,13 +1852,8 @@ function renderizarVisaoGeral(cfg) {
 
   return `
     <div class="page-stack">
-      <div class="page-intro">
-        <div>
-          <h2>Nevebot</h2>
-          <p>Confira conexões antes de iniciar uma conversa.</p>
-        </div>
+      <div class="overview-toolbar">
         <div class="section-actions">
-          <button class="button" type="button" onclick="navegar('model')">${icone('cpu')}Ajustar modelo</button>
           <button class="button" type="button" onclick="navegar('discord')">${icone('plug')}Conectar voz</button>
           <button class="button button-primary" type="button" onclick="navegar('conversation')">${icone('message')}Abrir conversa</button>
         </div>
@@ -1902,6 +1916,44 @@ function organizarConfiguracoesVoz() {
   painel.dataset.organizado = 'true';
 }
 
+function inicializarDisclosuresAnimados(root = document) {
+  root.querySelectorAll('details.advanced-disclosure').forEach(details => {
+    if (details.dataset.animacaoPronta === 'true') return;
+    const summary = details.querySelector(':scope > summary');
+    const conteudo = details.querySelector(':scope > .advanced-content');
+    if (!summary || !conteudo) return;
+
+    summary.addEventListener('click', event => {
+      event.preventDefault();
+      const abrir = !details.open;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        details.open = abrir;
+        return;
+      }
+
+      if (abrir) details.open = true;
+      const alturaInicial = abrir ? 0 : conteudo.getBoundingClientRect().height;
+      const alturaFinal = abrir ? conteudo.scrollHeight : 0;
+      conteudo.style.overflow = 'hidden';
+      const animacao = conteudo.animate(
+        [
+          { height: `${alturaInicial}px`, opacity: abrir ? 0 : 1 },
+          { height: `${alturaFinal}px`, opacity: abrir ? 1 : 0 },
+        ],
+        { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' },
+      );
+      animacao.onfinish = () => {
+        details.open = abrir;
+        conteudo.style.overflow = '';
+      };
+      animacao.oncancel = () => {
+        conteudo.style.overflow = '';
+      };
+    });
+    details.dataset.animacaoPronta = 'true';
+  });
+}
+
 async function atualizarStatusMicrofone() {
   let nome = 'Dispositivo padrão';
   let estado = 'Será solicitado ao usar';
@@ -1954,20 +2006,12 @@ function renderizar(cfg) {
       ${renderizarVisaoGeral(cfg)}
     </section>
 
-    <section class="app-page" data-page="conversation" hidden>
-      <div class="page-stack">
-        <div class="page-intro">
-          <div><h2>Conversa em tempo real</h2><p>Use texto, microfone ou mantenha o push-to-talk pressionado para falar.</p></div>
-        </div>
-        ${renderizarChatVoz()}
-      </div>
+    <section class="app-page conversation-page" data-page="conversation" hidden>
+      ${renderizarChatVoz()}
     </section>
 
     <section class="app-page" data-page="voice" hidden>
       <div class="page-stack">
-        <div class="page-intro">
-          <div><h2>Pipeline de áudio</h2><p>Entrada, reconhecimento e síntese de voz.</p></div>
-        </div>
         <section class="product-section">
           <header class="section-header"><div><h2>Entrada e reconhecimento</h2><p>Dispositivo usado pela conversa e modelo local de transcrição.</p></div></header>
           <div class="voice-runtime-grid">
@@ -1977,7 +2021,18 @@ function renderizar(cfg) {
           </div>
         </section>
         <section class="product-section">
-          <header class="section-header"><div><h2>Síntese de voz</h2><p>Clonagem baseada em <strong>${esc(referencia)}</strong>.</p></div></header>
+          <header class="section-header"><div><h2>Síntese de voz</h2><p>Clonagem baseada em <strong id="voice-reference-heading">${esc(referencia)}</strong>.</p></div></header>
+          <div class="voice-reference-upload">
+            <div class="voice-reference-copy">
+              <span class="vs-label">Arquivo atual</span>
+              <strong id="voice-reference-name">${esc(referencia)}</strong>
+              <span class="voice-reference-status" id="voice-reference-status" aria-live="polite"></span>
+            </div>
+            <input class="voice-reference-input" id="voice-reference-input" type="file" accept=".wav,audio/wav" onchange="enviarVozReferencia(this.files?.[0])" />
+            <button class="voz-save-btn" id="voice-reference-button" type="button" onclick="document.getElementById('voice-reference-input')?.click()">
+              ${icone('upload')}Trocar WAV
+            </button>
+          </div>
           <div id="voice-settings-mount"></div>
         </section>
       </div>
@@ -1985,15 +2040,12 @@ function renderizar(cfg) {
 
     <section class="app-page" data-page="model" hidden>
       <div class="page-stack">
-        <div class="page-intro">
-          <div><h2>Modelo e comportamento</h2><p>Altere geração e prompts sem trocar os contratos usados pelo servidor local.</p></div>
-        </div>
-        <section class="product-section">
+        <section class="product-section model-parameters-section">
           <header class="section-header"><div><h2>Parâmetros</h2><p>Carregamento e amostragem do modelo GGUF.</p></div></header>
           ${renderizarParametrosLLM(cfg)}
         </section>
         <section class="product-section">
-          <header class="section-header"><div><h2>Prompts do sistema</h2><p>Comportamento separado para conversa por voz e chat.</p></div></header>
+          <header class="section-header"><div><h2>Prompts do sistema</h2><p>Comportamento do modelo definido por sistema.</p></div></header>
           ${renderizarPrompts(cfg)}
         </section>
       </div>
@@ -2001,29 +2053,37 @@ function renderizar(cfg) {
 
     <section class="app-page" data-page="discord" hidden>
       <div class="page-stack">
-        <div class="page-intro">
-          <div><h2>Integração com Discord</h2><p>Gerencie servidores, canal de voz e envio de mensagens.</p></div>
-        </div>
         <div class="discord-layout">
           <section class="product-section">
-            <header class="section-header"><div><h2>Servidores</h2><p>Adicione a Neve ou remova o bot de um servidor.</p></div></header>
+            <header class="section-header"><div><h2>Servidores</h2><p>Adicione ou remova a Neve de um servidor.</p></div></header>
             ${renderizarServidores()}
           </section>
           <section class="product-section">
-            <header class="section-header"><div><h2>Conexão de voz</h2><p>Canal em que a Neve deve ouvir e falar.</p></div></header>
+            <header class="section-header"><div><h2>Conexão de voz</h2><p>Canal em que a Neve deve falar.</p></div></header>
             ${renderizarVoz()}
           </section>
         </div>
-        <section class="product-section">
-          <header class="section-header"><div><h2>Enviar mensagem</h2><p>Publique uma mensagem como o bot em um canal de texto.</p></div></header>
-          ${renderizarEnvioTexto()}
-        </section>
+        <div class="discord-dispatch-layout">
+          <section class="product-section">
+            <header class="section-header"><div><h2>Enviar mensagem</h2><p>Publique uma mensagem como o bot em um canal de texto.</p></div></header>
+            ${renderizarEnvioTexto()}
+          </section>
+          <div class="discord-dispatch-column">
+            <section class="product-section">
+              <header class="section-header"><div><h2>Enviar voz</h2><p>Publique uma mensagem como o bot em um canal de voz.</p></div></header>
+              ${renderizarEnvioVoz()}
+            </section>
+            <section class="product-section voice-monitor-section">
+              <header class="section-header"><div><h2>Escutar canal</h2><p>Escute o canal de voz em que a Neve está conectada.</p></div></header>
+              ${renderizarMonitorVoz()}
+            </section>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="app-page" data-page="commands" hidden>
       <div class="page-stack">
-        <div class="page-intro"><div><h2>Comandos do bot</h2><p>Comandos disponíveis no Discord.</p></div></div>
         <section class="product-section">
           <div class="cmd-grid command-list">${renderizarComandos(cfg)}</div>
         </section>
@@ -2034,6 +2094,7 @@ function renderizar(cfg) {
   const destinoVoz = el.querySelector('#voice-settings-mount');
   if (painelVoz && destinoVoz) destinoVoz.appendChild(painelVoz);
   organizarConfiguracoesVoz();
+  inicializarDisclosuresAnimados(el);
   aplicarIcones(document);
   navegar(_paginaAtiva, false);
   selecionarPrompt('lou_voz');
@@ -2225,7 +2286,7 @@ function renderizarPrompts(cfg) {
     ${editors}
     <div class="prompt-actions">
       <button class="voz-save-btn button-quiet" type="button" onclick="restaurarPromptAtual()">${icone('rotate')}Restaurar padrão</button>
-      <button class="voz-save-btn primary" type="button" onclick="salvar()">${icone('save')}Salvar prompt</button>
+      <button class="voz-save-btn primary" type="button" onclick="salvar()">${icone('save')}Salvar</button>
     </div>
   </div>`;
 }
@@ -2254,17 +2315,15 @@ function renderizarServidores() {
   <div class="section-title" style="margin-top:2rem">Servidores</div>
   <div class="server-manager-card">
     <div class="server-manager-row">
-      <div class="server-manager-field">
-        <span class="llm-label">Servidor</span>
-        <select class="voz-select" id="servidor-gerenciar" ${options ? '' : 'disabled'}>
-          ${options || '<option value="">Nenhum servidor conectado</option>'}
-        </select>
-      </div>
-      <div class="server-manager-actions">
-        <button class="voz-save-btn" type="button" onclick="adicionarServidor()">${icone('plus')}Adicionar</button>
-        <button class="voz-save-btn voz-danger-btn" id="servidor-btn-remover" type="button"
-                onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>${icone('trash')}Remover</button>
-      </div>
+      <span class="voz-label">Servidor</span>
+      <select class="voz-select" id="servidor-gerenciar" ${options ? '' : 'disabled'}>
+        ${options || '<option value="">Nenhum servidor conectado</option>'}
+      </select>
+    </div>
+    <div class="server-manager-actions">
+      <button class="voz-save-btn" type="button" onclick="adicionarServidor()">${icone('plus')}Adicionar</button>
+      <button class="voz-save-btn voz-danger-btn" id="servidor-btn-remover" type="button"
+              onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>${icone('trash')}Remover</button>
     </div>
   </div>`;
 }
@@ -2313,9 +2372,9 @@ async function adicionarServidor() {
 
 const LLM_GROUPS = [
   {
-    title: 'Modelo e execução',
+    title: 'Execução',
     fields: [
-      { key: 'model_path', label: 'Modelo GGUF', type: 'model' },
+      { key: 'model_path', label: 'Modelo', type: 'model' },
       { key: 'n_ctx', label: 'Contexto', type: 'number', min: 512, max: 131072, step: 512 },
       { key: 'n_gpu_layers', label: 'Camadas na GPU', type: 'number', min: -1, max: 999, step: 1 },
     ],
@@ -2401,7 +2460,6 @@ function renderizarParametrosLLM(cfg) {
       <summary>Parâmetros avançados</summary>
       <div class="advanced-content">${avancados}</div>
     </details>
-    <div class="llm-actions"><button class="voz-save-btn primary" type="button" onclick="salvar()">${icone('save')}Salvar parâmetros</button></div>
   </div>`;
 }
 
@@ -2430,16 +2488,219 @@ function renderizarEnvioTexto() {
       </div>
     </div>
     <div class="text-dispatch-bar">
+      <span class="vs-label">Mensagem</span>
       <div class="input-action-wrap">
         <input class="text-dispatch-input" id="texto-msg-input" maxlength="2000"
-               placeholder="Digite a mensagem que o bot vai enviar..."
+               placeholder="Digite a mensagem que a Neve vai enviar..."
                onkeydown="if(event.key==='Enter')enviarMensagemServidor()" />
         <button class="text-dispatch-send" id="texto-send-btn" onclick="enviarMensagemServidor()" title="Enviar" aria-label="Enviar mensagem">
-          ${icone('send', 18)}
+          ${icone('arrow-up', 18)}
         </button>
       </div>
     </div>` : '<div class="inline-empty">Nenhum servidor disponível.</div>'}
   </div>`;
+}
+
+function guildVozConectada() {
+  return (_guilds || []).find(g => Boolean(g.canal_id && g.em_voz));
+}
+
+function renderizarEnvioVoz() {
+  const conectado = Boolean(guildVozConectada());
+  return `
+  <div class="text-dispatch-card voice-dispatch-card">
+    <div class="text-dispatch-bar">
+      <span class="vs-label">Mensagem</span>
+      <div class="input-action-wrap">
+        <input class="text-dispatch-input" id="voz-msg-input" maxlength="2000"
+               placeholder="${conectado ? 'Digite a mensagem que a Neve vai falar...' : 'Conecte a Neve a um canal de voz'}"
+               onkeydown="if(event.key==='Enter')enviarMensagemVoz()" ${conectado ? '' : 'disabled'} />
+        <button class="text-dispatch-send" id="voz-msg-send-btn" onclick="enviarMensagemVoz()" title="Enviar voz" aria-label="Enviar mensagem por voz" ${conectado ? '' : 'disabled'}>
+          ${icone('arrow-up', 18)}
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function atualizarDisponibilidadeEnvioVoz() {
+  const conectado = Boolean(guildVozConectada());
+  const input = document.getElementById('voz-msg-input');
+  const btn = document.getElementById('voz-msg-send-btn');
+  if (input) {
+    input.disabled = !conectado;
+    input.placeholder = conectado
+      ? 'Digite a mensagem que a Neve vai falar...'
+      : 'Conecte a Neve a um canal de voz';
+  }
+  if (btn) btn.disabled = !conectado;
+}
+
+function renderizarMonitorVoz() {
+  const volume = Number(_monitorVozEstado.volume ?? 1);
+  return `
+  <div class="voice-monitor-panel">
+    <div class="voice-monitor-settings">
+      <div class="voice-monitor-setting">
+        <span class="voz-label">Dispositivo de saída</span>
+        <select class="voz-select" id="voice-monitor-device" onchange="atualizarConfigMonitorVoz()" disabled>
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+      <div class="voice-monitor-setting">
+        <span class="voz-label">Volume</span>
+        <div class="voz-slider-wrap">
+          <input class="voz-slider" id="voice-monitor-volume" type="range" min="0" max="1.5" step="0.05" value="${esc(volume)}"
+                 oninput="document.getElementById('voice-monitor-volume-value').textContent=Number(this.value).toFixed(2)"
+                 onchange="atualizarConfigMonitorVoz()" />
+          <span class="voz-slider-val" id="voice-monitor-volume-value">${volume.toFixed(2)}</span>
+        </div>
+      </div>
+      <div class="voice-monitor-actions">
+        <button class="voz-save-btn" id="voice-monitor-toggle" type="button" onclick="alternarMonitorVoz()" disabled>
+          ${icone('headphones')}Ouvir canal
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function iniciarPollingMonitorVoz() {
+  carregarEstadoMonitorVoz(!_monitorVozDispositivos.length);
+  if (_monitorVozPoll) return;
+  _monitorVozPoll = setInterval(() => carregarEstadoMonitorVoz(false), 1200);
+}
+
+function pararPollingMonitorVoz() {
+  if (!_monitorVozPoll) return;
+  clearInterval(_monitorVozPoll);
+  _monitorVozPoll = null;
+}
+
+async function carregarEstadoMonitorVoz(incluirDispositivos = false) {
+  if (_monitorVozCarregando) return;
+  _monitorVozCarregando = true;
+  try {
+    const sufixo = incluirDispositivos ? '?dispositivos=1' : '';
+    const r = await fetch(`/api/voz/monitor${sufixo}`, { cache: 'no-store' });
+    const res = await r.json();
+    if (!r.ok || !res.ok) throw new Error(res.erro || 'Monitor indisponível.');
+    _monitorVozEstado = { ..._monitorVozEstado, ...res };
+    if (Array.isArray(res.dispositivos)) {
+      _monitorVozDispositivos = res.dispositivos;
+      _monitorVozEstado.dispositivo_padrao = res.dispositivo_padrao;
+    }
+    _monitorVozCarregando = false;
+    aplicarEstadoMonitorVoz();
+  } catch (e) {
+    const status = document.getElementById('voice-monitor-status');
+    const detalhe = document.getElementById('voice-monitor-detail');
+    const btn = document.getElementById('voice-monitor-toggle');
+    if (status) status.textContent = 'Indisponível';
+    if (detalhe) detalhe.textContent = e.message || 'Falha ao consultar o áudio local';
+    if (btn) btn.disabled = true;
+  } finally {
+    _monitorVozCarregando = false;
+  }
+}
+
+function aplicarEstadoMonitorVoz() {
+  const estado = _monitorVozEstado || {};
+  const ativo = Boolean(estado.ativo);
+  const guildSelecionada = document.getElementById('voz-guild')?.value;
+  const guild = (_guilds || []).find(g => g.id === guildSelecionada);
+  const conectado = Boolean(guild?.em_voz && guild?.canal_id);
+  const status = document.getElementById('voice-monitor-status');
+  const detalhe = document.getElementById('voice-monitor-detail');
+  const btn = document.getElementById('voice-monitor-toggle');
+  const select = document.getElementById('voice-monitor-device');
+  const slider = document.getElementById('voice-monitor-volume');
+  const valor = document.getElementById('voice-monitor-volume-value');
+
+  if (select) {
+    const assinatura = JSON.stringify(_monitorVozDispositivos.map(d => [d.id, d.nome]));
+    if (select.dataset.assinatura !== assinatura) {
+      select.innerHTML = _monitorVozDispositivos.length
+        ? _monitorVozDispositivos.map(d => `<option value="${esc(d.id)}">${esc(d.nome)}${d.padrao ? ' · padrão' : ''}</option>`).join('')
+        : '<option value="">Nenhum dispositivo disponível</option>';
+      select.dataset.assinatura = assinatura;
+    }
+    const desejado = estado.dispositivo ?? estado.dispositivo_padrao;
+    if (desejado != null && [...select.options].some(opt => opt.value === String(desejado))) {
+      select.value = String(desejado);
+    }
+    select.disabled = !_monitorVozDispositivos.length;
+    ajustarSelectLargura(select);
+  }
+
+  if (slider && document.activeElement !== slider) {
+    slider.value = String(Number(estado.volume ?? slider.value ?? 1));
+  }
+  if (valor && slider) valor.textContent = Number(slider.value).toFixed(2);
+
+  if (ativo) {
+    const falantes = Array.isArray(estado.falantes) ? estado.falantes : [];
+    if (status) status.textContent = estado.erro
+      ? 'Erro na reprodução'
+      : falantes.length
+        ? `${falantes.length} ${falantes.length === 1 ? 'pessoa falando' : 'pessoas falando'}`
+        : 'Ouvindo';
+    if (detalhe) detalhe.textContent = estado.erro || [estado.guild_nome, estado.canal_nome].filter(Boolean).join(' · ');
+  } else {
+    if (status) status.textContent = 'Desligado';
+    if (detalhe) detalhe.textContent = conectado
+      ? `Pronto para ouvir ${guild.canal_voz || 'o canal conectado'}`
+      : 'Conecte a Neve a um canal de voz';
+  }
+
+  if (btn) {
+    btn.innerHTML = ativo ? `${icone('square')}Parar` : `${icone('headphones')}Ouvir canal`;
+    btn.classList.toggle('primary', !ativo);
+    btn.disabled = _monitorVozCarregando || (!ativo && (!conectado || !_monitorVozDispositivos.length));
+  }
+}
+
+async function enviarConfigMonitorVoz(ativo, notificar = false) {
+  const btn = document.getElementById('voice-monitor-toggle');
+  const select = document.getElementById('voice-monitor-device');
+  const slider = document.getElementById('voice-monitor-volume');
+  const guildSelecionada = document.getElementById('voz-guild')?.value;
+  const guildId = _monitorVozEstado.ativo
+    ? (_monitorVozEstado.guild_id || guildSelecionada)
+    : guildSelecionada;
+  definirBotaoOcupado(btn, true);
+  _monitorVozCarregando = true;
+  try {
+    const r = await fetch('/api/voz/monitor', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        ativo,
+        guild_id: guildId,
+        dispositivo: select?.value || null,
+        volume: Number(slider?.value || 1),
+      }),
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) throw new Error(res.erro || 'Não foi possível alterar a escuta.');
+    _monitorVozEstado = { ..._monitorVozEstado, ...res };
+    aplicarEstadoMonitorVoz();
+    if (notificar) toast(ativo ? 'Áudio do canal ativado.' : 'Áudio do canal desativado.', 'ok');
+  } catch (e) {
+    toast('Falha ao alterar escuta: ' + (e.message || 'erro desconhecido'), 'err');
+  } finally {
+    _monitorVozCarregando = false;
+    definirBotaoOcupado(btn, false);
+    aplicarEstadoMonitorVoz();
+  }
+}
+
+async function alternarMonitorVoz() {
+  await enviarConfigMonitorVoz(!Boolean(_monitorVozEstado.ativo), true);
+}
+
+async function atualizarConfigMonitorVoz() {
+  if (_monitorVozEstado.ativo) await enviarConfigMonitorVoz(true, false);
 }
 
 async function carregarCanaisTexto() {
@@ -2553,6 +2814,8 @@ function atualizarBotoesConexaoVoz(guildId) {
   if (btnCon) btnCon.style.display = ativo ? 'none' : '';
   if (btnDis) btnDis.style.display = conectado ? '' : 'none';
   atualizarSelectGuildsVoz(guildId);
+  atualizarDisponibilidadeEnvioVoz();
+  aplicarEstadoMonitorVoz();
 }
 
 
@@ -2772,18 +3035,7 @@ let _pttPendingStart = false;
 
 function renderizarChatVoz() {
   return `
-  <div class="section-title" style="margin-top:2rem">Chat de Voz</div>
   <div class="voice-chat-card" id="voice-chat-card">
-
-    <!-- Header -->
-    <div class="voice-chat-header compact">
-      <div class="voice-chat-header-actions">
-        <span class="voice-status-pill" id="voice-status"></span>
-        <button class="voice-clear-btn" onclick="limparChatVoz()" title="Limpar chat" aria-label="Limpar conversa">
-          ${icone('trash', 17)}
-        </button>
-      </div>
-    </div>
 
     <!-- Messages -->
     <div class="voice-chat-messages" id="voice-chat-msgs">
@@ -2792,9 +3044,9 @@ function renderizarChatVoz() {
 
     <!-- Input bar -->
     <div class="voice-chat-bar">
-      <button class="voice-ptt-toggle" id="ptt-toggle" onclick="togglePTT()" title="Push-to-Talk (Shift direito — funciona fora do navegador)">
-        ${icone('lock', 15)}
-        <span id="ptt-label">PTT</span>
+      <button class="voice-ptt-toggle" id="ptt-toggle" onclick="togglePTT()"
+              title="Ativar Push-to-Talk (Shift direito)" aria-label="Ativar Push-to-Talk" aria-pressed="false">
+        ${icone('lock', 17)}
       </button>
       <div class="input-action-wrap">
         <button class="voice-mic-small" id="voice-mic-btn" onclick="toggleGravacao()" title="Clique para gravar" aria-label="Gravar pelo microfone">
@@ -2803,7 +3055,7 @@ function renderizarChatVoz() {
         <input type="text" class="voice-chat-input" id="voice-chat-input"
                 placeholder="Digite algo para a Neve responder..." onkeydown="if(event.key==='Enter')enviarTextoVoz()" />
         <button class="voice-send-btn" id="voice-send-btn" onclick="enviarTextoVoz()" title="Enviar" aria-label="Enviar mensagem">
-          ${icone('send', 18)}
+          ${icone('arrow-up', 18)}
         </button>
       </div>
     </div>
@@ -2949,6 +3201,101 @@ function inicializarChatVoz() {
     }
     ajustarTodosSelects(document.getElementById('voice-chat-card') || document);
   }).catch(() => {});
+}
+
+async function enviarVozReferencia(arquivo) {
+  const input = document.getElementById('voice-reference-input');
+  const btn = document.getElementById('voice-reference-button');
+  const status = document.getElementById('voice-reference-status');
+  if (!arquivo) return;
+
+  const nome = String(arquivo.name || '');
+  if (!nome.toLowerCase().endsWith('.wav')) {
+    toast('Selecione um arquivo WAV.', 'err');
+    if (input) input.value = '';
+    return;
+  }
+  if (arquivo.size > 32 * 1024 * 1024) {
+    toast('O WAV deve ter no máximo 32 MB.', 'err');
+    if (input) input.value = '';
+    return;
+  }
+
+  definirBotaoOcupado(btn, true);
+  if (status) status.textContent = 'Validando e preparando...';
+  try {
+    const r = await fetch('/api/voz/referencia', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'audio/wav',
+        'X-File-Name': encodeURIComponent(nome),
+      },
+      body: arquivo,
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) throw new Error(res.erro || 'Não foi possível trocar a referência.');
+
+    _vozConfig = { ..._vozConfig, voz_referencia: 'data/voz_referencia.wav' };
+    const nomeDestino = res.arquivo || 'voz_referencia.wav';
+    const nomeEl = document.getElementById('voice-reference-name');
+    const headingEl = document.getElementById('voice-reference-heading');
+    if (nomeEl) nomeEl.textContent = nomeDestino;
+    if (headingEl) headingEl.textContent = nomeDestino;
+    if (status) {
+      const duracao = Number(res.duracao_s);
+      status.textContent = Number.isFinite(duracao)
+        ? `Atualizada · ${duracao.toFixed(1)} s`
+        : 'Referência atualizada';
+    }
+    atualizarVisaoGeral();
+    toast(
+      res.alterado === false
+        ? 'Este arquivo já era a referência atual.'
+        : res.backup
+          ? 'Voz atualizada. A referência anterior foi preservada.'
+          : 'Voz de referência atualizada.',
+      'ok',
+    );
+  } catch (e) {
+    if (status) status.textContent = '';
+    toast(e.message || 'Falha ao enviar a referência de voz.', 'err');
+  } finally {
+    definirBotaoOcupado(btn, false);
+    if (input) input.value = '';
+  }
+}
+
+async function enviarMensagemVoz() {
+  const input = document.getElementById('voz-msg-input');
+  const btn = document.getElementById('voz-msg-send-btn');
+  const texto = input?.value?.trim();
+  if (!guildVozConectada()) {
+    atualizarDisponibilidadeEnvioVoz();
+    toast('Conecte o bot a um canal de voz primeiro.', 'err');
+    return;
+  }
+  if (!texto) {
+    toast('Digite uma mensagem para a Neve falar.', 'err');
+    return;
+  }
+
+  definirBotaoOcupado(btn, true);
+  try {
+    const r = await fetch('/api/voz/falar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ texto }),
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) throw new Error(res.erro || 'Não foi possível enviar a voz.');
+    if (input) input.value = '';
+    toast('Mensagem enviada ao canal de voz.', 'ok');
+  } catch (e) {
+    toast('Falha ao enviar voz: ' + (e.message || 'erro desconhecido'), 'err');
+  } finally {
+    definirBotaoOcupado(btn, false);
+    atualizarDisponibilidadeEnvioVoz();
+  }
 }
 
 async function salvarConfigVoz() {
@@ -3230,11 +3577,16 @@ let _pttGlobalAnterior = false;  // estado anterior do PTT global
 function togglePTT() {
   _pttEnabled = !_pttEnabled;
   const btn = document.getElementById('ptt-toggle');
-  const label = document.getElementById('ptt-label');
-  if (btn) btn.classList.toggle('active', _pttEnabled);
-  if (label) label.textContent = _pttEnabled ? 'PTT ON' : 'PTT';
+  if (btn) {
+    btn.classList.toggle('active', _pttEnabled);
+    btn.setAttribute('aria-pressed', String(_pttEnabled));
+    btn.setAttribute('aria-label', _pttEnabled ? 'Desativar Push-to-Talk' : 'Ativar Push-to-Talk');
+    btn.title = _pttEnabled
+      ? 'Desativar Push-to-Talk'
+      : 'Ativar Push-to-Talk (Shift direito)';
+  }
   if (_pttEnabled) {
-    toast('Push-to-Talk ativado — (Shift direito)', 'ok');
+    toast('Push-to-Talk ativado (Shift direito)', 'ok');
     _iniciarPollingPTT();
   } else {
     toast('Push-to-Talk desativado', 'ok');
@@ -3503,7 +3855,7 @@ async function salvar() {
       atualizarVisaoGeral();
       toast(
         res.reinicio_necessario
-          ? 'Parâmetros salvos. Reinicie o bot para aplicar o carregamento da LLM.'
+          ? 'Configurações salvas. Reinicie o bot para aplicar o carregamento da LLM.'
           : 'Configurações salvas com sucesso!',
         'ok'
       );
