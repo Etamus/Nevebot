@@ -41,7 +41,7 @@ _DEFAULT: dict = {
         "presence_penalty": None,
     },
     "commands": {
-        "lou": {
+        "ligar": {
             "name": "ligar",
             "descricao": "Ativa a Neve no canal.",
             "messages": {
@@ -64,7 +64,7 @@ _DEFAULT: dict = {
                 "desligado": "Desligada neste canal."
             }
         },
-        "limitar": {
+        "bloquear": {
             "name": "bloquear",
             "descricao": "[Apenas dono] Bloqueia um usuário de receber respostas.",
             "messages": {
@@ -154,8 +154,8 @@ class BotConfig:
 
     # ── Utilitários ───────────────────────────────────────────────────────────
 
-    def original_names(self) -> dict[str, str]:
-        """Retorna mapa {chave_interna: nome_atual} de todos os comandos."""
+    def command_names(self) -> dict[str, str]:
+        """Retorna mapa {comando_canonico: nome_configurado}."""
         with _lock:
             return {k: v["name"] for k, v in self._data["commands"].items()}
 
@@ -179,11 +179,15 @@ def _merge_defaults(loaded: dict, default: dict) -> dict:
             if llm_key in loaded.get("llm", {}):
                 result["llm"][llm_key] = loaded["llm"][llm_key]
     if "commands" in loaded:
-        for cmd_key, cmd_val in loaded["commands"].items():
+        aliases = {"lou": "ligar", "limitar": "bloquear"}
+        for loaded_key, cmd_val in loaded["commands"].items():
+            cmd_key = aliases.get(loaded_key, loaded_key)
             if cmd_key in result["commands"]:
                 command_name = cmd_val.get("name", result["commands"][cmd_key]["name"])
-                if cmd_key == "lou" and command_name == "casual":
+                if cmd_key == "ligar" and command_name in {"casual", "lou"}:
                     command_name = "ligar"
+                if cmd_key == "bloquear" and command_name == "limitar":
+                    command_name = "bloquear"
                 result["commands"][cmd_key]["name"] = command_name
                 msgs = result["commands"][cmd_key]["messages"]
                 msgs.update(cmd_val.get("messages", {}))

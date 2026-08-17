@@ -1586,7 +1586,7 @@
       <button class="nav-item" data-nav="commands" onclick="navegar('commands')" title="Comandos"><span class="icon-slot" data-icon="command"></span><span>Comandos</span></button>
     </nav>
     <div class="sidebar-footer">
-      <button class="sidebar-shutdown" onclick="desligar()" title="Desligar"><span class="icon-slot" data-icon="power"></span><span>Desligar</span></button>
+      <button class="sidebar-shutdown" onclick="desligar()" title="Desligar"><span class="icon-slot" data-icon="log-out"></span><span>Desligar</span></button>
     </div>
   </aside>
 
@@ -1671,6 +1671,8 @@ const PROMPT_LABELS = {
 let _config = null;
 let _guilds = [];
 let _botInfo = null;
+let _discordTokenValue = '';
+let _discordTokenSalvando = false;
 let _guildMonitor = null;
 let _vozConfig = {};
 let _modeloRuntime = { estado: 'desligado', ativo: false, carregando: false, erro: null };
@@ -1718,6 +1720,7 @@ const ICONS = {
   speaker: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
   terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
   power: '<path d="M12 2v10"/><path d="M18.4 6.6a8 8 0 1 1-12.8 0"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
   send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
   'arrow-up': '<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
   trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/>',
@@ -1733,6 +1736,8 @@ const ICONS = {
   rotate: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
   upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M20 16v4H4v-4"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  'eye-off': '<path d="m3 3 18 18"/><path d="M10.6 5.2A11.8 11.8 0 0 1 12 5c6.5 0 10 7 10 7a16.6 16.6 0 0 1-2.1 3.1M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7a10.7 10.7 0 0 0 4.1-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   alert: '<path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
 };
 
@@ -1871,18 +1876,21 @@ async function alternarModeloRuntime() {
 async function carregar() {
   atualizarEstadoGlobal('loading', 'Inicializando');
   try {
-    const [rCfg, rGuilds, rBot, rVoz, rModelo] = await Promise.all([
+    const [rCfg, rGuilds, rBot, rVoz, rModelo, rToken] = await Promise.all([
       fetch('/api/config'),
       fetch('/api/guilds'),
       fetch('/api/bot/info'),
       fetch('/api/voz/config'),
       fetch('/api/modelo/runtime', { cache: 'no-store' }),
+      fetch('/api/discord/token', { cache: 'no-store' }),
     ]);
     if (!rCfg.ok) throw new Error(`Configuração indisponível (${rCfg.status})`);
     _config = await rCfg.json();
     _guilds = rGuilds.ok ? await rGuilds.json().catch(() => []) : [];
     _botInfo = rBot.ok ? await rBot.json().catch(() => null) : null;
     _vozConfig = rVoz.ok ? await rVoz.json().catch(() => ({})) : {};
+    const tokenData = rToken.ok ? await rToken.json().catch(() => ({})) : {};
+    _discordTokenValue = tokenData.token || '';
     _modeloRuntime = rModelo.ok
       ? await rModelo.json().catch(() => _modeloRuntime)
       : { estado: 'erro', ativo: false, carregando: false, erro: 'Modelo indisponível' };
@@ -1928,7 +1936,7 @@ function renderizarVisaoGeral(cfg) {
   const referencia = _vozConfig.voz_referencia_nome || nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
   const micRow = linhaStatus('Microfone', 'Verificando dispositivo...')
     .replace('class="status-value"', 'class="status-value" id="overview-mic-device"');
-  const llmRow = linhaStatus('LLM', modelo);
+  const llmRow = linhaStatus('Modelo', modelo);
 
   return `
     <div class="page-stack">
@@ -1958,7 +1966,6 @@ function renderizarVisaoGeral(cfg) {
           <section class="overview-panel">
             <header class="overview-panel-header"><h2>Configuração atual</h2></header>
             <div class="setup-list">
-              <div class="setup-row"><span>Modelo de texto</span><strong title="${esc(modelo)}">${esc(modelo)}</strong></div>
               <div class="setup-row"><span>Contexto</span><strong>${esc(llm.n_ctx || 'Padrão')} tokens</strong></div>
               <div class="setup-row"><span>Idioma</span><strong>${esc(_vozConfig.voz_language || 'pt-BR')}</strong></div>
               <div class="setup-row"><span>Voz de referência</span><strong title="${esc(referencia)}">${esc(referencia)}</strong></div>
@@ -2100,6 +2107,10 @@ function renderizar(cfg) {
 
     <section class="app-page" data-page="discord" hidden>
       <div class="page-stack">
+        <section class="product-section">
+          <header class="section-header"><div><h2>Token do Discord</h2><p>Credencial usada pela Neve para entrar no Discord.</p></div></header>
+          ${renderizarTokenDiscord()}
+        </section>
         <section class="product-section">
           <header class="section-header"><div><h2>Servidores</h2><p>Adicione ou remova a Neve de um servidor.</p></div></header>
           ${renderizarServidores()}
@@ -2347,6 +2358,128 @@ function restaurarPromptAtual() {
   if (textarea) textarea.value = valor;
 }
 
+function renderizarTokenDiscord() {
+  return `
+  <div class="discord-token-form">
+    <div class="discord-form-row">
+      <label class="voz-label" for="discord-token-input">Token</label>
+      <div class="discord-token-input-wrap">
+        <input class="discord-token-input" id="discord-token-input" type="password"
+               value="${esc(_discordTokenValue)}"
+               autocomplete="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter')salvarTokenDiscord()" />
+        <button class="discord-token-visibility" id="discord-token-visibility" type="button"
+                onclick="alternarVisibilidadeTokenDiscord()" title="Mostrar token" aria-label="Mostrar token" aria-pressed="false">
+          ${icone('eye')}
+        </button>
+      </div>
+    </div>
+    <div class="discord-token-actions">
+      <button class="voz-save-btn primary" id="discord-token-save" type="button" onclick="salvarTokenDiscord()">
+        ${icone('save')}Salvar
+      </button>
+    </div>
+  </div>`;
+}
+
+function alternarVisibilidadeTokenDiscord() {
+  const input = document.getElementById('discord-token-input');
+  const button = document.getElementById('discord-token-visibility');
+  if (!input || !button) return;
+  const mostrar = input.type === 'password';
+  input.type = mostrar ? 'text' : 'password';
+  button.innerHTML = icone(mostrar ? 'eye-off' : 'eye');
+  button.title = mostrar ? 'Ocultar token' : 'Mostrar token';
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-pressed', mostrar ? 'true' : 'false');
+  input.focus();
+}
+
+async function salvarTokenDiscord() {
+  if (_discordTokenSalvando) return;
+  const input = document.getElementById('discord-token-input');
+  const button = document.getElementById('discord-token-save');
+  const token = input?.value?.trim() || '';
+  if (!token) {
+    toast('Informe o token do bot.', 'err');
+    input?.focus();
+    return;
+  }
+
+  _discordTokenSalvando = true;
+  definirBotaoOcupado(button, true);
+  try {
+    const response = await fetch('/api/discord/token', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ token }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.ok) throw new Error(result.erro || 'Não foi possível salvar o token.');
+
+    _discordTokenValue = token;
+    input.value = token;
+    input.type = 'password';
+    const visibility = document.getElementById('discord-token-visibility');
+    if (visibility) {
+      visibility.innerHTML = icone('eye');
+      visibility.title = 'Mostrar token';
+      visibility.setAttribute('aria-label', 'Mostrar token');
+      visibility.setAttribute('aria-pressed', 'false');
+    }
+    if (result.carregamento_iniciado) {
+      toast('Token salvo. Conectando ao Discord...', 'ok');
+      void aguardarDiscordDepoisDoToken();
+    } else {
+      toast(
+        result.reinicio_necessario
+          ? 'Token salvo. Reinicie o Nevebot para aplicar.'
+          : 'Token salvo.',
+        'ok',
+      );
+      setTimeout(() => void atualizarAbaDiscord(), 0);
+    }
+  } catch (error) {
+    toast(error.message || 'Não foi possível salvar o token.', 'err');
+  } finally {
+    _discordTokenSalvando = false;
+    definirBotaoOcupado(button, false);
+  }
+}
+
+async function aguardarDiscordDepoisDoToken() {
+  for (let tentativa = 0; tentativa < 120; tentativa += 1) {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    try {
+      const rBot = await fetch('/api/bot/info', { cache: 'no-store' });
+      const info = rBot.ok ? await rBot.json() : null;
+      if (!info?.ready) continue;
+
+      await atualizarAbaDiscord();
+      toast('Discord conectado.', 'ok');
+      return;
+    } catch (_) {}
+  }
+  toast('O Discord não conectou. Verifique o token informado.', 'err');
+}
+
+async function atualizarAbaDiscord() {
+  try {
+    const [rBot, rGuilds, rToken] = await Promise.all([
+      fetch('/api/bot/info', { cache: 'no-store' }),
+      fetch('/api/guilds', { cache: 'no-store' }),
+      fetch('/api/discord/token', { cache: 'no-store' }),
+    ]);
+    if (rBot.ok) _botInfo = await rBot.json().catch(() => _botInfo);
+    if (rGuilds.ok) _guilds = await rGuilds.json().catch(() => _guilds);
+    if (rToken.ok) {
+      const tokenData = await rToken.json().catch(() => ({}));
+      _discordTokenValue = tokenData.token || _discordTokenValue;
+    }
+    renderizar(_config);
+  } catch (_) {}
+}
+
 function renderizarServidores() {
   const options = (_guilds || [])
     .map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`)
@@ -2362,8 +2495,8 @@ function renderizarServidores() {
     </div>
     <div class="server-manager-actions">
       <button class="voz-save-btn" type="button" onclick="adicionarServidor()">${icone('plus')}Adicionar</button>
-      <button class="voz-save-btn voz-danger-btn button-text" id="servidor-btn-remover" type="button"
-              onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>Remover</button>
+      <button class="voz-save-btn primary" id="servidor-btn-remover" type="button"
+              onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>${icone('trash')}Remover</button>
     </div>
   </div>`;
 }
@@ -3145,7 +3278,7 @@ function removerGuildDaInterface(guildId) {
   });
 }
 
-function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = false, somenteTexto = false }) {
+function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar' }) {
   return new Promise(resolve => {
     const root = document.getElementById('dialog-root');
     const fechar = valor => {
@@ -3165,7 +3298,7 @@ function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = fal
           </div>
           <div class="dialog-actions">
             <button class="button button-quiet" type="button" data-dialog-cancel>Cancelar</button>
-            <button class="button ${perigo ? 'button-danger' : 'button-primary'} ${somenteTexto ? 'button-text' : ''}" type="button" data-dialog-confirm>${esc(confirmar)}</button>
+            <button class="button button-primary" type="button" data-dialog-confirm>${esc(confirmar)}</button>
           </div>
         </section>
       </div>`;
@@ -3188,8 +3321,6 @@ async function removerServidorSelecionado() {
     titulo: `Remover ${nomeServidor}?`,
     mensagem: 'A Neve sairá deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.',
     confirmar: 'Remover',
-    perigo: true,
-    somenteTexto: true,
   });
   if (!confirmado) return;
   const btn = document.getElementById('servidor-btn-remover');
@@ -4105,8 +4236,6 @@ async function desligar() {
     titulo: 'Desligar Nevebot?',
     mensagem: 'O processo local, console e janela serão encerrados.',
     confirmar: 'Desligar',
-    perigo: true,
-    somenteTexto: true,
   });
   if (!confirmado) return;
   try {

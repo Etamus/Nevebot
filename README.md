@@ -84,12 +84,12 @@ O `instalar.bat`:
 - baixa os pesos do Chatterbox PT-BR para `models/chatterbox/`;
 - executa um diagnóstico final das dependências, binários, pesos e arquivos obrigatórios.
 
-O instalador prepara todos os componentes públicos do projeto. Token do Discord, modelo GGUF e gravação de referência continuam sendo fornecidos pelo usuário; quando algum deles estiver ausente, o diagnóstico final mostra exatamente o que falta.
+O instalador prepara todos os componentes públicos do projeto. Modelo GGUF e gravação de referência continuam sendo fornecidos pelo usuário; quando algum deles estiver ausente, o diagnóstico final mostra exatamente o que falta. O token do Discord pode ser informado depois pela própria interface.
 
-3. Abra `.env` e substitua o token de exemplo:
+3. O token do Discord é opcional na primeira inicialização. Você pode deixá-lo vazio:
 
 ```dotenv
-DISCORD_TOKEN=SEU_TOKEN_REAL
+DISCORD_TOKEN=
 ```
 
 4. Coloque seu modelo GGUF em:
@@ -120,8 +120,8 @@ O Nevebot abre sem carregar os modelos de inferência. Use **Iniciar modelo** na
 
 1. Crie uma aplicação e um bot no Discord Developer Portal.
 2. Em **Bot > Privileged Gateway Intents**, habilite **Message Content Intent**.
-3. Coloque o token em `DISCORD_TOKEN` no `.env`.
-4. Inicie o Nevebot e use **Adicionar** na página Discord da interface.
+3. Inicie o Nevebot e salve o token em **Discord > Token do Discord**. Na primeira configuração, o bot se conecta imediatamente; nas próximas inicializações, o token salvo no `.env` é carregado automaticamente.
+4. Use **Adicionar** na página Discord da interface.
 5. Selecione um servidor e um canal de voz, depois use **Conectar**.
 6. Em **Escutar canal**, selecione a saída de áudio e use **Ouvir canal** para acompanhar as pessoas pelo Nevebot.
 7. Em **Transcrever canal**, use **Iniciar transcrição** para gerar em `transcricoes/` um SRT com cada participante identificado.
@@ -216,7 +216,7 @@ Nevebot/
 ### O projeto não inicia
 
 - Execute `instalar.bat --check` para obter um diagnóstico completo sem reinstalar os componentes.
-- Confirme que `.env` possui um `DISCORD_TOKEN` válido.
+- Se o Discord não conectar, revise o token em **Discord > Token do Discord**. A interface abre normalmente mesmo sem essa credencial.
 - Confirme que existe pelo menos um `.gguf` em `models/texto/` ou no caminho definido por `LLM_MODEL_PATH`.
 - Execute novamente `instalar.bat` se `venv/` ou `llama.cpp/llama-server.exe` estiverem ausentes.
 - Uma única instância pode usar a interface por vez; o Nevebot bloqueia inicializações duplicadas.

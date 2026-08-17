@@ -47,7 +47,7 @@ for _dll_dir in [
 import discord
 from discord.ext import commands
 
-# Importa config (valida token e localiza o modelo ao iniciar)
+# Importa config e localiza os recursos locais ao iniciar.
 import config
 from config_loader import cfg as _bot_cfg
 import desktop_ui
@@ -84,21 +84,16 @@ COGS = [
 _INTERFACE_URL = "http://127.0.0.1:5000"
 _interface_pronta = threading.Event()
 _bot_encerrado = threading.Event()
-_web_iniciado = False
 _erro_bot: list[BaseException] = []
+_discord_token_queue: asyncio.Queue[str] | None = None
 
 
 @bot.event
 async def on_ready() -> None:
-    global _web_iniciado
     log.info("Bot online como %s (ID: %s)", bot.user.name, bot.user.id)
     log.info("Modelo LLM configurado (desligado): %s", config.LLM_MODEL_PATH)
     log.info("Chatterbox PT-BR: %s", config.CHATTERBOX_PTBR_DIR)
-    if not _web_iniciado:
-        web_server.start(bot, loop=asyncio.get_running_loop())
-        _web_iniciado = True
-        _interface_pronta.set()
-        log.info("Interface web iniciada em %s", _INTERFACE_URL)
+    _liberar_interface()
 
 
 @bot.event
@@ -107,13 +102,68 @@ async def on_guild_join(guild: discord.Guild) -> None:
     log.info("Bot adicionado ao servidor %s (ID: %s).", guild.name, guild.id)
 
 
+async def _carregar_discord_token(token: str) -> bool:
+    """Entrega um token salvo na UI ao bot que ainda aguarda conexao."""
+    queue = _discord_token_queue
+    if queue is None or bot.is_ready() or bot.user is not None:
+        return False
+
+    while not queue.empty():
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+    queue.put_nowait(token)
+    return True
+
+
+def _liberar_interface() -> None:
+    if _interface_pronta.is_set():
+        return
+    _interface_pronta.set()
+    log.info("Interface web iniciada em %s", _INTERFACE_URL)
+
+
 async def main() -> None:
+    global _discord_token_queue
     async with bot:
+        _discord_token_queue = asyncio.Queue(maxsize=1)
         for cog in COGS:
             await bot.load_extension(cog)
             log.info("Cog carregado: %s", cog)
 
-        await bot.start(config.DISCORD_TOKEN)
+        web_server.start(
+            bot,
+            loop=asyncio.get_running_loop(),
+            discord_token_activator=_carregar_discord_token,
+        )
+
+        token = config.DISCORD_TOKEN
+        if token:
+            log.info("Token do Discord encontrado; concluindo a conexao antes de abrir a interface.")
+        else:
+            _liberar_interface()
+
+        while True:
+            if not token:
+                log.info("Discord aguardando token pela interface.")
+                token = await _discord_token_queue.get()
+                config.DISCORD_TOKEN = token
+
+            try:
+                await bot.start(token)
+                break
+            except discord.LoginFailure:
+                log.error(
+                    "Token do Discord recusado. Salve um token valido na aba Discord para tentar novamente."
+                )
+                _liberar_interface()
+                if config.DISCORD_TOKEN == token:
+                    config.DISCORD_TOKEN = ""
+                token = ""
+            except (discord.HTTPException, OSError) as exc:
+                log.warning("Discord temporariamente indisponivel (%s); nova tentativa em 5s.", exc)
+                await asyncio.sleep(5)
 
 
 def _executar_bot() -> None:

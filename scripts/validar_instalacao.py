@@ -210,7 +210,7 @@ def validate_models(report: Report, env: dict, voice_config: dict) -> None:
 def validate_user_files(report: Report, env: dict, ui_config: dict, voice_config: dict) -> None:
     token = str(env.get("DISCORD_TOKEN", "") or "").strip()
     if not token or token == "SEU_TOKEN_AQUI" or len(token) < 30:
-        report.user_action("Preencha DISCORD_TOKEN no arquivo .env.")
+        report.warning("Token do Discord ainda nao configurado; informe-o na interface apos iniciar.")
     else:
         report.ok("Token do Discord configurado")
 

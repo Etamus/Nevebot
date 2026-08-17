@@ -142,7 +142,8 @@ echo ================================================
 echo  Instalacao tecnica concluida
 echo ================================================
 echo Os itens marcados como PENDENTE pelo validador precisam ser fornecidos
-echo pelo usuario antes de iniciar: token do Discord, GGUF e voz de referencia.
+echo pelo usuario para o uso completo: GGUF e voz de referencia.
+echo O token do Discord pode ser informado depois pela interface do Nevebot.
 echo Quando nao houver pendencias, use iniciar.bat.
 goto SUCESSO
 

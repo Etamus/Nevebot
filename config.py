@@ -50,12 +50,9 @@ def _path_env(nome_env: str, padrao: Path) -> Path:
     return caminho if caminho.is_absolute() else BASE_DIR / caminho
 
 # ── Discord ──────────────────────────────────────────────────────────────────
-DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")
-if not DISCORD_TOKEN:
-    raise ValueError(
-        "Token do Discord não encontrado. "
-        "Copie .env.example para .env e preencha DISCORD_TOKEN."
-    )
+DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "").strip()
+if DISCORD_TOKEN in {"SEU_TOKEN_AQUI", "SEU_TOKEN_REAL"}:
+    DISCORD_TOKEN = ""
 
 # ── Modelo LLM ───────────────────────────────────────────────────────────────
 MODELS_DIR = BASE_DIR / "models"

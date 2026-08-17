@@ -28,7 +28,7 @@
     "presence_penalty": 0.0
   },
   "commands": {
-    "lou": {
+    "ligar": {
       "name": "ligar",
       "descricao": "Ativa a Neve no canal.",
       "messages": {
@@ -51,7 +51,7 @@
         "desligado": "Desligada neste canal."
       }
     },
-    "limitar": {
+    "bloquear": {
       "name": "bloquear",
       "descricao": "[Apenas dono] Bloqueia um usuário de receber respostas.",
       "messages": {

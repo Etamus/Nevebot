@@ -3,7 +3,7 @@
   "tts_model": "chatterbox-ptbr-v3",
   "voz_language": "pt-BR",
   "voz_referencia": "data/voz_referencia.wav",
-  "voz_referencia_nome": "voz_referencia.wav",
+  "voz_referencia_nome": "Mateus.wav",
   "voz_exaggeration": 0.5,
   "voz_cfg_weight": 0.5,
   "voz_temperature": 0.8,

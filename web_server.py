@@ -6,6 +6,7 @@ Rota                    Método  Descrição
 /api/config             GET     Retorna a config atual como JSON
 /api/config             POST    Salva nova config; aplica mudanças ao bot em tempo real
 /api/bot/info           GET     Retorna identidade e link oficial de convite do bot
+/api/discord/token      GET/POST Consulta o estado ou substitui o token no .env
 /api/modelo/runtime     GET/POST Consulta, liga ou desliga o modelo LLM local
 /api/guilds             GET     Lista guilds do bot
 /api/guilds/remover     POST    Remove o bot de uma guild
@@ -41,14 +42,18 @@ import threading
 import time
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from collections import deque
+from collections.abc import Awaitable, Callable
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+from dotenv import dotenv_values, set_key
 
 import config
 
 log = logging.getLogger("web_server")
 
 _WEB_DIR = Path(__file__).parent / "web"
+_ENV_PATH = Path(__file__).parent / ".env"
 _SHUTDOWN_FLAG = Path(__file__).parent / "logs" / "ui_shutdown.flag"
 _VOICE_REFERENCE_PATH = Path(__file__).parent / "data" / "voz_referencia.wav"
 _VOICE_REFERENCE_BACKUP_DIR = Path(__file__).parent / "data" / "voz_referencias"
@@ -70,6 +75,8 @@ _shutdown_solicitado = threading.Event()
 _http_server: ThreadingHTTPServer | None = None
 _server_lock = threading.Lock()
 _voice_reference_lock = threading.Lock()
+_discord_token_lock = threading.Lock()
+_discord_token_activator: Callable[[str], Awaitable[bool]] | None = None
 
 # ── Histórico do chat de voz (via web) ────────────────────────────────────────
 _voz_historico: deque = deque(maxlen=4)
@@ -77,6 +84,52 @@ _voz_lock = threading.Lock()
 
 # ── Push-to-Talk global (funciona fora do navegador) ─────────────────────────
 _ptt_global_pressionado = False
+
+
+def _validar_discord_token(valor: object) -> str:
+    token = str(valor or "").strip()
+    if token.lower().startswith(("bot ", "bearer ")):
+        raise ValueError("Cole somente o token, sem o prefixo Bot ou Bearer.")
+    if token in {"", "SEU_TOKEN_AQUI", "SEU_TOKEN_REAL"}:
+        raise ValueError("Informe um token do Discord válido.")
+    if len(token) < 30 or len(token) > 256 or re.fullmatch(r"[A-Za-z0-9._-]+", token) is None:
+        raise ValueError("O token informado não possui um formato válido.")
+    return token
+
+
+def _obter_discord_token(env_path: Path | None = None) -> str:
+    path = env_path or _ENV_PATH
+    try:
+        with _discord_token_lock:
+            token = str(dotenv_values(path).get("DISCORD_TOKEN", "") or "").strip()
+        return _validar_discord_token(token)
+    except (OSError, ValueError):
+        return ""
+
+
+def _discord_token_configurado(env_path: Path | None = None) -> bool:
+    return bool(_obter_discord_token(env_path))
+
+
+def _salvar_discord_token(valor: object, env_path: Path | None = None) -> bool:
+    token = _validar_discord_token(valor)
+    path = env_path or _ENV_PATH
+    with _discord_token_lock:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch(exist_ok=True)
+        sucesso, _, _ = set_key(
+            path,
+            "DISCORD_TOKEN",
+            token,
+            quote_mode="always",
+            encoding="utf-8",
+        )
+        if sucesso is not True:
+            raise OSError("Não foi possível atualizar o arquivo .env.")
+        salvo = str(dotenv_values(path).get("DISCORD_TOKEN", "") or "")
+        if salvo != token:
+            raise OSError("Não foi possível confirmar o token salvo.")
+    return token != str(config.DISCORD_TOKEN or "")
 
 
 def _validar_wav_referencia(dados: bytes) -> dict:
@@ -595,7 +648,7 @@ class _Handler(BaseHTTPRequestHandler):
             payload = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
             self._respond(200, "application/json", payload)
         elif self.path == "/api/bot/info":
-            info = {"id": None, "name": None, "invite_url": None}
+            info = {"id": None, "name": None, "invite_url": None, "ready": False}
             if _bot_ref is not None and _bot_ref.user is not None:
                 import discord as _discord
 
@@ -610,6 +663,7 @@ class _Handler(BaseHTTPRequestHandler):
                 info = {
                     "id": str(_bot_ref.user.id),
                     "name": _bot_ref.user.name,
+                    "ready": _bot_ref.is_ready(),
                     "invite_url": _discord.utils.oauth_url(
                         _bot_ref.user.id,
                         permissions=permissoes,
@@ -620,6 +674,15 @@ class _Handler(BaseHTTPRequestHandler):
                 200,
                 "application/json",
                 json.dumps(info, ensure_ascii=False).encode("utf-8"),
+            )
+        elif self.path == "/api/discord/token":
+            token = _obter_discord_token()
+            self._respond(
+                200,
+                "application/json",
+                json.dumps({"ok": True, "configurado": bool(token), "token": token}).encode("utf-8"),
+                allow_cors=False,
+                no_store=True,
             )
         elif self.path == "/api/modelo/runtime":
             self._handle_get_modelo_runtime()
@@ -684,6 +747,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/guilds/remover":
             self._handle_guild_remover()
+            return
+
+        if self.path == "/api/discord/token":
+            self._handle_post_discord_token()
             return
 
         if self.path == "/api/voz/chat":
@@ -795,7 +862,74 @@ class _Handler(BaseHTTPRequestHandler):
             json.dumps({"ok": True, "reinicio_necessario": reinicio_necessario}).encode("utf-8"),
         )
 
-    # ── Handlers Voz: Canais / Conectar / Desconectar ─────────────────────────
+    # ── Handlers Discord / Voz ─────────────────────────────────────────────────
+
+    def _handle_post_discord_token(self) -> None:
+        origin = str(self.headers.get("Origin", "") or "").strip()
+        host = str(self.headers.get("Host", "") or "").strip().casefold()
+        if origin:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(origin)
+            if parsed.scheme != "http" or parsed.netloc.casefold() != host:
+                self._respond(403, "application/json", b'{"erro":"Origem nao permitida"}')
+                return
+
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        if length <= 0 or length > 4096:
+            self._respond(400, "application/json", b'{"erro":"Requisicao invalida"}')
+            return
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            token = _validar_discord_token(data.get("token"))
+            reinicio_necessario = _salvar_discord_token(token)
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+        except OSError:
+            log.exception("Falha ao salvar o token do Discord.")
+            self._respond(500, "application/json", b'{"erro":"Nao foi possivel salvar o token"}')
+            return
+
+        carregamento_iniciado = False
+        if (
+            _discord_token_activator is not None
+            and _loop_ref is not None
+            and _loop_ref.is_running()
+            and (_bot_ref is None or not _bot_ref.is_ready())
+        ):
+            try:
+                future = asyncio.run_coroutine_threadsafe(
+                    _discord_token_activator(token), _loop_ref
+                )
+                carregamento_iniciado = bool(future.result(timeout=5))
+            except Exception:
+                log.exception("Falha ao carregar o token salvo no bot em execucao.")
+
+        if carregamento_iniciado:
+            reinicio_necessario = False
+
+        log.info(
+            "Token do Discord atualizado via interface; carregamento iniciado=%s; reinicializacao necessaria=%s.",
+            carregamento_iniciado,
+            reinicio_necessario,
+        )
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(
+                {
+                    "ok": True,
+                    "configurado": True,
+                    "carregamento_iniciado": carregamento_iniciado,
+                    "reinicio_necessario": reinicio_necessario,
+                }
+            ).encode("utf-8"),
+        )
 
     def _handle_get_voz_canais(self) -> None:
         """GET /api/voz/canais?guild_id=... — lista canais de voz de uma guild."""
@@ -1106,11 +1240,22 @@ class _Handler(BaseHTTPRequestHandler):
         data = path.read_bytes()
         self._respond(200, content_type, data)
 
-    def _respond(self, status: int, content_type: str, body: bytes) -> None:
+    def _respond(
+        self,
+        status: int,
+        content_type: str,
+        body: bytes,
+        *,
+        allow_cors: bool = True,
+        no_store: bool = False,
+    ) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if allow_cors:
+            self.send_header("Access-Control-Allow-Origin", "*")
+        if no_store:
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -2027,11 +2172,13 @@ def _encontrar_guild_com_voz() -> int | None:
 # ── Inicialização pública ─────────────────────────────────────────────────────
 
 def start(bot, host: str = "127.0.0.1", port: int = 5000,
-          loop: asyncio.AbstractEventLoop | None = None) -> None:
+          loop: asyncio.AbstractEventLoop | None = None,
+          discord_token_activator: Callable[[str], Awaitable[bool]] | None = None) -> None:
     """Inicia o servidor web em uma thread daemon (não bloqueia o bot)."""
-    global _bot_ref, _loop_ref, _http_server
+    global _bot_ref, _loop_ref, _http_server, _discord_token_activator
     _bot_ref = bot
     _loop_ref = loop or asyncio.get_event_loop()
+    _discord_token_activator = discord_token_activator
 
     with _server_lock:
         if _http_server is not None:

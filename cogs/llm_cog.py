@@ -1185,17 +1185,17 @@ class LLMCog(commands.Cog, name="LLM"):
 
     # ── Comandos de controle ──────────────────────────────────────────────────
 
-    @commands.command(name="lou")
-    async def cmd_lou(self, ctx: commands.Context) -> None:
+    @commands.command(name="ligar")
+    async def ligar(self, ctx: commands.Context) -> None:
         """Ativa a Neve continuamente neste canal."""
         if ctx.channel.id in self.canais_ativos:
-            await ctx.send(self._m("lou", "ja_ativo"))
+            await ctx.send(self._m("ligar", "ja_ativo"))
             return
         self._canais_desligados.discard(ctx.channel.id)
         self.canais_ativos.add(ctx.channel.id)
         self._historico.pop(ctx.channel.id, None)
         log.info("Neve ativada em #%s", ctx.channel)
-        await ctx.send(self._m("lou", "ativado"))
+        await ctx.send(self._m("ligar", "ativado"))
 
     @commands.command(name="desligar")
     async def desligar(self, ctx: commands.Context) -> None:
@@ -1246,25 +1246,25 @@ class LLMCog(commands.Cog, name="LLM"):
     # Comandos de bloqueio/desbloqueio (apenas pai)
     # ═══════════════════════════════════════════════════════════════════════════
 
-    @commands.command(name="limitar")
-    async def limitar(self, ctx: commands.Context, membro: discord.Member = None) -> None:
+    @commands.command(name="bloquear")
+    async def bloquear(self, ctx: commands.Context, membro: discord.Member = None) -> None:
         """[Apenas dono] Bloqueia um usuário de receber respostas do bot."""
         if ctx.author.name.lower() not in _NOMES_PAI:
             await ctx.message.add_reaction("🚫")
             return
         if membro is None:
-            await ctx.send(self._m("limitar", "sem_mencao"))
+            await ctx.send(self._m("bloquear", "sem_mencao"))
             return
         if membro.id == ctx.author.id:
-            await ctx.send(self._m("limitar", "auto_bloqueio"))
+            await ctx.send(self._m("bloquear", "auto_bloqueio"))
             return
         if membro.id == self.bot.user.id:
-            await ctx.send(self._m("limitar", "bloquear_bot"))
+            await ctx.send(self._m("bloquear", "bloquear_bot"))
             return
         self._usuarios_bloqueados.add(membro.id)
         self._salvar_bloqueados()
         log.info("Usuário bloqueado pelo pai: %s (%s)", membro.name, membro.id)
-        await ctx.send(self._m("limitar", "bloqueado", nome=membro.display_name))
+        await ctx.send(self._m("bloquear", "bloqueado", nome=membro.display_name))
 
     @commands.command(name="desbloquear")
     async def desbloquear(self, ctx: commands.Context, membro: discord.Member = None) -> None:
@@ -1288,9 +1288,9 @@ async def setup(bot: commands.Bot) -> None:
     cog = LLMCog(bot)
     await bot.add_cog(cog)
 
-    # Aplica nomes de comandos configurados via UI web
-    # A chave do config é o nome original (interno); o valor "name" é o nome atual desejado.
-    nomes = _bot_cfg.original_names()
+    # Aplica somente personalizacoes feitas pelo usuario; por padrao, as
+    # chaves canonicas ja coincidem com os nomes registrados nos decorators.
+    nomes = _bot_cfg.command_names()
     for cmd_key, novo_nome in nomes.items():
         cmd = bot.get_command(cmd_key)
         if cmd is not None and cmd.name != novo_nome:
