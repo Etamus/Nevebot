@@ -92,7 +92,7 @@ _erro_bot: list[BaseException] = []
 async def on_ready() -> None:
     global _web_iniciado
     log.info("Bot online como %s (ID: %s)", bot.user.name, bot.user.id)
-    log.info("Modelo LLM: %s", config.LLM_MODEL_PATH)
+    log.info("Modelo LLM configurado (desligado): %s", config.LLM_MODEL_PATH)
     log.info("Chatterbox PT-BR: %s", config.CHATTERBOX_PTBR_DIR)
     if not _web_iniciado:
         web_server.start(bot, loop=asyncio.get_running_loop())

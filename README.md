@@ -1,4 +1,4 @@
-<img width="1400" height="350" alt="teste" src="https://github.com/user-attachments/assets/a16f898b-e682-485e-9b89-8ca5cf2b09a5" />
+<img width="1400" height="350" alt="Nevebot Control Center" src="https://github.com/user-attachments/assets/a16f898b-e682-485e-9b89-8ca5cf2b09a5" />
 
 ---
 
@@ -15,7 +15,7 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Mantém histórico curto por canal e filas independentes para evitar respostas sobrepostas.
 - Permite editar os prompts de texto e voz.
 - Expõe os parâmetros de modelo, contexto, GPU, batch, cache KV e sampling.
-- Responde no Discord por menção, mensagem direta ou modo casual ativado no canal.
+- Responde no Discord por menção, mensagem direta ou modo ativo no canal.
 
 ### Voz
 
@@ -27,7 +27,8 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Clona automaticamente a voz de `data/voz_referencia.wav` e detecta a troca do arquivo na geração seguinte.
 - Reproduz PCM diretamente no Discord, sem depender de FFmpeg.
 - Recebe e reproduz localmente as pessoas do canal de voz, com seleção de saída e volume, sem gravar ou transcrever.
-- Pré-carrega LLM, STT, TTS e a referência de voz durante a inicialização.
+- Gera legendas SRT em tempo quase real com timestamps e identificação por pessoa a partir do canal do Discord, em um modo separado da LLM.
+- Mantém os modelos descarregados na inicialização; **Iniciar modelo** carrega e pré-aquece LLM, Whisper e TTS juntos antes de liberar a conversa.
 
 ### Interface
 
@@ -39,7 +40,7 @@ As páginas atuais são:
 - **Conversa:** chat por texto, gravação pelo microfone e push-to-talk.
 - **Voz:** entrada, reconhecimento, referência e parâmetros do Chatterbox.
 - **Modelo:** seleção do GGUF, parâmetros de execução, sampling e prompts.
-- **Discord:** servidores, conexão, monitor local do canal e envio de mensagens por texto ou voz.
+- **Discord:** servidores, conexão, monitor local, envio de mensagens e transcrição SRT do canal.
 - **Comandos:** referência dos comandos disponíveis no bot.
 
 ## Requisitos
@@ -113,7 +114,7 @@ O arquivo precisa ter pelo menos um segundo. Para uma clonagem mais estável, us
 iniciar.bat
 ```
 
-O instalador já baixa `large-v3-turbo` para `models/whisper/`. O primeiro carregamento em memória ainda pode levar mais tempo; as execuções seguintes reutilizam o cache local.
+O Nevebot abre sem carregar os modelos de inferência. Use **Iniciar modelo** na página **Visão geral** para iniciar o `llama-server` e concluir o aquecimento da LLM, do `large-v3-turbo` e do Chatterbox; o botão só indica que está pronto quando todo o pipeline de conversa terminou. O mesmo botão permite liberar a LLM depois.
 
 ## Configuração do Discord
 
@@ -123,6 +124,7 @@ O instalador já baixa `large-v3-turbo` para `models/whisper/`. O primeiro carre
 4. Inicie o Nevebot e use **Adicionar** na página Discord da interface.
 5. Selecione um servidor e um canal de voz, depois use **Conectar**.
 6. Em **Escutar canal**, selecione a saída de áudio e use **Ouvir canal** para acompanhar as pessoas pelo Nevebot.
+7. Em **Transcrever canal**, use **Iniciar transcrição** para gerar em `transcricoes/` um SRT com cada participante identificado.
 
 O convite criado pela interface solicita as permissões usadas pelo projeto: ver canais, enviar mensagens, ler histórico, adicionar reações, conectar, falar e usar atividade de voz.
 
@@ -132,13 +134,15 @@ O prefixo padrão é `!`. Os nomes podem ser alterados em `data/config_ui.json`.
 
 | Comando | Função |
 | --- | --- |
-| `!casual` | Mantém a Neve ativa no canal de texto atual. |
+| `!ligar` | Mantém a Neve ativa no canal de texto atual. |
 | `!desligar` | Desativa as respostas naquele canal. |
 | `!limpar` | Apaga o histórico de conversa do canal. |
 | `!bloquear @membro` | Impede que um membro receba respostas; restrito ao dono configurado. |
 | `!desbloquear @membro` | Remove o bloqueio de um membro; restrito ao dono configurado. |
 
-Fora do modo casual, a Neve responde quando é mencionada e em mensagens diretas. Na página Conversa, o microfone pode ser acionado pelo botão da interface ou mantendo o **shift direito** pressionado.
+Fora do modo ativo, a Neve responde quando é mencionada e em mensagens diretas. Na página Conversa, o microfone pode ser acionado pelo botão da interface ou mantendo o **shift direito** pressionado.
+
+Os receptores do Discord permanecem desligados até **Ouvir canal** ou **Iniciar transcrição** serem acionados. O modo **Transcrever canal** é independente da conversa por voz; enquanto ele está ativo, o chat de voz e a reprodução local do canal ficam indisponíveis para evitar disputa pelo receptor e pelo Whisper. O SRT é atualizado durante a sessão e finalizado ao parar, desconectar, trocar de canal ou desligar o Nevebot.
 
 ## Configurações
 
@@ -150,7 +154,7 @@ Contém segredos e opções de infraestrutura: token do Discord, caminho inicial
 
 Persiste prefixo, prompts, comandos e parâmetros da LLM salvos pela interface. Valores preenchidos nessa configuração têm prioridade sobre os equivalentes da LLM no `.env`.
 
-Parâmetros de carregamento como modelo, contexto, camadas de GPU, batch, threads e cache KV exigem reinicialização. Parâmetros de geração e prompts são aplicados em tempo de execução.
+Parâmetros de carregamento como modelo, contexto, camadas de GPU, batch, threads e cache KV entram em vigor ao desligar e ligar novamente a LLM. Parâmetros de geração e prompts são aplicados em tempo de execução.
 
 ### `data/voz_config.json`
 
@@ -180,6 +184,8 @@ Nevebot/
 |   `-- voice_cog.py            # conexão e reprodução de voz
 |-- services/
 |   |-- discord_audio_monitor.py # recepção, DAVE, mixer e saída local
+|   |-- discord_transcription.py # Áudio do Discord, VAD por pessoa e SRT
+|   |-- discord_voice_receive.py # ativação limpa do receptor do Discord
 |   |-- stt_whisper.py           # STT PT-BR com faster-whisper
 |   `-- tts_chatterbox.py        # Chatterbox V3 PT-BR e clonagem
 |-- scripts/
@@ -201,6 +207,7 @@ Nevebot/
 |   |-- favicon.png
 |   `-- logo.png
 |-- gravacoes/
+|-- transcricoes/               # arquivos SRT locais, não versionados
 `-- logs/
 ```
 
@@ -225,7 +232,7 @@ Nevebot/
 - Consulte `logs/llama-server.log` para falhas de inicialização.
 - Consulte `logs/llama-server-runtime.log` para mensagens do servidor em execução.
 - Reduza camadas de GPU, contexto, batch ou o tipo de cache KV se o modelo ultrapassar a VRAM disponível.
-- Mudanças nesses parâmetros precisam de reinicialização.
+- Depois de alterar parâmetros de carregamento, desligue e ligue novamente o modelo na Visão geral.
 
 ### Voz lenta ou indisponível
 
@@ -237,7 +244,7 @@ Nevebot/
 
 ## Privacidade
 
-Prompts, históricos em memória, transcrição, geração de texto, clonagem e síntese de voz são processados localmente. O monitor do canal mantém apenas uma fila curta em memória para reprodução e não grava nem envia as falas recebidas ao Whisper ou à LLM. O Discord recebe as mensagens e o áudio enviados aos seus canais, conforme o uso normal da plataforma. O Nevebot não exige serviços comerciais de IA.
+Prompts, históricos em memória, transcrição, geração de texto, clonagem e síntese de voz são processados localmente. **Escutar canal** mantém apenas uma fila curta em memória e não grava. **Transcrever canal** envia o áudio recebido somente ao Whisper local e grava o SRT em `transcricoes/`; nenhum trecho desse modo é encaminhado à LLM. O Discord recebe as mensagens e o áudio enviados aos seus canais, conforme o uso normal da plataforma. O Nevebot não exige serviços comerciais de IA.
 
 ## Licença
 

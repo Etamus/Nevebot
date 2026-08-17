@@ -33,6 +33,7 @@ if exist "logs\ui_shutdown.flag" del /q "logs\ui_shutdown.flag" >nul 2>&1
 
 echo Encerrando instancias antigas do Nevebot...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process -Filter \"name = 'python.exe' or name = 'python3.exe'\" | Where-Object { $_.CommandLine -match 'nevebot\.py' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$target=[IO.Path]::GetFullPath('%CD%\llama.cpp\llama-server.exe'); Get-CimInstance Win32_Process -Filter \"name = 'llama-server.exe'\" | Where-Object { $_.ExecutablePath -and [IO.Path]::GetFullPath($_.ExecutablePath) -eq $target } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 
 set "PYTHONFAULTHANDLER=1"
 set "GGML_CUDA_NO_PINNED=1"

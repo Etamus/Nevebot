@@ -38,6 +38,7 @@ echo Preparando pastas locais...
 for %%D in (
     "data"
     "gravacoes"
+    "transcricoes"
     "logs"
     "models"
     "models\texto"

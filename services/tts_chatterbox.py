@@ -769,11 +769,16 @@ def gerar(
     return audio
 
 
-def precarregar_e_aquecer(voz_cfg: dict | None = None) -> None:
+def precarregar_e_aquecer(
+    voz_cfg: dict | None = None,
+    *,
+    full_warmup: bool | None = None,
+) -> None:
     voz_cfg = voz_cfg or {}
     carregar()
     _garantir_referencia(float(voz_cfg.get("voz_exaggeration", 0.5)))
-    if not config.CHATTERBOX_FULL_WARMUP:
+    executar_amostragem = config.CHATTERBOX_FULL_WARMUP if full_warmup is None else full_warmup
+    if not executar_amostragem:
         log.info("[TTS] Warmup Chatterbox PT-BR: modelo e referencia prontos; amostragem completa pulada.")
         return
     audio = gerar(

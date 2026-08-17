@@ -15,11 +15,16 @@ __pycache__/
 build/
 dist/
 .pytest_cache/
+test-results/
+.coverage
+coverage.xml
+htmlcov/
 .mypy_cache/
 .ruff_cache/
 
 # Runtime local
 logs/
+transcricoes/
 *.log
 temp_llama/
 gravacoes/

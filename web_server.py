@@ -6,6 +6,7 @@ Rota                    Método  Descrição
 /api/config             GET     Retorna a config atual como JSON
 /api/config             POST    Salva nova config; aplica mudanças ao bot em tempo real
 /api/bot/info           GET     Retorna identidade e link oficial de convite do bot
+/api/modelo/runtime     GET/POST Consulta, liga ou desliga o modelo LLM local
 /api/guilds             GET     Lista guilds do bot
 /api/guilds/remover     POST    Remove o bot de uma guild
 /api/voz/canais         GET     Lista canais de voz de uma guild
@@ -19,6 +20,9 @@ Rota                    Método  Descrição
 /api/voz/config         POST    Salva config de voz
 /api/voz/referencia     POST    Substitui o WAV usado para clonar a voz
 /api/voz/limpar         POST    Limpa histórico do chat de voz
+/api/transcricao        GET     Retorna o estado da geração de legendas SRT
+/api/transcricao/iniciar POST   Inicia transcrição do canal em modo separado
+/api/transcricao/parar  POST    Finaliza os buffers e salva o arquivo SRT
 
 Inicie com:  start(bot, host="127.0.0.1", port=5000)
 """
@@ -49,6 +53,9 @@ _SHUTDOWN_FLAG = Path(__file__).parent / "logs" / "ui_shutdown.flag"
 _VOICE_REFERENCE_PATH = Path(__file__).parent / "data" / "voz_referencia.wav"
 _VOICE_REFERENCE_BACKUP_DIR = Path(__file__).parent / "data" / "voz_referencias"
 _MAX_VOICE_REFERENCE_BYTES = 32 * 1024 * 1024
+_VOICE_CONNECT_ATTEMPTS = 2
+_VOICE_CONNECT_TIMEOUT = 12.0
+_VOICE_CONNECT_RETRY_DELAY = 0.8
 _bot_ref = None        # discord.ext.commands.Bot
 _loop_ref = None       # asyncio event loop do bot
 _voz_connect_locks: dict[int, asyncio.Lock] = {}
@@ -185,7 +192,9 @@ def _encerrar_llama_server() -> None:
     try:
         cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
         cliente = getattr(cog, "llm", None)
-        if cliente is not None:
+        if cog is not None and hasattr(cog, "desligar_modelo"):
+            cog.desligar_modelo()
+        elif cliente is not None:
             cliente.close()
     except Exception:
         log.exception("Falha ao encerrar o llama-server pelo cliente da LLM.")
@@ -228,6 +237,12 @@ def _encerrar_llama_server() -> None:
 
 def _finalizar_desligamento() -> None:
     try:
+        try:
+            from services.discord_transcription import get_transcription_service
+
+            get_transcription_service().stop(wait=True, timeout=20, reason="desligamento")
+        except Exception:
+            log.exception("Falha ao finalizar a transcricao SRT.")
         try:
             from services.discord_audio_monitor import obter_monitor
 
@@ -302,6 +317,13 @@ async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
         raise ValueError("Guild não encontrada")
 
     try:
+        from services.discord_transcription import get_transcription_service
+
+        get_transcription_service().stop_for_guild(guild_id, wait=False)
+    except Exception as exc:
+        log.warning("[WEB] Falha ao finalizar transcricao da guild %s: %s", guild.name, exc)
+
+    try:
         from services.discord_audio_monitor import obter_monitor
 
         obter_monitor().parar_se_guild(guild_id)
@@ -310,6 +332,23 @@ async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
 
     vc = guild.voice_client
     if vc is None:
+        member_voice = getattr(getattr(guild, "me", None), "voice", None)
+        stale_channel = getattr(member_voice, "channel", None)
+        if stale_channel is not None:
+            log.warning(
+                "[WEB] Limpando estado remoto de voz sem VoiceClient: guild=%s canal=%s",
+                guild.name,
+                getattr(stale_channel, "name", "?"),
+            )
+            try:
+                await asyncio.wait_for(guild.change_voice_state(channel=None), timeout=5)
+                await asyncio.sleep(0.35)
+            except Exception as exc:
+                log.warning(
+                    "[WEB] Falha ao limpar estado remoto da guild %s: %s",
+                    guild.name,
+                    exc,
+                )
         return {"ok": True, "status": "sem_conexao"}
 
     canal = getattr(getattr(vc, "channel", None), "name", None)
@@ -341,6 +380,35 @@ async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
         log.warning("[WEB] Falha ao remover VoiceClient do cache da guild %s: %s", guild.name, exc)
     await asyncio.sleep(0.35)
     return {"ok": True, "status": "removido", "canal": canal}
+
+
+async def _abrir_conexao_voz(channel, guild_id: int):
+    """Conecta com uma repeticao controlada quando o handshake UDP expira."""
+    from discord.ext import voice_recv
+
+    for tentativa in range(1, _VOICE_CONNECT_ATTEMPTS + 1):
+        try:
+            return await asyncio.wait_for(
+                channel.connect(
+                    timeout=_VOICE_CONNECT_TIMEOUT,
+                    reconnect=False,
+                    cls=voice_recv.VoiceRecvClient,
+                ),
+                timeout=_VOICE_CONNECT_TIMEOUT + 3,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if tentativa >= _VOICE_CONNECT_ATTEMPTS:
+                raise
+            log.warning(
+                "[WEB] Handshake de voz falhou (%s/%s, %s); repetindo uma vez.",
+                tentativa,
+                _VOICE_CONNECT_ATTEMPTS,
+                type(exc).__name__,
+            )
+            await _limpar_conexao_voz(guild_id, f"nova tentativa {tentativa}")
+            await asyncio.sleep(_VOICE_CONNECT_RETRY_DELAY)
 
 
 def _agendar_reproducao_pcm(
@@ -487,7 +555,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-File-Name")
+        self.send_header(
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-File-Name, X-Session-Id, X-Sample-Rate, X-Capture-Start-Ms",
+        )
         self.end_headers()
 
     # ── GET ───────────────────────────────────────────────────────────────────
@@ -550,12 +621,16 @@ class _Handler(BaseHTTPRequestHandler):
                 "application/json",
                 json.dumps(info, ensure_ascii=False).encode("utf-8"),
             )
+        elif self.path == "/api/modelo/runtime":
+            self._handle_get_modelo_runtime()
         elif self.path.startswith("/api/voz/canais"):
             self._handle_get_voz_canais()
         elif self.path.startswith("/api/texto/canais"):
             self._handle_get_texto_canais()
         elif self.path.startswith("/api/voz/monitor"):
             self._handle_get_voz_monitor()
+        elif self.path == "/api/transcricao":
+            self._handle_get_transcricao()
         elif self.path == "/api/voz/config":
             self._handle_get_voz_config()
         elif self.path == "/api/voz/ptt-estado":
@@ -595,6 +670,10 @@ class _Handler(BaseHTTPRequestHandler):
             solicitar_desligamento()
             return
 
+        if self.path == "/api/modelo/runtime":
+            self._handle_post_modelo_runtime()
+            return
+
         if self.path == "/api/voz/conectar":
             self._handle_voz_conectar()
             return
@@ -625,6 +704,18 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/voz/monitor":
             self._handle_post_voz_monitor()
+            return
+
+        if self.path == "/api/transcricao/iniciar":
+            self._handle_post_transcricao_iniciar()
+            return
+
+        if self.path == "/api/transcricao/parar":
+            self._handle_post_transcricao_parar()
+            return
+
+        if self.path == "/api/transcricao/abrir-pasta":
+            self._handle_post_transcricao_abrir_pasta()
             return
 
         if self.path == "/api/voz/referencia":
@@ -861,6 +952,9 @@ class _Handler(BaseHTTPRequestHandler):
                                 return {"ok": True, "status": "ja_conectado", "canal": channel.name}
                             log.info("[WEB] Movendo voz: %s -> %s", getattr(vc_channel, "name", "?"), channel.name)
                             try:
+                                from services.discord_transcription import get_transcription_service
+
+                                get_transcription_service().stop_for_guild(guild_id, wait=False)
                                 await asyncio.wait_for(vc.move_to(channel), timeout=15)
                                 return {"ok": True, "status": "movido", "canal": channel.name}
                             except Exception as exc:
@@ -870,16 +964,7 @@ class _Handler(BaseHTTPRequestHandler):
                             await _limpar_conexao_voz(guild_id, "voice client preso antes de conectar")
 
                     try:
-                        from discord.ext import voice_recv
-
-                        vc = await asyncio.wait_for(
-                            channel.connect(
-                                timeout=20,
-                                reconnect=False,
-                                cls=voice_recv.VoiceRecvClient,
-                            ),
-                            timeout=25,
-                        )
+                        vc = await _abrir_conexao_voz(channel, guild_id)
                     except asyncio.CancelledError:
                         await _limpar_conexao_voz(guild_id, "tentativa cancelada")
                         raise
@@ -890,8 +975,8 @@ class _Handler(BaseHTTPRequestHandler):
                             return {"ok": True, "status": "conectado", "canal": channel.name}
                         await _limpar_conexao_voz(guild_id, "falha no handshake")
                         raise RuntimeError(
-                            "Falha ao conectar ao canal de voz. "
-                            "A conexão foi limpa; tente novamente em alguns segundos."
+                            "O Discord não concluiu a conexão de voz após duas tentativas. "
+                            "A sessão incompleta foi removida."
                         ) from exc
 
                     if not vc.is_connected():
@@ -1029,10 +1114,96 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _handle_get_modelo_runtime(self) -> None:
+        cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
+        if cog is None:
+            self._respond(
+                503,
+                "application/json",
+                json.dumps({"ok": False, "erro": "Cog da LLM indisponivel."}).encode("utf-8"),
+            )
+            return
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(cog.estado_modelo(), ensure_ascii=False).encode("utf-8"),
+        )
+
+    def _handle_post_modelo_runtime(self) -> None:
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            ativo = data.get("ativo")
+            if not isinstance(ativo, bool):
+                raise ValueError("O campo 'ativo' deve ser true ou false.")
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
+        if cog is None:
+            self._respond(
+                503,
+                "application/json",
+                json.dumps({"erro": "Cog da LLM indisponivel."}).encode("utf-8"),
+            )
+            return
+        try:
+            estado = cog.ligar_modelo() if ativo else cog.desligar_modelo()
+            self._respond(
+                200,
+                "application/json",
+                json.dumps(estado, ensure_ascii=False).encode("utf-8"),
+            )
+        except Exception as exc:
+            estado = cog.estado_modelo()
+            self._respond(
+                500,
+                "application/json",
+                json.dumps(
+                    {**estado, "ok": False, "erro": str(exc) or type(exc).__name__},
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+            )
+
+    def _modelo_llm_ativo(self) -> bool:
+        cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
+        return bool(cog is not None and cog.modelo_ativo())
+
+    def _responder_modelo_desligado(self) -> None:
+        self._respond(
+            409,
+            "application/json",
+            json.dumps(
+                {"erro": "O modelo esta desligado."},
+                ensure_ascii=False,
+            ).encode("utf-8"),
+        )
+
     # ── Handlers: Chat de Voz (STT → LLM → TTS → Discord) ───────────────────
 
     def _handle_voz_chat(self) -> None:
-        """POST /api/voz/chat — recebe áudio WAV, transcreve, gera resposta, fala."""
+        """POST /api/voz/chat - recebe audio WAV, transcreve, gera resposta, fala."""
+        from services.discord_transcription import get_transcription_service
+
+        if not self._modelo_llm_ativo():
+            self._responder_modelo_desligado()
+            return
+
+        if get_transcription_service().running:
+            self._respond(
+                409,
+                "application/json",
+                json.dumps(
+                    {"erro": "Finalize a transcricao SRT antes de usar o chat de voz."},
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+            )
+            return
         inicio_total = time.perf_counter()
         log.info("[WEB] POST /api/voz/chat recebido")
         length = int(self.headers.get("Content-Length", 0))
@@ -1191,7 +1362,23 @@ class _Handler(BaseHTTPRequestHandler):
                           json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"))
 
     def _handle_voz_chat_texto(self) -> None:
-        """POST /api/voz/chat-texto — recebe texto, envia ao LLM, gera TTS, fala."""
+        """POST /api/voz/chat-texto - envia texto ao LLM, gera TTS e fala."""
+        from services.discord_transcription import get_transcription_service
+
+        if not self._modelo_llm_ativo():
+            self._responder_modelo_desligado()
+            return
+
+        if get_transcription_service().running:
+            self._respond(
+                409,
+                "application/json",
+                json.dumps(
+                    {"erro": "Finalize a transcricao SRT antes de usar o chat de voz."},
+                    ensure_ascii=False,
+                ).encode("utf-8"),
+            )
+            return
         log.info("[WEB] POST /api/voz/chat-texto recebido")
         length = int(self.headers.get("Content-Length", 0))
         try:
@@ -1300,6 +1487,10 @@ class _Handler(BaseHTTPRequestHandler):
             if not ativo:
                 estado = monitor.parar()
             else:
+                from services.discord_transcription import get_transcription_service
+
+                if get_transcription_service().running:
+                    raise RuntimeError("Finalize a transcricao SRT antes de ouvir o canal.")
                 guild_id = int(data.get("guild_id", 0) or 0)
                 if not guild_id or _bot_ref is None:
                     raise ValueError("Selecione um servidor conectado a um canal de voz.")
@@ -1336,6 +1527,113 @@ class _Handler(BaseHTTPRequestHandler):
             )
         except Exception as exc:
             log.exception("Falha ao alterar o monitor local de voz.")
+            self._respond(
+                500,
+                "application/json",
+                json.dumps({"erro": str(exc) or type(exc).__name__}, ensure_ascii=False).encode("utf-8"),
+            )
+
+    def _handle_get_transcricao(self) -> None:
+        from services.discord_transcription import get_transcription_service
+
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(
+                get_transcription_service().state(),
+                ensure_ascii=False,
+            ).encode("utf-8"),
+        )
+
+    def _handle_post_transcricao_iniciar(self) -> None:
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            guild_id = int(data.get("guild_id", 0) or 0)
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": f"Configuracao invalida: {exc}"}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
+
+        try:
+            if not guild_id or _bot_ref is None:
+                raise ValueError("Selecione um servidor conectado a um canal de voz.")
+            guild = _bot_ref.get_guild(guild_id)
+            if guild is None:
+                raise ValueError("Servidor nao encontrado.")
+            voice_client = guild.voice_client
+            if voice_client is None or not voice_client.is_connected():
+                raise ValueError("Conecte a Neve a um canal de voz primeiro.")
+
+            from discord.ext import voice_recv
+            from cogs.voice_cog import voz_estado
+            from services import stt_whisper
+            from services.discord_audio_monitor import obter_monitor
+            from services.discord_transcription import get_transcription_service
+
+            if not isinstance(voice_client, voice_recv.VoiceRecvClient):
+                raise RuntimeError(
+                    "Esta conexao foi criada sem recepcao de audio. "
+                    "Desconecte e conecte a Neve novamente."
+                )
+            obter_monitor().parar()
+            model = str(voz_estado.get("whisper_modelo") or "large-v3-turbo")
+            stt_whisper.carregar(model)
+            state = get_transcription_service().start(
+                voice_client,
+                model=model,
+            )
+            self._respond(
+                200,
+                "application/json",
+                json.dumps(state, ensure_ascii=False).encode("utf-8"),
+            )
+        except (ValueError, RuntimeError, OSError) as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+        except Exception as exc:
+            log.exception("Falha ao iniciar transcricao SRT.")
+            self._respond(
+                500,
+                "application/json",
+                json.dumps({"erro": str(exc) or type(exc).__name__}, ensure_ascii=False).encode("utf-8"),
+            )
+
+    def _handle_post_transcricao_parar(self) -> None:
+        from services.discord_transcription import get_transcription_service
+
+        try:
+            state = get_transcription_service().stop(
+                wait=True,
+                timeout=35,
+                reason="solicitado pela interface",
+            )
+            self._respond(
+                200,
+                "application/json",
+                json.dumps(state, ensure_ascii=False).encode("utf-8"),
+            )
+        except Exception as exc:
+            log.exception("Falha ao finalizar transcricao SRT.")
+            self._respond(
+                500,
+                "application/json",
+                json.dumps({"erro": str(exc) or type(exc).__name__}, ensure_ascii=False).encode("utf-8"),
+            )
+
+    def _handle_post_transcricao_abrir_pasta(self) -> None:
+        from services.discord_transcription import get_transcription_service
+
+        try:
+            get_transcription_service().open_output_folder()
+            self._respond(200, "application/json", b'{"ok":true}')
+        except Exception as exc:
             self._respond(
                 500,
                 "application/json",
@@ -1395,9 +1693,13 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
 
+        from cogs.voice_cog import salvar_config_voz, voz_estado
+
+        voz_estado["voz_referencia_nome"] = nome_enviado
+        salvar_config_voz()
+
         preparando = False
         if resultado["alterado"]:
-            from cogs.voice_cog import voz_estado
             from services import tts_chatterbox
 
             _iniciar_sessao_tts("/api/voz/referencia")
@@ -1423,6 +1725,7 @@ class _Handler(BaseHTTPRequestHandler):
         payload = {
             "ok": True,
             "arquivo": _VOICE_REFERENCE_PATH.name,
+            "nome_original": nome_enviado,
             "preparando": preparando,
             **resultado,
         }

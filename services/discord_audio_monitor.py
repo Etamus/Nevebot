@@ -15,6 +15,8 @@ import sounddevice as sd
 from discord.ext import voice_recv
 from discord.opus import Decoder
 
+from services.discord_voice_receive import descartar_pacotes_pendentes
+
 log = logging.getLogger("discord_audio_monitor")
 
 _SAMPLE_RATE = 48_000
@@ -125,6 +127,7 @@ class DiscordMonitorSink(voice_recv.AudioSink):
         self.monitor = monitor
         self.bot_user_id = int(bot_user_id)
         self._decoders: dict[int, Decoder] = {}
+        self._dave_failures: dict[int, tuple[float, int]] = {}
         self._ultimo_log_erro = 0.0
 
     def wants_opus(self) -> bool:
@@ -134,6 +137,8 @@ class DiscordMonitorSink(voice_recv.AudioSink):
 
     def write(self, user, data) -> None:
         if user is None or int(user.id) == self.bot_user_id or bool(getattr(user, "bot", False)):
+            return
+        if not self.monitor.capturando:
             return
 
         user_id = int(user.id)
@@ -145,7 +150,30 @@ class DiscordMonitorSink(voice_recv.AudioSink):
                 if sessao_dave is not None and bool(getattr(estado, "can_encrypt", False)):
                     import davey
 
-                    opus = sessao_dave.decrypt(user_id, davey.MediaType.audio, bytes(opus))
+                    try:
+                        opus = sessao_dave.decrypt(user_id, davey.MediaType.audio, bytes(opus))
+                    except Exception as exc:
+                        mensagem = str(exc).casefold()
+                        if "decrypt" not in mensagem and "decryption" not in mensagem:
+                            raise
+
+                        agora = time.monotonic()
+                        primeiro, quantidade = self._dave_failures.get(user_id, (agora, 0))
+                        quantidade += 1
+                        self._dave_failures[user_id] = (primeiro, quantidade)
+                        if quantidade == 1:
+                            log.debug(
+                                "Descartando pacote DAVE durante sincronizacao inicial de %s: %s",
+                                user_id,
+                                exc,
+                            )
+                        if agora - primeiro >= 3.0 and agora - self._ultimo_log_erro >= 5.0:
+                            erro = f"Falha persistente ao descriptografar audio de {user_id}: {exc}"
+                            self.monitor.registrar_erro(erro)
+                            log.warning(erro)
+                            self._ultimo_log_erro = agora
+                        return
+                    self._dave_failures.pop(user_id, None)
                     if not opus:
                         return
                 decoder = self._decoders.setdefault(user_id, Decoder())
@@ -167,10 +195,13 @@ class DiscordMonitorSink(voice_recv.AudioSink):
     @voice_recv.AudioSink.listener()
     def on_voice_member_disconnect(self, member, _ssrc) -> None:
         if member is not None:
-            self._decoders.pop(int(member.id), None)
+            user_id = int(member.id)
+            self._decoders.pop(user_id, None)
+            self._dave_failures.pop(user_id, None)
 
     def cleanup(self) -> None:
         self._decoders.clear()
+        self._dave_failures.clear()
         self.monitor.sink_encerrado(self)
 
 
@@ -183,6 +214,7 @@ class DiscordAudioMonitor:
         self._nomes: dict[int, str] = {}
         self._atividade: dict[int, float] = {}
         self._ativo = False
+        self._capturando = False
         self._volume = 1.0
         self._dispositivo: int | None = None
         self._nome_dispositivo: str | None = None
@@ -192,6 +224,11 @@ class DiscordAudioMonitor:
         self._thread: threading.Thread | None = None
         self._stop_event: threading.Event | None = None
         self._ultimo_erro: str | None = None
+
+    @property
+    def capturando(self) -> bool:
+        with self._cond:
+            return self._ativo and self._capturando
 
     def _abrir_stream(self, dispositivo: int | None):
         return sd.RawOutputStream(
@@ -223,6 +260,7 @@ class DiscordAudioMonitor:
                 return self.estado()
 
         self.parar()
+        descartar_pacotes_pendentes(voice_client)
         if voice_client.is_listening():
             raise RuntimeError("A conexão de voz já possui outro receptor de áudio.")
 
@@ -241,6 +279,7 @@ class DiscordAudioMonitor:
             stream.start()
             with self._cond:
                 self._ativo = True
+                self._capturando = False
                 self._volume = volume
                 self._dispositivo = dispositivo
                 self._nome_dispositivo = nome_dispositivo
@@ -255,6 +294,12 @@ class DiscordAudioMonitor:
                 self._atividade.clear()
             thread.start()
             voice_client.listen(sink, after=self._depois_de_escutar)
+            with self._cond:
+                if self._ativo and self._sink is sink:
+                    self._filas.clear()
+                    self._nomes.clear()
+                    self._atividade.clear()
+                    self._capturando = True
         except Exception:
             self._encerrar_saida(stream, thread, stop_event)
             with self._cond:
@@ -309,7 +354,7 @@ class DiscordAudioMonitor:
         if not pcm:
             return
         with self._cond:
-            if not self._ativo:
+            if not self._ativo or not self._capturando:
                 return
             fila = self._filas.setdefault(user_id, deque(maxlen=_MAX_QUEUE_FRAMES))
             fila.append(bytes(pcm))
@@ -381,6 +426,7 @@ class DiscordAudioMonitor:
 
     def _limpar_estado_locked(self) -> None:
         self._ativo = False
+        self._capturando = False
         self._voice_client = None
         self._sink = None
         self._stream = None

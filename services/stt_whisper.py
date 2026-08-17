@@ -22,6 +22,7 @@ log = logging.getLogger("stt_whisper")
 _model = None
 _model_name = None
 _lock = threading.Lock()
+_inference_lock = threading.Lock()
 _BASE_DIR = Path(__file__).resolve().parent.parent
 _DEFAULT_MODEL = "large-v3-turbo"
 _DOWNLOAD_DIR = _BASE_DIR / "models" / "whisper"
@@ -221,31 +222,32 @@ def _pontuar_transcricao(texto: str, metricas: dict[str, float], info) -> float:
 
 
 def _executar_transcricao(samples: np.ndarray, *, beam_size: int, vad_filter: bool):
-    segments, info = _model.transcribe(
-        samples,
-        language="pt",
-        task="transcribe",
-        beam_size=beam_size,
-        best_of=1,
-        patience=1.0,
-        temperature=0.0,
-        initial_prompt=_PROMPT_PTBR,
-        condition_on_previous_text=False,
-        no_speech_threshold=0.72,
-        compression_ratio_threshold=2.8,
-        log_prob_threshold=-1.15,
-        suppress_blank=True,
-        without_timestamps=True,
-        word_timestamps=False,
-        vad_filter=vad_filter,
-        vad_parameters={
-            "threshold": 0.35,
-            "min_silence_duration_ms": 300,
-            "speech_pad_ms": 360,
-        } if vad_filter else None,
-        hotwords=_HOTWORDS,
-    )
-    segmentos = list(segments)
+    with _inference_lock:
+        segments, info = _model.transcribe(
+            samples,
+            language="pt",
+            task="transcribe",
+            beam_size=beam_size,
+            best_of=1,
+            patience=1.0,
+            temperature=0.0,
+            initial_prompt=_PROMPT_PTBR,
+            condition_on_previous_text=False,
+            no_speech_threshold=0.72,
+            compression_ratio_threshold=2.8,
+            log_prob_threshold=-1.15,
+            suppress_blank=True,
+            without_timestamps=True,
+            word_timestamps=False,
+            vad_filter=vad_filter,
+            vad_parameters={
+                "threshold": 0.35,
+                "min_silence_duration_ms": 300,
+                "speech_pad_ms": 360,
+            } if vad_filter else None,
+            hotwords=_HOTWORDS,
+        )
+        segmentos = list(segments)
     texto = " ".join(seg.text.strip() for seg in segmentos).strip()
     return texto, info, _metricas_segmentos(segmentos)
 
@@ -290,20 +292,127 @@ def carregar(modelo: str = _DEFAULT_MODEL) -> None:
             raise
 
 
-def precarregar_e_aquecer(modelo: str = _DEFAULT_MODEL) -> None:
-    """Carrega o faster-whisper e aquece com um WAV real quando disponivel."""
+def transcrever_segmentos_pcm(
+    samples: np.ndarray,
+    sample_rate: int,
+    modelo: str = _DEFAULT_MODEL,
+) -> list[dict[str, float | str]]:
+    """Transcreve PCM mono e preserva timestamps relativos de cada segmento.
+
+    Esta API atende gravacoes longas/SRT e nao altera o tratamento usado pelo
+    chat de voz. O chamador ja deve entregar um trecho contendo fala.
+    """
     modelo = _normalizar_nome_modelo(modelo)
     carregar(modelo)
 
-    wav_teste = Path(__file__).parent.parent / "data" / "debug_tts" / "chatterbox_sem_duplicar_normal.wav"
-    if not wav_teste.exists():
-        log.info("[STT] faster-whisper '%s' pre-carregado; WAV de warmup nao encontrado.", modelo)
-        return
+    audio = np.asarray(samples)
+    if audio.ndim != 1:
+        audio = audio.reshape(-1)
+    if np.issubdtype(audio.dtype, np.integer):
+        limite = float(max(abs(np.iinfo(audio.dtype).min), np.iinfo(audio.dtype).max))
+        audio = audio.astype(np.float32) / limite
+    else:
+        audio = audio.astype(np.float32, copy=False)
+    if audio.size == 0 or sample_rate <= 0:
+        return []
+
+    if sample_rate != 16000:
+        import torch
+        import torchaudio.functional as F
+
+        tensor = torch.from_numpy(audio).float().unsqueeze(0)
+        audio = F.resample(tensor, int(sample_rate), 16000).squeeze(0).numpy()
+
+    audio = _remover_dc_offset(audio)
+    if audio.size < int(16000 * 0.20):
+        return []
+    audio = _normalizar_rms(audio)
+    duracao_s = len(audio) / 16000
+
+    with _inference_lock:
+        segments, info = _model.transcribe(
+            audio,
+            language="pt",
+            task="transcribe",
+            beam_size=_BEAM_SIZE,
+            best_of=1,
+            patience=1.0,
+            temperature=0.0,
+            initial_prompt=_PROMPT_PTBR,
+            condition_on_previous_text=False,
+            no_speech_threshold=0.72,
+            compression_ratio_threshold=2.8,
+            log_prob_threshold=-1.15,
+            suppress_blank=True,
+            without_timestamps=False,
+            word_timestamps=False,
+            vad_filter=False,
+            hotwords=_HOTWORDS,
+        )
+        segmentos = list(segments)
+
+    texto_completo = " ".join(str(seg.text).strip() for seg in segmentos).strip()
+    metricas = _metricas_segmentos(segmentos)
+    if not texto_completo or _eh_credito_legenda(texto_completo):
+        return []
+    language_probability = float(getattr(info, "language_probability", 1.0) or 0.0)
+    suspeita = (
+        _texto_suspeito(texto_completo)
+        or language_probability < 0.45
+        or metricas["avg_logprob"] < -1.05
+        or metricas["compression_ratio"] > 3.0
+        or (
+            metricas["no_speech_prob"] > 0.90
+            and metricas["avg_logprob"] < -0.55
+        )
+    )
+    if suspeita:
+        log.warning(
+            "[STT/SRT] Trecho suspeito descartado: %r (avg=%.2f comp=%.2f nospeech=%.2f)",
+            texto_completo,
+            metricas["avg_logprob"],
+            metricas["compression_ratio"],
+            metricas["no_speech_prob"],
+        )
+        return []
+
+    resultado: list[dict[str, float | str]] = []
+    for segmento in segmentos:
+        texto = " ".join(str(segmento.text or "").split()).strip()
+        if not texto or _eh_credito_legenda(texto):
+            continue
+        inicio = max(0.0, min(float(getattr(segmento, "start", 0.0)), max(0.0, duracao_s - 0.08)))
+        fim = min(duracao_s, max(inicio + 0.08, float(getattr(segmento, "end", inicio))))
+        resultado.append({"start": inicio, "end": fim, "text": texto})
+    return resultado
+
+
+def precarregar_e_aquecer(modelo: str = _DEFAULT_MODEL, *, strict: bool = False) -> None:
+    """Carrega o faster-whisper e executa uma inferencia curta de aquecimento."""
+    modelo = _normalizar_nome_modelo(modelo)
+    carregar(modelo)
     try:
-        texto = transcrever(wav_teste.read_bytes(), modelo)
-        log.info("[STT] Warmup faster-whisper '%s' concluido: %r", modelo, texto)
+        amostra = np.zeros(16000, dtype=np.float32)
+        with _inference_lock:
+            segmentos, _ = _model.transcribe(
+                amostra,
+                language="pt",
+                task="transcribe",
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                suppress_blank=True,
+                without_timestamps=True,
+                word_timestamps=False,
+                vad_filter=False,
+            )
+            list(segmentos)
+        log.info("[STT] Warmup faster-whisper '%s' concluido.", modelo)
     except Exception as exc:
         log.warning("[STT] Warmup faster-whisper falhou: %s", exc)
+        if strict:
+            raise
 
 
 def transcrever(wav_bytes: bytes, modelo: str = _DEFAULT_MODEL) -> str:

@@ -1,7 +1,7 @@
 """
 Cog responsável por carregar o LLM e responder mensagens no Discord.
 
-O comando casual ativa a Neve continuamente em um canal; menções e DMs também
+O comando ligar ativa a Neve continuamente em um canal; menções e DMs também
 recebem resposta sem exigir ativação prévia.
 
 Comandos de controle:
@@ -435,52 +435,147 @@ class LLMCog(commands.Cog, name="LLM"):
         # Canais explicitamente desligados — não responde nem a menções
         self._canais_desligados: set[int] = set()
         self._llm_lock = threading.RLock()
-        kv_type = config.LLM_KV_TYPE if config.LLM_KV_TYPE in _KV_TYPES else None
-        if kv_type is None:
-            log.warning("LLM_KV_TYPE=%r não reconhecido; usando KV padrão do llama.cpp.", config.LLM_KV_TYPE)
-        else:
-            log.info("KV cache quantization ativado: type_k/type_v=%s", config.LLM_KV_TYPE)
-        log.info("Carregando modelo LLM único: %s", config.LLM_MODEL_PATH)
-        try:
-            self.llm = LlamaCppServerClient(kv_type=kv_type)
-            self.llm.start()
-        except Exception as exc:
-            failed_llm = getattr(self, "llm", None)
-            if failed_llm is not None:
-                failed_llm.close()
-            if kv_type is None:
-                raise
-            log.warning("Falha ao carregar com KV %s (%s); tentando sem KV quantizado.", config.LLM_KV_TYPE, exc)
-            self.llm = LlamaCppServerClient(kv_type=None)
-            self.llm.start()
-        log.info("Modelo LLM único carregado com sucesso.")
-        self._prewarm_thread = threading.Thread(
-            target=self._preaquecer_llm,
-            name="llm-prewarm",
-            daemon=True,
-        )
-        self._prewarm_thread.start()
+        self._modelo_state_lock = threading.Lock()
+        self._modelo_estado = "desligado"
+        self._modelo_erro: str | None = None
+        self.llm: LlamaCppServerClient | None = None
+        log.info("Modelo LLM configurado e aguardando ativacao pela interface.")
 
     def cog_unload(self) -> None:
-        self.llm.close()
+        self.desligar_modelo()
 
-    def _preaquecer_llm(self) -> None:
-        """Aquece cache/graphs do prompt de voz sem bloquear o bot."""
+    def _definir_estado_modelo(self, estado: str, erro: str | None = None) -> None:
+        with self._modelo_state_lock:
+            self._modelo_estado = estado
+            self._modelo_erro = erro
+
+    def estado_modelo(self) -> dict[str, object]:
+        with self._modelo_state_lock:
+            estado = self._modelo_estado
+            erro = self._modelo_erro
+        cliente = self.llm
+        processo = getattr(cliente, "process", None)
+        if estado == "ativo" and processo is not None and processo.poll() is not None:
+            erro = f"llama-server encerrou com codigo {processo.returncode}."
+            self._definir_estado_modelo("erro", erro)
+            estado = "erro"
+        return {
+            "ok": True,
+            "estado": estado,
+            "ativo": estado == "ativo",
+            "carregando": estado in {"carregando", "desligando"},
+            "erro": erro,
+            "modelo": Path(config.LLM_MODEL_PATH).name,
+        }
+
+    def modelo_ativo(self) -> bool:
+        with self._modelo_state_lock:
+            return self._modelo_estado == "ativo" and self.llm is not None
+
+    def _cliente_llm_ativo(self) -> LlamaCppServerClient:
+        with self._modelo_state_lock:
+            cliente = self.llm
+            ativo = self._modelo_estado == "ativo"
+        if not ativo or cliente is None:
+            raise RuntimeError("O modelo LLM esta desligado.")
+        return cliente
+
+    def ligar_modelo(self) -> dict[str, object]:
+        """Inicia o llama-server e aquece a LLM somente sob demanda."""
+        with self._llm_lock:
+            if self.modelo_ativo():
+                return self.estado_modelo()
+
+            cliente_anterior = self.llm
+            self.llm = None
+            if cliente_anterior is not None:
+                cliente_anterior.close()
+            self._definir_estado_modelo("carregando")
+            kv_type = config.LLM_KV_TYPE if config.LLM_KV_TYPE in _KV_TYPES else None
+            cliente: LlamaCppServerClient | None = None
+            try:
+                if kv_type is None and config.LLM_KV_TYPE:
+                    log.warning(
+                        "LLM_KV_TYPE=%r nao reconhecido; usando KV padrao do llama.cpp.",
+                        config.LLM_KV_TYPE,
+                    )
+                elif kv_type is not None:
+                    log.info("KV cache quantization ativado: type_k/type_v=%s", kv_type)
+
+                log.info("Carregando modelo LLM sob demanda: %s", config.LLM_MODEL_PATH)
+                cliente = LlamaCppServerClient(kv_type=kv_type)
+                try:
+                    cliente.start()
+                except Exception as exc:
+                    cliente.close()
+                    if kv_type is None:
+                        raise
+                    log.warning(
+                        "Falha ao carregar com KV %s (%s); tentando sem KV quantizado.",
+                        kv_type,
+                        exc,
+                    )
+                    cliente = LlamaCppServerClient(kv_type=None)
+                    cliente.start()
+
+                self.llm = cliente
+                self._preaquecer_llm(cliente)
+                self._preaquecer_pipeline_voz()
+                self._definir_estado_modelo("ativo")
+                log.info("LLM, Whisper e TTS carregados e prontos para uso.")
+                return self.estado_modelo()
+            except Exception as exc:
+                if cliente is not None:
+                    cliente.close()
+                self.llm = None
+                erro = str(exc) or type(exc).__name__
+                self._definir_estado_modelo("erro", erro)
+                log.exception("Falha ao ligar o modelo LLM.")
+                raise
+
+    def desligar_modelo(self) -> dict[str, object]:
+        """Espera a geracao atual terminar e libera o processo da LLM."""
+        self._definir_estado_modelo("desligando")
+        with self._llm_lock:
+            cliente = self.llm
+            self.llm = None
+            try:
+                if cliente is not None:
+                    cliente.close()
+            finally:
+                self._definir_estado_modelo("desligado")
+        log.info("Modelo LLM desligado.")
+        return self.estado_modelo()
+
+    def _preaquecer_llm(self, cliente: LlamaCppServerClient) -> None:
+        """Aquece cache e graphs antes de liberar a LLM para uso."""
         try:
-            time.sleep(0.5)
-            with self._llm_lock:
-                self.llm.create_chat_completion(
-                    messages=[
-                        {"role": "system", "content": self._construir_prompt_lou_voz(0)},
-                        {"role": "user", "content": "oi"},
-                    ],
-                    max_tokens=1,
-                    stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
-                    **self._sampling_payload(temperature=0.1),
-                )
+            cliente.create_chat_completion(
+                messages=[
+                    {"role": "system", "content": self._construir_prompt_lou_voz(0)},
+                    {"role": "user", "content": "oi"},
+                ],
+                max_tokens=1,
+                stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
+                **self._sampling_payload(temperature=0.1),
+            )
             log.info("Warmup do LLM de voz concluído.")
         except Exception as exc:
             log.warning("Warmup do LLM de voz falhou: %s", exc)
+
+    @staticmethod
+    def _preaquecer_pipeline_voz() -> None:
+        """Carrega e aquece STT e TTS antes de liberar o modelo na interface."""
+        from cogs.voice_cog import voz_estado
+        from services import stt_whisper, tts_chatterbox
+
+        voz_cfg = dict(voz_estado)
+        whisper_modelo = str(voz_cfg.get("whisper_modelo") or "large-v3-turbo")
+        log.info("Pre-aquecendo Whisper '%s'...", whisper_modelo)
+        stt_whisper.precarregar_e_aquecer(whisper_modelo, strict=True)
+        log.info("Pre-aquecendo Chatterbox PT-BR...")
+        tts_chatterbox.precarregar_e_aquecer(voz_cfg, full_warmup=True)
+        log.info("Pipeline de voz pre-aquecido.")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Helper de mensagens configuráveis
@@ -577,7 +672,7 @@ class LLMCog(commands.Cog, name="LLM"):
         )
         try:
             with self._llm_lock:
-                output = self.llm.create_chat_completion(
+                output = self._cliente_llm_ativo().create_chat_completion(
                     messages=[
                         {"role": "system", "content": verif_sys},
                         {"role": "user", "content": resposta},
@@ -784,7 +879,7 @@ class LLMCog(commands.Cog, name="LLM"):
         ]
         limite = max_tokens or config.LLM_MAX_TOKENS
         with self._llm_lock:
-            output = self.llm.create_chat_completion(
+            output = self._cliente_llm_ativo().create_chat_completion(
                 messages=messages,
                 max_tokens=limite,
                 stop=stop,
@@ -816,7 +911,7 @@ class LLMCog(commands.Cog, name="LLM"):
                 *historico,
             ]
             with self._llm_lock:
-                output = self.llm.create_chat_completion(
+                output = self._cliente_llm_ativo().create_chat_completion(
                     messages=retry_messages,
                     max_tokens=limite,
                     stop=stop,
@@ -869,7 +964,7 @@ class LLMCog(commands.Cog, name="LLM"):
         itens_lidos = 0
         itens_emitidos = 0
         with self._llm_lock:
-            stream = self.llm.stream_chat_completion(
+            stream = self._cliente_llm_ativo().stream_chat_completion(
                 messages=messages,
                 max_tokens=max_tokens or config.LLM_MAX_TOKENS,
                 stop=stop,
@@ -920,7 +1015,7 @@ class LLMCog(commands.Cog, name="LLM"):
             "Resuma cada assunto relevante em frases completas:"
         )
         with self._llm_lock:
-            output = self.llm.create_chat_completion(
+            output = self._cliente_llm_ativo().create_chat_completion(
                 messages=[
                     {"role": "system", "content": prompt_sys},
                     {"role": "user", "content": prompt_user},
@@ -1069,6 +1164,11 @@ class LLMCog(commands.Cog, name="LLM"):
         if not (mencionado or dm or canal_id in self.canais_ativos):
             return
 
+        if not self.modelo_ativo():
+            if mencionado or dm:
+                await message.reply("O modelo esta desligado.")
+            return
+
         # Garante fila para o canal
         if canal_id not in self._filas:
             self._filas[canal_id] = asyncio.Queue()
@@ -1087,19 +1187,19 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @commands.command(name="lou")
     async def cmd_lou(self, ctx: commands.Context) -> None:
-        """Ativa o modo casual da Neve neste canal."""
+        """Ativa a Neve continuamente neste canal."""
         if ctx.channel.id in self.canais_ativos:
             await ctx.send(self._m("lou", "ja_ativo"))
             return
         self._canais_desligados.discard(ctx.channel.id)
         self.canais_ativos.add(ctx.channel.id)
         self._historico.pop(ctx.channel.id, None)
-        log.info("Modo casual ativado em #%s", ctx.channel)
+        log.info("Neve ativada em #%s", ctx.channel)
         await ctx.send(self._m("lou", "ativado"))
 
     @commands.command(name="desligar")
     async def desligar(self, ctx: commands.Context) -> None:
-        """Desativa o bot neste canal."""
+        """Desativa a Neve no canal."""
         canal_id = ctx.channel.id
         if canal_id in self._canais_desligados:
             await ctx.send(self._m("desligar", "ja_desligado"))
@@ -1119,7 +1219,7 @@ class LLMCog(commands.Cog, name="LLM"):
 
     @commands.command(name="limpar")
     async def limpar(self, ctx: commands.Context) -> None:
-        """Apaga o histórico de conversa deste canal."""
+        """Apaga o histórico de conversa do canal."""
         self._historico.pop(ctx.channel.id, None)
         await ctx.send(self._m("limpar", "apagado"))
 

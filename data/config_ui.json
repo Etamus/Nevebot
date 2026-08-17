@@ -29,23 +29,23 @@
   },
   "commands": {
     "lou": {
-      "name": "casual",
-      "descricao": "Ativa o modo casual da Neve neste canal.",
+      "name": "ligar",
+      "descricao": "Ativa a Neve no canal.",
       "messages": {
-        "ja_ativo": "Já estou no modo casual.",
-        "ativado": "Modo casual ativado."
+        "ja_ativo": "Já estou ligada neste canal.",
+        "ativado": "Neve ligada neste canal."
       }
     },
     "limpar": {
       "name": "limpar",
-      "descricao": "Apaga o histórico de conversa deste canal.",
+      "descricao": "Apaga o histórico de conversa do canal.",
       "messages": {
         "apagado": "Histórico apagado."
       }
     },
     "desligar": {
       "name": "desligar",
-      "descricao": "Desativa o bot neste canal.",
+      "descricao": "Desativa a Neve no canal.",
       "messages": {
         "ja_desligado": "Já estou desligada neste canal.",
         "desligado": "Desligada neste canal."

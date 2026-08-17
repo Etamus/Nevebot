@@ -6,7 +6,6 @@ import asyncio
 import io
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
@@ -25,6 +24,7 @@ _VOZ_DEFAULT: dict = {
     "tts_model": "chatterbox-ptbr-v3",
     "voz_language": "pt-BR",
     "voz_referencia": "data/voz_referencia.wav",
+    "voz_referencia_nome": "voz_referencia.wav",
     "voz_exaggeration": 0.5,
     "voz_cfg_weight": 0.5,
     "voz_temperature": 0.8,
@@ -194,32 +194,6 @@ class VoiceCog(commands.Cog, name="Voice"):
 
     async def cog_load(self) -> None:
         log.info("[VOZ] VoiceCog carregado.")
-        asyncio.create_task(self._preaquecer_pipeline_voz(), name="voice-pipeline-warmup")
-
-    async def _preaquecer_pipeline_voz(self) -> None:
-        await self._preaquecer_tts()
-        await self._preaquecer_stt()
-
-    async def _preaquecer_tts(self) -> None:
-        """Carrega o Chatterbox e faz uma geração curta para aquecer CUDA/cache."""
-        try:
-            from services import tts_chatterbox
-            await asyncio.to_thread(tts_chatterbox.precarregar_e_aquecer, voz_estado)
-        except Exception as exc:
-            log.warning("[VOZ] Falha ao pré-aquecer Chatterbox: %s", exc)
-
-    async def _preaquecer_stt(self) -> None:
-        """Carrega e aquece o faster-whisper com o modelo configurado."""
-        try:
-            from services import stt_whisper
-            modelo = voz_estado.get("whisper_modelo", "large-v3-turbo")
-            delay = max(0.0, float(os.getenv("WHISPER_PREWARM_DELAY_S", "0.0")))
-            if delay:
-                log.info("[VOZ] Whisper '%s' será pré-aquecido em %.1fs.", modelo, delay)
-                await asyncio.sleep(delay)
-            await asyncio.to_thread(stt_whisper.precarregar_e_aquecer, modelo)
-        except Exception as exc:
-            log.warning("[VOZ] Falha ao pré-aquecer Whisper: %s", exc)
 
     async def cog_unload(self) -> None:
         for guild in self.bot.guilds:

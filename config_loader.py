@@ -42,23 +42,23 @@ _DEFAULT: dict = {
     },
     "commands": {
         "lou": {
-            "name": "casual",
-            "descricao": "Ativa o modo casual da Neve neste canal.",
+            "name": "ligar",
+            "descricao": "Ativa a Neve no canal.",
             "messages": {
-                "ja_ativo": "Já tô no modo casual aqui.",
-                "ativado": "Modo casual ativado."
+                "ja_ativo": "Já estou ligada neste canal.",
+                "ativado": "Neve ligada neste canal."
             }
         },
         "limpar": {
             "name": "limpar",
-            "descricao": "Apaga o histórico de conversa deste canal.",
+            "descricao": "Apaga o histórico de conversa do canal.",
             "messages": {
                 "apagado": "Histórico apagado."
             }
         },
         "desligar": {
             "name": "desligar",
-            "descricao": "Desativa o bot neste canal.",
+            "descricao": "Desativa a Neve no canal.",
             "messages": {
                 "ja_desligado": "Já estou desligada neste canal.",
                 "desligado": "Desligada neste canal."
@@ -181,9 +181,10 @@ def _merge_defaults(loaded: dict, default: dict) -> dict:
     if "commands" in loaded:
         for cmd_key, cmd_val in loaded["commands"].items():
             if cmd_key in result["commands"]:
-                result["commands"][cmd_key]["name"] = cmd_val.get(
-                    "name", result["commands"][cmd_key]["name"]
-                )
+                command_name = cmd_val.get("name", result["commands"][cmd_key]["name"])
+                if cmd_key == "lou" and command_name == "casual":
+                    command_name = "ligar"
+                result["commands"][cmd_key]["name"] = command_name
                 msgs = result["commands"][cmd_key]["messages"]
                 msgs.update(cmd_val.get("messages", {}))
     return result
