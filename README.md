@@ -1,4 +1,4 @@
-<img width="1400" height="350" alt="Nevebot Control Center" src="https://github.com/user-attachments/assets/a16f898b-e682-485e-9b89-8ca5cf2b09a5" />
+<img width="1400" height="350" alt="teste" src="https://github.com/user-attachments/assets/5ae39c68-698f-4f8a-a1d8-d645a94acbc1" />
 
 ---
 
