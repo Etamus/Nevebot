@@ -2362,8 +2362,8 @@ function renderizarServidores() {
     </div>
     <div class="server-manager-actions">
       <button class="voz-save-btn" type="button" onclick="adicionarServidor()">${icone('plus')}Adicionar</button>
-      <button class="voz-save-btn voz-danger-btn" id="servidor-btn-remover" type="button"
-              onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>${icone('trash')}Remover</button>
+      <button class="voz-save-btn voz-danger-btn button-text" id="servidor-btn-remover" type="button"
+              onclick="removerServidorSelecionado()" ${options ? '' : 'disabled'}>Remover</button>
     </div>
   </div>`;
 }
@@ -3145,7 +3145,7 @@ function removerGuildDaInterface(guildId) {
   });
 }
 
-function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = false }) {
+function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = false, somenteTexto = false }) {
   return new Promise(resolve => {
     const root = document.getElementById('dialog-root');
     const fechar = valor => {
@@ -3165,7 +3165,7 @@ function confirmarAcao({ titulo, mensagem, confirmar = 'Confirmar', perigo = fal
           </div>
           <div class="dialog-actions">
             <button class="button button-quiet" type="button" data-dialog-cancel>Cancelar</button>
-            <button class="button ${perigo ? 'button-danger' : 'button-primary'}" type="button" data-dialog-confirm>${esc(confirmar)}</button>
+            <button class="button ${perigo ? 'button-danger' : 'button-primary'} ${somenteTexto ? 'button-text' : ''}" type="button" data-dialog-confirm>${esc(confirmar)}</button>
           </div>
         </section>
       </div>`;
@@ -3187,8 +3187,9 @@ async function removerServidorSelecionado() {
   const confirmado = await confirmarAcao({
     titulo: `Remover ${nomeServidor}?`,
     mensagem: 'A Neve sairá deste servidor e ele desaparecerá da interface. Para voltar, será necessário convidar o bot novamente.',
-    confirmar: 'Remover servidor',
+    confirmar: 'Remover',
     perigo: true,
+    somenteTexto: true,
   });
   if (!confirmado) return;
   const btn = document.getElementById('servidor-btn-remover');
@@ -4105,6 +4106,7 @@ async function desligar() {
     mensagem: 'O processo local, console e janela serão encerrados.',
     confirmar: 'Desligar',
     perigo: true,
+    somenteTexto: true,
   });
   if (!confirmado) return;
   try {

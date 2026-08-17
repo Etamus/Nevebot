@@ -368,6 +368,23 @@ button:disabled { cursor: not-allowed !important; opacity: .45 !important; }
 }
 .button-danger:hover,
 .voz-save-btn.voz-danger-btn:hover { background: rgba(224, 93, 100, .18) !important; border-color: var(--danger) !important; }
+.voz-save-btn.voz-danger-btn.button-text,
+.button.button-danger.button-text,
+.voz-save-btn.voz-danger-btn.button-text:hover,
+.button.button-danger.button-text:hover {
+  padding-inline: var(--space-2) !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.voz-save-btn.voz-danger-btn.button-text,
+.button.button-danger.button-text {
+  color: #c94d55 !important;
+}
+.voz-save-btn.voz-danger-btn.button-text:hover,
+.button.button-danger.button-text:hover {
+  color: #f29aa0 !important;
+}
 .button-quiet { border-color: transparent !important; background: transparent !important; color: var(--text-secondary) !important; }
 .button-quiet:hover { background: var(--surface-hover) !important; }
 .icon-button {
