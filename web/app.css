@@ -255,7 +255,7 @@ button { color: inherit; }
   padding: var(--space-5) var(--space-5) 64px;
 }
 
-.app-page { display: block; min-width: 0; }
+.app-page { display: block; width: 100%; min-width: 0; margin-inline: auto; }
 .page-stack { display: grid; gap: var(--space-6); }
 .overview-toolbar { display: flex; justify-content: flex-end; }
 
@@ -644,10 +644,6 @@ select.custom-native-select {
 .app-page[data-page="discord"] .product-section {
   border-top: 0 !important;
   border-bottom: 0 !important;
-}
-.app-page[data-page="discord"] {
-  width: 100%;
-  margin-inline: auto;
 }
 .channel-transcription-panel {
   width: 100%;
@@ -1162,7 +1158,7 @@ select.custom-native-select {
 }
 
 @media (min-width: 701px) {
-  html[data-window-state="normal"] .app-page[data-page="discord"] {
+  html[data-window-state="normal"] .app-page {
     width: min(880px, calc(100% - 64px));
   }
 }
