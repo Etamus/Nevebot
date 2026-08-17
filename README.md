@@ -246,6 +246,8 @@ Nevebot/
 
 Prompts, históricos em memória, transcrição, geração de texto, clonagem e síntese de voz são processados localmente. **Escutar canal** mantém apenas uma fila curta em memória e não grava. **Transcrever canal** envia o áudio recebido somente ao Whisper local e grava o SRT em `transcricoes/`; nenhum trecho desse modo é encaminhado à LLM. O Discord recebe as mensagens e o áudio enviados aos seus canais, conforme o uso normal da plataforma. O Nevebot não exige serviços comerciais de IA.
 
-## Licença
+## Informações Legais
 
-Distribuído sob a licença MIT. Consulte `LICENSE.txt`.
+Copyright (c) 2026 Mateus Lopes. Todos os direitos reservados.
+
+Qualquer cópia, redistribuição ou modificação deve preservar a atribuição ao autor original conforme LICENSE.txt.
