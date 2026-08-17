@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-window-state="normal">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -1474,11 +1474,6 @@
       border-radius: 20px;
       transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
     }
-    .cmd-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(255,255,255,.30);
-      box-shadow: 0 18px 46px rgba(0,0,0,.30), 0 0 34px rgba(255,255,255,.06);
-    }
     .cmd-header {
       cursor: default;
       min-height: 76px;
@@ -1804,19 +1799,6 @@ function atualizarVisaoGeral() {
 
 function aplicarModeloRuntimeNaVisaoGeral() {
   const estado = _modeloRuntime?.estado || 'desligado';
-  const rotulos = {
-    ativo: 'Ativo',
-    carregando: 'Carregando',
-    desligando: 'Desligando',
-    desligado: 'Desligado',
-    erro: 'Erro',
-  };
-  const status = document.getElementById('overview-llm-state');
-  if (status) {
-    status.textContent = rotulos[estado] || 'Desligado';
-    status.className = `status-state ${estado === 'ativo' ? 'success' : estado === 'erro' ? 'error' : 'warning'}`;
-    status.title = _modeloRuntime?.erro || '';
-  }
 
   const button = document.getElementById('model-runtime-toggle');
   if (button) {
@@ -1919,12 +1901,11 @@ async function carregar() {
   }
 }
 
-function linhaStatus(nome, valor, estado, classe = '') {
+function linhaStatus(nome, valor) {
   return `
     <div class="status-row">
       <span class="status-name">${esc(nome)}</span>
       <span class="status-value" title="${esc(valor)}">${esc(valor)}</span>
-      <span class="status-state ${classe}">${esc(estado)}</span>
     </div>`;
 }
 
@@ -1934,42 +1915,20 @@ function renderizarVisaoGeral(cfg) {
   const discordValor = _botInfo?.name
     ? `${_guilds.length} servidor${_guilds.length === 1 ? '' : 'es'}`
     : 'Conta do bot não disponível';
-  const discordEstado = _botInfo?.id ? 'Conectado' : 'Indisponível';
   const vozValor = guildVoz?.canal_voz
     ? `${guildVoz.name} · ${guildVoz.canal_voz}`
     : guildVoz?.conectando ? guildVoz.name : 'Nenhum canal conectado';
-  const vozEstado = guildVoz?.canal_id || guildVoz?.em_voz
-    ? 'Conectado'
-    : guildVoz?.conectando ? 'Conectando' : 'Desconectado';
   const llmConfigurada = Boolean(llm.model_path);
   const runtimeEstado = _modeloRuntime?.estado || 'desligado';
-  const runtimeRotulos = {
-    ativo: 'Ativo',
-    carregando: 'Carregando',
-    desligando: 'Desligando',
-    desligado: 'Desligado',
-    erro: 'Erro',
-  };
-  const llmEstado = llmConfigurada ? (runtimeRotulos[runtimeEstado] || 'Desligado') : 'Não informado';
-  const llmClasse = runtimeEstado === 'ativo'
-    ? 'success'
-    : runtimeEstado === 'erro' || !llmConfigurada ? 'error' : 'warning';
-  const whisperConfigurado = Boolean(_vozConfig.whisper_modelo);
-  const ttsConfigurado = Boolean(_vozConfig.tts_model);
   const modelo = nomeArquivo(llm.model_path) || 'Modelo não informado';
   const whisper = _vozConfig.whisper_modelo || 'Modelo não informado';
   const tts = _vozConfig.tts_model === 'chatterbox-ptbr-v3'
     ? 'Chatterbox Multilingual V3'
     : (_vozConfig.tts_model || 'Modelo não informado');
   const referencia = _vozConfig.voz_referencia_nome || nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
-  const micRow = linhaStatus('Microfone', 'Verificando dispositivo...', 'Carregando', 'warning')
-    .replace('class="status-value"', 'class="status-value" id="overview-mic-device"')
-    .replace('class="status-state warning"', 'class="status-state warning" id="overview-mic-state"');
-  const llmRow = linhaStatus('LLM', modelo, llmEstado, llmClasse)
-    .replace(
-      `class="status-state ${llmClasse}"`,
-      `class="status-state ${llmClasse}" id="overview-llm-state"`,
-    );
+  const micRow = linhaStatus('Microfone', 'Verificando dispositivo...')
+    .replace('class="status-value"', 'class="status-value" id="overview-mic-device"');
+  const llmRow = linhaStatus('LLM', modelo);
 
   return `
     <div class="page-stack">
@@ -1987,11 +1946,11 @@ function renderizarVisaoGeral(cfg) {
         <section class="overview-panel">
           <header class="overview-panel-header"><h2>Estado do sistema</h2></header>
           <div class="status-list">
-            ${linhaStatus('Discord', discordValor, discordEstado, _botInfo?.id ? 'success' : 'warning')}
-            ${linhaStatus('Canal de voz', vozValor, vozEstado, guildVoz?.canal_id || guildVoz?.em_voz ? 'success' : 'warning')}
+            ${linhaStatus('Discord', discordValor)}
+            ${linhaStatus('Canal de voz', vozValor)}
             ${llmRow}
-            ${linhaStatus('Reconhecimento', whisper, whisperConfigurado ? 'Configurado' : 'Não informado', whisperConfigurado ? 'success' : 'warning')}
-            ${linhaStatus('Síntese', tts, ttsConfigurado ? 'Configurado' : 'Não informado', ttsConfigurado ? 'success' : 'warning')}
+            ${linhaStatus('Reconhecimento', whisper)}
+            ${linhaStatus('Síntese', tts)}
             ${micRow}
           </div>
         </section>
@@ -2081,39 +2040,16 @@ function inicializarDisclosuresAnimados(root = document) {
 
 async function atualizarStatusMicrofone() {
   let nome = 'Dispositivo padrão';
-  let estado = 'Será solicitado ao usar';
-  let classe = 'warning';
   try {
     if (!navigator.mediaDevices?.enumerateDevices) throw new Error('API de mídia indisponível');
     const dispositivos = await navigator.mediaDevices.enumerateDevices();
     const entrada = dispositivos.find(item => item.kind === 'audioinput');
     if (entrada?.label) nome = entrada.label;
-    if (navigator.permissions?.query) {
-      try {
-        const permissao = await navigator.permissions.query({ name: 'microphone' });
-        if (permissao.state === 'granted') {
-          estado = 'Permitido';
-          classe = 'success';
-        } else if (permissao.state === 'denied') {
-          estado = 'Bloqueado';
-          classe = 'error';
-        }
-      } catch (_) {}
-    }
   } catch (_) {
     nome = 'Microfone indisponível';
-    estado = 'Indisponível';
-    classe = 'error';
   }
   const dispositivo = document.getElementById('overview-mic-device');
-  const status = document.getElementById('overview-mic-state');
-  const vozDispositivo = document.getElementById('voice-mic-device');
   if (dispositivo) dispositivo.textContent = nome;
-  if (vozDispositivo) vozDispositivo.textContent = nome;
-  if (status) {
-    status.textContent = estado;
-    status.className = `status-state ${classe}`;
-  }
 }
 
 // ── Renderiza o formulário ──────────────────────────────────────────────────
@@ -2121,8 +2057,6 @@ function renderizar(cfg) {
   const el = document.getElementById('content');
   document.querySelectorAll('.custom-select-menu-portal').forEach(menu => menu.remove());
   el.className = '';
-  const whisper = _vozConfig.whisper_modelo || 'Não informado';
-  const idioma = _vozConfig.voz_language || 'pt-BR';
   const referencia = _vozConfig.voz_referencia_nome || nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
   el.innerHTML = `
     <input id="inp-prefix" type="hidden" value="${esc(cfg.prefix)}" />
@@ -2138,15 +2072,7 @@ function renderizar(cfg) {
     <section class="app-page" data-page="voice" hidden>
       <div class="page-stack">
         <section class="product-section">
-          <header class="section-header"><div><h2>Entrada e reconhecimento</h2><p>Dispositivo usado pela conversa e modelo local de transcrição.</p></div></header>
-          <div class="voice-runtime-grid">
-            <div class="runtime-item"><span>Microfone</span><strong id="voice-mic-device">Verificando dispositivo...</strong></div>
-            <div class="runtime-item"><span>Reconhecimento</span><strong>${esc(whisper)}</strong></div>
-            <div class="runtime-item"><span>Idioma</span><strong>${esc(idioma)}</strong></div>
-          </div>
-        </section>
-        <section class="product-section">
-          <header class="section-header"><div><h2>Síntese de voz</h2><p>Clonagem baseada em <strong id="voice-reference-heading">${esc(referencia)}</strong>.</p></div></header>
+          <header class="section-header"><div><h2>Síntese de voz</h2><p>Clonagem baseada no arquivo de referência.</p></div></header>
           <div class="voice-reference-upload">
             <div class="voice-reference-copy">
               <span class="vs-label">Arquivo atual</span>
@@ -3518,9 +3444,7 @@ async function enviarVozReferencia(arquivo) {
       voz_referencia_nome: nomeDestino,
     };
     const nomeEl = document.getElementById('voice-reference-name');
-    const headingEl = document.getElementById('voice-reference-heading');
     if (nomeEl) nomeEl.textContent = nomeDestino;
-    if (headingEl) headingEl.textContent = nomeDestino;
     if (status) status.textContent = '';
     atualizarVisaoGeral();
     toast(

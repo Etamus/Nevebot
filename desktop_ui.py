@@ -16,6 +16,9 @@ log = logging.getLogger("desktop_ui")
 _BASE_DIR = Path(__file__).parent
 _window = None
 
+_WINDOW_WIDTH = 1280
+_WINDOW_HEIGHT = 820
+
 
 def _configurar_identidade_windows() -> None:
     """Define uma identidade própria para a janela na barra de tarefas."""
@@ -29,6 +32,27 @@ def _configurar_identidade_windows() -> None:
         )
     except Exception:
         log.warning("Nao foi possivel definir a identidade da janela do Nevebot.")
+
+
+def _posicao_centralizada(width: int, height: int) -> tuple[int | None, int | None]:
+    """Calcula o centro da area util do monitor principal no Windows."""
+    if sys.platform != "win32":
+        return None, None
+    try:
+        from ctypes import byref, windll
+        from ctypes.wintypes import RECT
+
+        work_area = RECT()
+        if not windll.user32.SystemParametersInfoW(0x0030, 0, byref(work_area), 0):
+            raise OSError("SystemParametersInfoW falhou")
+        available_width = work_area.right - work_area.left
+        available_height = work_area.bottom - work_area.top
+        x = work_area.left + max(0, (available_width - width) // 2)
+        y = work_area.top + max(0, (available_height - height) // 2)
+        return int(x), int(y)
+    except Exception:
+        log.warning("Nao foi possivel centralizar a janela automaticamente.")
+        return None, None
 
 
 def _preparar_icone_janela() -> str | None:
@@ -194,17 +218,31 @@ def iniciar_interface(url: str, bot_encerrado: threading.Event) -> bool:
     try:
         _configurar_identidade_windows()
         _habilitar_microfone_local()
+        window_x, window_y = _posicao_centralizada(_WINDOW_WIDTH, _WINDOW_HEIGHT)
         _window = webview.create_window(
             "Nevebot",
             url=url,
             js_api=_DesktopApi(),
-            width=1280,
-            height=820,
+            width=_WINDOW_WIDTH,
+            height=_WINDOW_HEIGHT,
+            x=window_x,
+            y=window_y,
             min_size=(900, 620),
-            maximized=True,
-            background_color="#0a0a0a",
+            maximized=False,
+            background_color="#000000",
             text_select=True,
         )
+
+        def definir_modo_janela(modo: str) -> None:
+            try:
+                _window.evaluate_js(
+                    f'document.documentElement.dataset.windowState = "{modo}";'
+                )
+            except Exception:
+                log.debug("Nao foi possivel atualizar o estado visual da janela.")
+
+        _window.events.maximized += lambda: definir_modo_janela("maximized")
+        _window.events.restored += lambda: definir_modo_janela("normal")
 
         def fechar_quando_bot_encerrar() -> None:
             bot_encerrado.wait()
