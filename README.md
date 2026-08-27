@@ -28,7 +28,7 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Reproduz PCM diretamente no Discord, sem depender de FFmpeg.
 - Recebe e reproduz localmente as pessoas do canal de voz, com seleção de saída e volume, sem gravar ou transcrever.
 - Gera legendas SRT em tempo quase real com timestamps e identificação por pessoa a partir do canal do Discord, em um modo separado da LLM.
-- Mantém os modelos descarregados na inicialização; **Iniciar modelo** carrega e pré-aquece LLM, Whisper e TTS juntos antes de liberar a conversa.
+- Pré-carrega Whisper e TTS em paralelo e em segundo plano durante a abertura; **Iniciar modelo** carrega somente a LLM quando ela for necessária.
 
 ### Interface
 
@@ -79,6 +79,7 @@ O `instalar.bat`:
 - instala WebView2 via `winget` quando possível;
 - instala PyTorch com CUDA `cu128` em máquinas NVIDIA ou usa o pacote para CPU;
 - instala as dependências fixadas em `requirements.txt`;
+- instala e valida separadamente o runtime do Chatterbox, com nova tentativa sem cache quando necessário;
 - baixa a versão oficial mais recente do `llama.cpp` para `llama.cpp/`;
 - baixa antecipadamente o modelo configurado do `faster-whisper` para `models/whisper/`;
 - baixa os pesos do Chatterbox PT-BR para `models/chatterbox/`;
@@ -114,7 +115,7 @@ O arquivo precisa ter pelo menos um segundo. Para uma clonagem mais estável, us
 iniciar.bat
 ```
 
-O Nevebot abre sem carregar os modelos de inferência. Use **Iniciar modelo** na página **Visão geral** para iniciar o `llama-server` e concluir o aquecimento da LLM, do `large-v3-turbo` e do Chatterbox; o botão só indica que está pronto quando todo o pipeline de conversa terminou. O mesmo botão permite liberar a LLM depois.
+O `iniciar.bat` valida rapidamente o runtime Python antes de abrir a aplicação. Se algum pacote obrigatório estiver ausente ou desalinhado, ele executa um reparo automático e só inicia após uma nova validação. Em seguida, começa a carregar o `large-v3-turbo` e o Chatterbox em paralelo e em segundo plano enquanto abre a interface. O Whisper usa diretamente o snapshot local preparado pelo instalador, sem consulta de rede em toda inicialização. Use **Iniciar modelo** na página **Visão geral** para carregar apenas o `llama-server`; o mesmo botão permite liberar a LLM depois. Se uma função de voz for usada antes de o aquecimento terminar, ela aguarda com segurança o carregamento em andamento.
 
 ## Configuração do Discord
 
@@ -192,7 +193,8 @@ Nevebot/
 |   |-- baixar_llama_cpp.ps1
 |   |-- preparar_chatterbox_ptbr.py
 |   |-- preparar_whisper.py
-|   `-- validar_instalacao.py
+|   |-- validar_instalacao.py
+|   `-- validar_runtime.py      # checagem rapida e reparo da inicializacao
 |-- data/
 |   |-- config_ui.json
 |   |-- voz_config.json

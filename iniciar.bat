@@ -4,7 +4,7 @@ setlocal EnableExtensions
 cd /d "%~dp0"
 
 echo ================================================
-echo  Nevebot - inicializador
+echo  Nevebot
 echo ================================================
 echo.
 
@@ -14,6 +14,40 @@ if not exist "venv\Scripts\python.exe" (
     echo.
     pause
     exit /b 1
+)
+
+set "PY=%CD%\venv\Scripts\python.exe"
+mkdir logs >nul 2>&1
+
+if not exist "scripts\validar_runtime.py" (
+    echo [ERRO] Validador do runtime nao encontrado.
+    echo Execute instalar.bat para completar os arquivos do projeto.
+    echo.
+    pause
+    exit /b 1
+)
+
+"%PY%" "scripts\validar_runtime.py" >"logs\runtime-check.log" 2>&1
+if errorlevel 1 (
+    echo O ambiente Python esta incompleto. Iniciando reparo automatico...
+    type "logs\runtime-check.log"
+    echo.
+    call "%~dp0instalar.bat" --repair-runtime
+    if errorlevel 1 (
+        echo [ERRO] O reparo automatico do ambiente falhou.
+        echo Confira logs\runtime-check.log e execute instalar.bat se necessario.
+        echo.
+        pause
+        exit /b 1
+    )
+    "%PY%" "scripts\validar_runtime.py" >"logs\runtime-check.log" 2>&1
+    if errorlevel 1 (
+        echo [ERRO] O runtime ainda esta incompleto apos o reparo.
+        type "logs\runtime-check.log"
+        echo.
+        pause
+        exit /b 1
+    )
 )
 
 if not exist "llama.cpp\llama-server.exe" (
@@ -28,7 +62,6 @@ if not exist "llama.cpp\llama-server.exe" (
     )
 )
 
-mkdir logs >nul 2>&1
 if exist "logs\ui_shutdown.flag" del /q "logs\ui_shutdown.flag" >nul 2>&1
 
 echo Encerrando instancias antigas do Nevebot...
@@ -41,10 +74,11 @@ set "PYTHONUTF8=1"
 set "LLAMA_CPP_DIR=%CD%\llama.cpp"
 set "LLAMA_CPP_SERVER_EXE=%CD%\llama.cpp\llama-server.exe"
 set "CUDA_PATH="
+set "NEVEBOT_PREWARM_VOICE=1"
 
 echo Iniciando Nevebot... use Ctrl+C para desligar.
 echo.
-"venv\Scripts\python.exe" -u nevebot.py
+"%PY%" -u nevebot.py
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if exist "logs\ui_shutdown.flag" (

@@ -25,7 +25,7 @@
   --radius-md: 6px;
   --radius-lg: 8px;
   --control-height: 40px;
-  --sidebar-width: 250px;
+  --sidebar-width: 260px;
   --topbar-height: 68px;
   --focus-ring: 0 0 0 3px rgba(244, 244, 245, .13);
   color-scheme: dark;
@@ -147,7 +147,7 @@ button { color: inherit; }
   gap: var(--space-2);
   margin-top: auto;
   padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: 0;
 }
 
 .sidebar-health {
@@ -204,6 +204,22 @@ button { color: inherit; }
 
 .page-heading { min-width: 0; }
 .workspace-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+.header-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.header-icon-button:hover { border-color: var(--border-strong); background: var(--surface-hover); color: var(--text); }
+.header-icon-button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .page-heading h1 {
   margin: 0;
   font-size: 1.14rem;
@@ -491,7 +507,7 @@ select.custom-native-select {
   position: fixed;
   top: var(--custom-select-menu-top, 0);
   left: var(--custom-select-menu-left, 0);
-  z-index: 1100;
+  z-index: 1300;
   display: none;
   width: var(--custom-select-menu-width, 240px);
   max-height: 264px;
@@ -606,25 +622,13 @@ select.custom-native-select {
 .setup-row strong { flex: 1 1 auto; min-width: 0; overflow: hidden; font-size: .84rem; font-weight: 550; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .quick-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
 
-.voice-monitor-panel { display: block; }
-.voice-monitor-settings { display: grid; gap: var(--space-3); }
-.voice-monitor-setting {
-  display: grid;
-  grid-template-columns: 156px minmax(0, 1fr);
-  align-items: center;
-  min-height: 48px;
-  gap: var(--space-4);
-}
-.voice-monitor-setting .custom-select,
-.voice-monitor-setting .voz-select { width: 100%; min-width: 0; }
+.app-page[data-page="discord"] { width: min(900px, 100%); }
+.voice-interaction-panel { display: grid; gap: var(--space-3); }
+.voice-interaction-panel .voz-slider-wrap { grid-template-columns: minmax(100px, 1fr) 44px; }
 .voice-monitor-actions {
   display: flex;
   justify-content: flex-end;
   padding-top: var(--space-1);
-}
-.discord-transcription-section {
-  padding-top: var(--space-6);
-  border-bottom: 0;
 }
 .app-page[data-page="discord"] .product-section {
   border-top: 0 !important;
@@ -1156,6 +1160,32 @@ select.custom-native-select {
 .dialog h2 { font-size: 1.02rem; font-weight: 650; }
 .dialog p { margin-top: var(--space-2); color: var(--text-secondary); font-size: .85rem; line-height: 1.55; white-space: pre-line; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border); }
+.discord-settings-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(720px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: hidden;
+}
+.discord-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.discord-settings-content {
+  display: grid;
+  gap: 20px;
+  padding: var(--space-5) 48px 48px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.discord-settings-section { min-width: 0; }
+.discord-settings-section-header { margin-bottom: var(--space-4); }
+.discord-settings-section-header h3 { font-size: 1rem; font-weight: 650; }
+.discord-settings-section-header p { margin-top: var(--space-1); color: var(--text-muted); font-size: .84rem; }
 
 @media (max-width: 980px) {
   :root { --sidebar-width: 72px; }
@@ -1174,6 +1204,9 @@ select.custom-native-select {
 @media (min-width: 701px) {
   html[data-window-state="normal"] .app-page {
     width: min(880px, calc(100% - 64px));
+  }
+  html[data-window-state="normal"] .app-page[data-page="discord"] {
+    width: min(800px, calc(100% - 96px));
   }
 }
 
@@ -1204,8 +1237,9 @@ select.custom-native-select {
   .voice-msg { max-width: 88%; }
   .server-manager-actions { flex-wrap: wrap; }
   .voice-reference-upload { align-items: flex-start; flex-direction: column; }
-  .voice-monitor-setting { grid-template-columns: 1fr; gap: var(--space-2); }
   .transcription-actions { flex-wrap: wrap; }
   .transcription-participants { width: 100%; }
-  .transcription-actions .button { flex: 1 1 0; }
+  .transcription-actions .button,
+  .transcription-actions .voz-save-btn { flex: 1 1 0; }
+  .discord-settings-content { padding-inline: var(--space-5); }
 }

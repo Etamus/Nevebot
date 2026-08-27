@@ -13,9 +13,13 @@ from typing import Any
 import numpy as np
 import sounddevice as sd
 from discord.ext import voice_recv
-from discord.opus import Decoder
+from discord.opus import Decoder, OpusError
 
-from services.discord_voice_receive import descartar_pacotes_pendentes
+from services.discord_voice_receive import (
+    descartar_pacotes_pendentes,
+    descriptografar_opus_dave,
+    preparar_recebimento_dave,
+)
 
 log = logging.getLogger("discord_audio_monitor")
 
@@ -128,6 +132,7 @@ class DiscordMonitorSink(voice_recv.AudioSink):
         self.bot_user_id = int(bot_user_id)
         self._decoders: dict[int, Decoder] = {}
         self._dave_failures: dict[int, tuple[float, int]] = {}
+        self._opus_failures: dict[int, tuple[float, int]] = {}
         self._ultimo_log_erro = 0.0
 
     def wants_opus(self) -> bool:
@@ -145,39 +150,44 @@ class DiscordMonitorSink(voice_recv.AudioSink):
         try:
             opus = data.opus
             if opus:
-                estado = self.voice_client._connection
-                sessao_dave = getattr(estado, "dave_session", None)
-                if sessao_dave is not None and bool(getattr(estado, "can_encrypt", False)):
-                    import davey
-
-                    try:
-                        opus = sessao_dave.decrypt(user_id, davey.MediaType.audio, bytes(opus))
-                    except Exception as exc:
-                        mensagem = str(exc).casefold()
-                        if "decrypt" not in mensagem and "decryption" not in mensagem:
-                            raise
-
-                        agora = time.monotonic()
-                        primeiro, quantidade = self._dave_failures.get(user_id, (agora, 0))
-                        quantidade += 1
-                        self._dave_failures[user_id] = (primeiro, quantidade)
-                        if quantidade == 1:
-                            log.debug(
-                                "Descartando pacote DAVE durante sincronizacao inicial de %s: %s",
-                                user_id,
-                                exc,
-                            )
-                        if agora - primeiro >= 3.0 and agora - self._ultimo_log_erro >= 5.0:
-                            erro = f"Falha persistente ao descriptografar audio de {user_id}: {exc}"
-                            self.monitor.registrar_erro(erro)
-                            log.warning(erro)
-                            self._ultimo_log_erro = agora
-                        return
-                    self._dave_failures.pop(user_id, None)
-                    if not opus:
-                        return
+                try:
+                    opus = descriptografar_opus_dave(self.voice_client, user_id, opus)
+                except Exception as exc:
+                    agora = time.monotonic()
+                    primeiro, quantidade = self._dave_failures.get(user_id, (agora, 0))
+                    quantidade += 1
+                    self._dave_failures[user_id] = (primeiro, quantidade)
+                    if quantidade == 1:
+                        log.debug(
+                            "Descartando pacote DAVE durante sincronizacao inicial de %s: %s",
+                            user_id,
+                            exc,
+                        )
+                    if agora - primeiro >= 3.0 and agora - self._ultimo_log_erro >= 5.0:
+                        erro = f"Falha persistente ao descriptografar audio de {user_id}: {exc}"
+                        self.monitor.registrar_erro(erro)
+                        log.warning(erro)
+                        self._ultimo_log_erro = agora
+                    return
+                self._dave_failures.pop(user_id, None)
+                if not opus:
+                    return
                 decoder = self._decoders.setdefault(user_id, Decoder())
-                pcm = decoder.decode(bytes(opus), fec=False)
+                try:
+                    pcm = decoder.decode(bytes(opus), fec=False)
+                except OpusError as exc:
+                    self._decoders.pop(user_id, None)
+                    agora = time.monotonic()
+                    primeiro, quantidade = self._opus_failures.get(user_id, (agora, 0))
+                    quantidade += 1
+                    self._opus_failures[user_id] = (primeiro, quantidade)
+                    if agora - primeiro >= 3.0 and agora - self._ultimo_log_erro >= 5.0:
+                        erro = f"Audio recebido de {user_id} permaneceu invalido: {exc}"
+                        self.monitor.registrar_erro(erro)
+                        log.warning(erro)
+                        self._ultimo_log_erro = agora
+                    return
+                self._opus_failures.pop(user_id, None)
             else:
                 decoder = self._decoders.get(user_id)
                 if decoder is None:
@@ -198,10 +208,12 @@ class DiscordMonitorSink(voice_recv.AudioSink):
             user_id = int(member.id)
             self._decoders.pop(user_id, None)
             self._dave_failures.pop(user_id, None)
+            self._opus_failures.pop(user_id, None)
 
     def cleanup(self) -> None:
         self._decoders.clear()
         self._dave_failures.clear()
+        self._opus_failures.clear()
         self.monitor.sink_encerrado(self)
 
 
@@ -261,6 +273,7 @@ class DiscordAudioMonitor:
 
         self.parar()
         descartar_pacotes_pendentes(voice_client)
+        preparar_recebimento_dave(voice_client)
         if voice_client.is_listening():
             raise RuntimeError("A conexão de voz já possui outro receptor de áudio.")
 

@@ -67,6 +67,26 @@ def _normalizar_nome_modelo(modelo: str | None) -> str:
     return _MODEL_ALIASES.get(nome.lower(), nome)
 
 
+def _resolver_modelo_local(modelo: str) -> str:
+    caminho = Path(modelo).expanduser()
+    if caminho.is_dir():
+        return str(caminho.resolve())
+    try:
+        from faster_whisper.utils import download_model
+
+        return str(
+            download_model(
+                modelo,
+                cache_dir=str(_DOWNLOAD_DIR),
+                local_files_only=True,
+            )
+        )
+    except Exception:
+        # Mantem o comportamento de download automatico apenas se o instalador
+        # ainda nao tiver preparado o snapshot local.
+        return modelo
+
+
 def _device_e_compute() -> tuple[str, str]:
     try:
         import torch
@@ -271,14 +291,16 @@ def carregar(modelo: str = _DEFAULT_MODEL) -> None:
             device, compute_type = _device_e_compute()
             cpu_threads = max(4, (os.cpu_count() or 8) // 2)
             _DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+            fonte_modelo = _resolver_modelo_local(modelo)
             log.info(
-                "[STT] Carregando faster-whisper '%s' em %s/%s...",
+                "[STT] Carregando faster-whisper '%s' em %s/%s (%s)...",
                 modelo,
                 device,
                 compute_type,
+                "cache local" if Path(fonte_modelo).is_dir() else "repositorio",
             )
             _model = WhisperModel(
-                modelo,
+                fonte_modelo,
                 device=device,
                 compute_type=compute_type,
                 cpu_threads=cpu_threads,

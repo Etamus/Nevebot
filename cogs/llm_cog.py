@@ -481,7 +481,7 @@ class LLMCog(commands.Cog, name="LLM"):
         return cliente
 
     def ligar_modelo(self) -> dict[str, object]:
-        """Inicia o llama-server e aquece a LLM somente sob demanda."""
+        """Inicia somente o llama-server sob demanda."""
         with self._llm_lock:
             if self.modelo_ativo():
                 return self.estado_modelo()
@@ -519,10 +519,8 @@ class LLMCog(commands.Cog, name="LLM"):
                     cliente.start()
 
                 self.llm = cliente
-                self._preaquecer_llm(cliente)
-                self._preaquecer_pipeline_voz()
                 self._definir_estado_modelo("ativo")
-                log.info("LLM, Whisper e TTS carregados e prontos para uso.")
+                log.info("Modelo LLM carregado e pronto para uso.")
                 return self.estado_modelo()
             except Exception as exc:
                 if cliente is not None:
@@ -546,36 +544,6 @@ class LLMCog(commands.Cog, name="LLM"):
                 self._definir_estado_modelo("desligado")
         log.info("Modelo LLM desligado.")
         return self.estado_modelo()
-
-    def _preaquecer_llm(self, cliente: LlamaCppServerClient) -> None:
-        """Aquece cache e graphs antes de liberar a LLM para uso."""
-        try:
-            cliente.create_chat_completion(
-                messages=[
-                    {"role": "system", "content": self._construir_prompt_lou_voz(0)},
-                    {"role": "user", "content": "oi"},
-                ],
-                max_tokens=1,
-                stop=["<|eot_id|>", "<|im_start|>", "<|im_end|>"],
-                **self._sampling_payload(temperature=0.1),
-            )
-            log.info("Warmup do LLM de voz concluído.")
-        except Exception as exc:
-            log.warning("Warmup do LLM de voz falhou: %s", exc)
-
-    @staticmethod
-    def _preaquecer_pipeline_voz() -> None:
-        """Carrega e aquece STT e TTS antes de liberar o modelo na interface."""
-        from cogs.voice_cog import voz_estado
-        from services import stt_whisper, tts_chatterbox
-
-        voz_cfg = dict(voz_estado)
-        whisper_modelo = str(voz_cfg.get("whisper_modelo") or "large-v3-turbo")
-        log.info("Pre-aquecendo Whisper '%s'...", whisper_modelo)
-        stt_whisper.precarregar_e_aquecer(whisper_modelo, strict=True)
-        log.info("Pre-aquecendo Chatterbox PT-BR...")
-        tts_chatterbox.precarregar_e_aquecer(voz_cfg, full_warmup=True)
-        log.info("Pipeline de voz pre-aquecido.")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Helper de mensagens configuráveis

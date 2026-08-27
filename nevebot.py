@@ -86,6 +86,77 @@ _interface_pronta = threading.Event()
 _bot_encerrado = threading.Event()
 _erro_bot: list[BaseException] = []
 _discord_token_queue: asyncio.Queue[str] | None = None
+_preaquecimento_voz_iniciado = threading.Event()
+
+
+def _preaquecer_pipeline_voz_inicial() -> None:
+    """Carrega STT e TTS no processo principal sem bloquear a interface."""
+    habilitado = os.getenv("NEVEBOT_PREWARM_VOICE", "0").strip().lower()
+    if habilitado not in {"1", "true", "yes", "sim"}:
+        return
+
+    from cogs.voice_cog import voz_estado
+    from services import stt_whisper, tts_chatterbox
+
+    voz_cfg = dict(voz_estado)
+    whisper_modelo = str(voz_cfg.get("whisper_modelo") or "large-v3-turbo")
+
+    # Evita a corrida do import lazy do Transformers quando os dois loaders
+    # comecam juntos. Depois disso, os pesos podem ser lidos em paralelo.
+    try:
+        from chatterbox.models.t3 import T3 as _T3  # noqa: F401
+        from faster_whisper import WhisperModel as _WhisperModel  # noqa: F401
+    except Exception as exc:
+        log.warning("Preparacao dos runtimes de voz falhou: %s", exc, exc_info=True)
+
+    def _aquecer_whisper() -> None:
+        log.info("Pre-aquecimento inicial: carregando Whisper '%s'...", whisper_modelo)
+        stt_whisper.precarregar_e_aquecer(whisper_modelo, strict=False)
+
+    def _aquecer_chatterbox() -> None:
+        log.info("Pre-aquecimento inicial: carregando Chatterbox PT-BR...")
+        tts_chatterbox.precarregar_e_aquecer(voz_cfg, full_warmup=True)
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="voice-loader") as pool:
+        tarefas = {
+            "Whisper": pool.submit(_aquecer_whisper),
+            "Chatterbox": pool.submit(_aquecer_chatterbox),
+        }
+        for nome, tarefa in tarefas.items():
+            try:
+                tarefa.result()
+            except Exception as exc:
+                log.warning("Pre-aquecimento inicial do %s falhou: %s", nome, exc, exc_info=True)
+
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+    log.info("Pre-aquecimento inicial do pipeline de voz concluido.")
+
+
+def _iniciar_preaquecimento_voz_background() -> None:
+    habilitado = os.getenv("NEVEBOT_PREWARM_VOICE", "0").strip().lower()
+    if habilitado not in {"1", "true", "yes", "sim"}:
+        return
+    if _preaquecimento_voz_iniciado.is_set():
+        return
+    _preaquecimento_voz_iniciado.set()
+
+    def _executar() -> None:
+        _preaquecer_pipeline_voz_inicial()
+
+    threading.Thread(
+        target=_executar,
+        name="voice-prewarm",
+        daemon=True,
+    ).start()
+    log.info("Pre-aquecimento de voz agendado em segundo plano.")
 
 
 @bot.event
@@ -131,6 +202,8 @@ async def main() -> None:
         for cog in COGS:
             await bot.load_extension(cog)
             log.info("Cog carregado: %s", cog)
+
+        _iniciar_preaquecimento_voz_background()
 
         web_server.start(
             bot,

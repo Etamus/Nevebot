@@ -10,6 +10,45 @@ from typing import Any
 log = logging.getLogger("discord_voice_receive")
 
 
+def preparar_recebimento_dave(voice_client: Any, *, segundos: int = 15) -> None:
+    """Permite a transicao inicial entre Opus puro e frames DAVE."""
+    connection = getattr(voice_client, "_connection", None)
+    session = getattr(connection, "dave_session", None)
+    if session is None:
+        return
+    try:
+        session.set_passthrough_mode(True, max(1, int(segundos)))
+    except (AttributeError, RuntimeError, TypeError, ValueError) as exc:
+        log.debug("Nao foi possivel preparar o passthrough DAVE: %s", exc)
+
+
+def descriptografar_opus_dave(voice_client: Any, user_id: int, opus: bytes) -> bytes:
+    """Descriptografa DAVE sem rejeitar frames Opus em passthrough."""
+    payload = bytes(opus)
+    if payload == b"\xf8\xff\xfe":
+        return payload
+
+    connection = getattr(voice_client, "_connection", None)
+    session = getattr(connection, "dave_session", None)
+    if session is None:
+        return payload
+    if not bool(getattr(session, "ready", False)):
+        if int(getattr(connection, "dave_protocol_version", 0) or 0) > 0:
+            raise RuntimeError("A sessao DAVE ainda nao esta pronta para receber audio.")
+        return payload
+
+    import davey
+
+    try:
+        decrypted = session.decrypt(int(user_id), davey.MediaType.audio, payload)
+    except Exception as exc:
+        message = str(exc).casefold()
+        if "unencrypted" in message and "passthrough" in message:
+            return payload
+        raise
+    return bytes(decrypted)
+
+
 def descartar_pacotes_pendentes(voice_client: Any, *, limite: int = 4096) -> int:
     """Esvazia datagramas acumulados enquanto o SocketReader estava pausado."""
     connection = getattr(voice_client, "_connection", None)

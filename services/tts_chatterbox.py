@@ -77,7 +77,7 @@ class _ChatterboxPTBR:
         from safetensors.torch import load_file as load_safetensors
         from chatterbox.models.t3 import T3
         from chatterbox.models.t3.modules.t3_config import T3Config
-        from chatterbox.models.s3gen import S3Gen
+        from chatterbox.models.s3gen import S3Gen, S3GEN_SR
         from chatterbox.models.tokenizers import MTLTokenizer
         from chatterbox.models.voice_encoder import VoiceEncoder
 
@@ -91,18 +91,48 @@ class _ChatterboxPTBR:
         ve.load_state_dict(torch.load(base_dir / "ve.pt", map_location=map_location, weights_only=True))
         ve.to(device).eval()
 
-        t3 = T3(T3Config.multilingual())
+        with torch.device("meta"):
+            t3 = T3(T3Config.multilingual())
         t3_state = load_safetensors(ptbr_dir / "t3_pt_br.safetensors")
         if "model" in t3_state:
             t3_state = t3_state["model"][0]
-        t3.load_state_dict(t3_state)
+        t3.load_state_dict(t3_state, assign=True)
+        rotary = t3.tfmr.rotary_emb
+        inv_freq, attention_scaling = rotary.compute_default_rope_parameters(
+            rotary.config,
+            device=map_location,
+        )
+        rotary.inv_freq = inv_freq
+        rotary.original_inv_freq = inv_freq.clone()
+        rotary.attention_scaling = attention_scaling
         t3.to(device).eval()
 
-        s3gen = S3Gen()
+        with torch.device("meta"):
+            s3gen = S3Gen()
         s3gen.load_state_dict(
-            torch.load(ptbr_dir / "s3gen_v3.pt", map_location=map_location, weights_only=True),
+            torch.load(
+                ptbr_dir / "s3gen_v3.pt",
+                map_location=map_location,
+                weights_only=True,
+                mmap=True,
+            ),
             strict=False,
+            assign=True,
         )
+        n_trim = S3GEN_SR // 50
+        trim_fade = torch.zeros(2 * n_trim)
+        trim_fade[n_trim:] = (torch.cos(torch.linspace(torch.pi, 0, n_trim)) + 1) / 2
+        s3gen.trim_fade = trim_fade
+        s3gen.tokenizer.window = torch.hann_window(s3gen.tokenizer.n_fft)
+        from s3tokenizer.model_v2 import precompute_freqs_cis
+
+        s3gen.tokenizer.encoder.freqs_cis = precompute_freqs_cis(64, 1024 * 2)
+        for pos_enc in (
+            s3gen.flow.encoder.embed.pos_enc,
+            s3gen.flow.encoder.up_embed.pos_enc,
+        ):
+            pos_enc.pe = None
+            pos_enc.extend_pe(torch.tensor(0.0).expand(1, 5000))
         s3gen.to(device).eval()
 
         _patch_tokenizer_local_assets(ptbr_dir)

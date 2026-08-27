@@ -16,6 +16,7 @@ echo.
 
 if /I "%~1"=="--llama-only" goto LLAMA_CPP_ONLY
 if /I "%~1"=="--check" goto CHECK_ONLY
+if /I "%~1"=="--repair-runtime" goto REPAIR_RUNTIME
 
 for %%F in (
     "requirements.txt"
@@ -24,6 +25,7 @@ for %%F in (
     "scripts\preparar_chatterbox_ptbr.py"
     "scripts\preparar_whisper.py"
     "scripts\validar_instalacao.py"
+    "scripts\validar_runtime.py"
 ) do (
     if not exist "%%~F" (
         echo [ERRO] Arquivo obrigatorio ausente: %%~F
@@ -82,24 +84,13 @@ if errorlevel 1 (
 )
 
 echo Removendo pacotes antigos que conflitam com o runtime atual...
-"%PY%" -m pip uninstall -y llama-cpp-python llama_cpp_python chatterbox-tts >nul 2>&1
+"%PY%" -m pip uninstall -y llama-cpp-python llama_cpp_python >nul 2>&1
 
 call :PREPARAR_PYTORCH
 if errorlevel 1 goto FALHA
 
-echo Instalando dependencias do requirements.txt...
-"%PY%" -m pip install --retries 5 --timeout 90 -r requirements.txt
-if errorlevel 1 (
-    echo [ERRO] Falha ao instalar as dependencias do projeto.
-    goto FALHA
-)
-
-echo Instalando o pacote Chatterbox PT-BR...
-"%PY%" -m pip install --retries 5 --timeout 90 chatterbox-tts==0.1.7 --no-deps
-if errorlevel 1 (
-    echo [ERRO] Falha ao instalar chatterbox-tts.
-    goto FALHA
-)
+call :INSTALAR_DEPENDENCIAS
+if errorlevel 1 goto FALHA
 
 echo.
 echo Baixando o modelo de reconhecimento de voz...
@@ -331,6 +322,118 @@ if errorlevel 1 (
     echo [ERRO] llama-server.exe foi baixado, mas nao consegue iniciar.
     exit /b 1
 )
+exit /b 0
+
+
+:GARANTIR_PIP
+"%PY%" -m pip --version >nul 2>&1
+if not errorlevel 1 exit /b 0
+
+echo pip indisponivel. Tentando restaurar pelo Python...
+"%PY%" -m ensurepip --upgrade
+if errorlevel 1 (
+    echo [ERRO] Nao foi possivel restaurar o pip no ambiente virtual.
+    exit /b 1
+)
+"%PY%" -m pip install --upgrade --retries 5 --timeout 90 pip wheel "setuptools<81"
+if errorlevel 1 exit /b 1
+exit /b 0
+
+
+:INSTALAR_CHATTERBOX
+"%PY%" "scripts\validar_runtime.py" --chatterbox-only >nul 2>&1
+if not errorlevel 1 (
+    echo Chatterbox PT-BR ja esta instalado.
+    exit /b 0
+)
+
+echo Instalando o pacote Chatterbox PT-BR...
+"%PY%" -m pip install --retries 5 --timeout 90 chatterbox-tts==0.1.7 --no-deps
+if not errorlevel 1 (
+    "%PY%" "scripts\validar_runtime.py" --deep --chatterbox-only >nul 2>&1
+    if not errorlevel 1 exit /b 0
+)
+
+echo Primeira tentativa incompleta. Limpando somente o pacote Chatterbox e tentando novamente...
+"%PY%" -m pip uninstall -y chatterbox-tts >nul 2>&1
+"%PY%" -m pip install --no-cache-dir --force-reinstall --retries 8 --timeout 120 chatterbox-tts==0.1.7 --no-deps
+if errorlevel 1 (
+    echo [ERRO] Nao foi possivel instalar chatterbox-tts apos duas tentativas.
+    exit /b 1
+)
+
+"%PY%" "scripts\validar_runtime.py" --deep --chatterbox-only
+if errorlevel 1 (
+    echo [ERRO] O pacote Chatterbox foi instalado, mas seus modulos nao importam.
+    exit /b 1
+)
+exit /b 0
+
+
+:INSTALAR_DEPENDENCIAS
+call :GARANTIR_PIP
+if errorlevel 1 exit /b 1
+
+echo Instalando dependencias do requirements.txt...
+"%PY%" -m pip install --retries 5 --timeout 90 -r requirements.txt
+if errorlevel 1 (
+    echo Primeira tentativa falhou. Repetindo sem usar o cache do pip...
+    "%PY%" -m pip install --no-cache-dir --retries 8 --timeout 120 -r requirements.txt
+)
+if errorlevel 1 (
+    echo [ERRO] Falha ao instalar as dependencias do projeto apos duas tentativas.
+    exit /b 1
+)
+
+call :INSTALAR_CHATTERBOX
+if errorlevel 1 exit /b 1
+exit /b 0
+
+
+:REPAIR_RUNTIME
+echo ================================================
+echo  Nevebot - reparo automatico do runtime
+echo ================================================
+echo.
+if not exist "venv\Scripts\python.exe" (
+    echo [ERRO] Ambiente virtual ausente. Execute instalar.bat para a instalacao completa.
+    exit /b 1
+)
+if not exist "requirements.txt" (
+    echo [ERRO] requirements.txt ausente.
+    exit /b 1
+)
+if not exist "scripts\validar_runtime.py" (
+    echo [ERRO] scripts\validar_runtime.py ausente.
+    exit /b 1
+)
+
+set "PY=%CD%\venv\Scripts\python.exe"
+"%PY%" -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo [ERRO] O venv nao usa Python 3.11 de 64 bits. Execute instalar.bat para recria-lo.
+    exit /b 1
+)
+
+call :GARANTIR_PIP
+if errorlevel 1 exit /b 1
+
+"%PY%" -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('torch') and importlib.util.find_spec('torchaudio') else 1)" >nul 2>&1
+if errorlevel 1 (
+    call :PREPARAR_PYTORCH
+    if errorlevel 1 exit /b 1
+)
+
+call :INSTALAR_DEPENDENCIAS
+if errorlevel 1 exit /b 1
+
+echo Validando o runtime reparado...
+"%PY%" "scripts\validar_runtime.py" --deep
+if errorlevel 1 (
+    echo [ERRO] O reparo terminou, mas a validacao ainda encontrou problemas.
+    exit /b 1
+)
+echo Runtime reparado com sucesso.
 exit /b 0
 
 
