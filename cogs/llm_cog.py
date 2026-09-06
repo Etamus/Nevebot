@@ -200,6 +200,51 @@ punctuation ::= [.!?] [.!?]? [.!?]?
 ws ::= [ \t\r\n]*
 '''.strip()
 
+_FORMATO_FALAS_EXPRESSIVAS = (
+    "\n\nFormato tecnico de voz: array JSON de 1 a 3 itens. Cada item deve ser "
+    "[texto, emocao, estilo, efeito, confianca]. O texto deve conter exatamente uma frase "
+    "completa e nunca pode conter tags. Use neutral, normal, none e low quando houver qualquer "
+    "duvida. Classifique o tom emocional de toda fala; low indica que a evidencia e incerta e deve "
+    "favorecer neutral, salvo quando o proprio texto demonstrar claramente a emocao. Marque high somente quando a emocao ou o modo de falar forem inequivocos no proprio "
+    "texto. Se o texto contiver Haha ou Kkk, use amusement, laughter e high. Para um pedido "
+    "explicito para sussurrar, use whispering e high. Sigh exige uma vocalizacao como Ah ou Ufa. "
+    "A emocao descreve o tom da resposta, nunca deve ser escolhida ao acaso. Mapa semantico: "
+    "neutral=sem emocao clara; contentment=e o padrao para lembranca feliz, noticia boa ou "
+    "satisfacao calma; elation=felicidade extrema; amusement=humor ou diversao evidente; enthusiasm=empolgacao; "
+    "determination=determinacao; pride=orgulho; contentment=satisfacao serena; "
+    "affection=amor, carinho ou vinculo explicitamente demonstrado, nunca apenas uma lembranca "
+    "agradavel, animal ou objeto; relief=alivio; contemplation=reflexao; confusion=confusao; "
+    "surprise=surpresa; awe=admiracao intensa; longing=saudade; arousal=excitacao; "
+    "anger=raiva; fear=medo; disgust=nojo; bitterness=amargura; sadness=tristeza; "
+    "shame=vergonha; helplessness=desamparo ou impotencia. Se o usuario pedir um relato "
+    "feliz, use contentment; para conquista pessoal comprovada, prefira pride; para lembranca com "
+    "amor, beijo ou carinho explicito, affection. Nao reutilize a mesma emocao como padrao. "
+    "Reserve elation para euforia ou extase pedidos explicitamente. Em conversa normal, nunca use uma "
+    "emocao mais intensa que o conteudo e nunca transforme felicidade comum em grito ou euforia. "
+    "Para relatos tristes, assustadores ou com outro tom explicito, escolha a emocao correspondente "
+    "na menor intensidade natural suficiente. Confidence mede certeza, nao intensidade. "
+    "Classifique a forma como a resposta deve ser falada, nao apenas o assunto citado. Uma resposta "
+    "educada, factual, uma concordancia curta ou simpatia leve deve ser neutral, mesmo contendo palavras "
+    "como pena, dificil, feliz ou triste. Use sadness somente quando a propria fala expressar tristeza "
+    "sustentada; mencionar que algo foi triste nao basta. Perguntar sobre a emocao de outra pessoa tambem "
+    "deve ser neutral, salvo quando a propria pergunta tiver tom inequivocamente emocional. Na duvida, neutral e low. "
+    "Exemplos: [\"Hahaha, essa foi boa!\",\"amusement\",\"normal\",\"laughter\",\"high\"]; "
+    "[\"Vou te contar baixinho.\",\"neutral\",\"whispering\",\"none\",\"high\"]."
+)
+
+_GRAMMAR_FALAS_EXPRESSIVAS = r'''
+root ::= "[" ws item (ws "," ws item){0,2} ws "]"
+item ::= "[" ws string ws "," ws emotion ws "," ws style ws "," ws effect ws "," ws confidence ws "]"
+string ::= "\"" text punctuation "\""
+text ::= [^"\\\r\n.!?<>]+
+punctuation ::= [.!?] [.!?]? [.!?]?
+emotion ::= "\"neutral\"" | "\"elation\"" | "\"amusement\"" | "\"enthusiasm\"" | "\"determination\"" | "\"pride\"" | "\"contentment\"" | "\"affection\"" | "\"relief\"" | "\"contemplation\"" | "\"confusion\"" | "\"surprise\"" | "\"awe\"" | "\"longing\"" | "\"arousal\"" | "\"anger\"" | "\"fear\"" | "\"disgust\"" | "\"bitterness\"" | "\"sadness\"" | "\"shame\"" | "\"helplessness\""
+style ::= "\"normal\"" | "\"singing\"" | "\"shouting\"" | "\"whispering\""
+effect ::= "\"none\"" | "\"cough\"" | "\"laughter\"" | "\"crying\"" | "\"screaming\"" | "\"burping\"" | "\"humming\"" | "\"sigh\"" | "\"sniff\"" | "\"sneeze\""
+confidence ::= "\"low\"" | "\"high\""
+ws ::= [ \t\r\n]*
+'''.strip()
+
 
 class LlamaCppServerClient:
     """Cliente HTTP para um llama-server.exe local."""
@@ -271,6 +316,13 @@ class LlamaCppServerClient:
 
     def _build_command(self, exe: Path) -> list[str]:
         backend = self._installed_backend(exe)
+        higgs_selecionado = False
+        try:
+            from cogs.voice_cog import voz_estado
+
+            higgs_selecionado = voz_estado.get("tts_model") == "higgs-tts-3-4b"
+        except Exception:
+            pass
         if backend == "cpu" and config.LLM_N_GPU_LAYERS < 0:
             gpu_layers = "0"
         else:
@@ -281,7 +333,6 @@ class LlamaCppServerClient:
             "--host", config.LLAMA_SERVER_HOST,
             "--port", str(config.LLAMA_SERVER_PORT),
             "--ctx-size", str(config.LLM_N_CTX),
-            "--gpu-layers", gpu_layers,
             "--batch-size", str(config.LLM_N_BATCH),
             "--ubatch-size", str(config.LLM_N_UBATCH),
             "--threads", str(config.LLM_N_THREADS),
@@ -292,10 +343,16 @@ class LlamaCppServerClient:
             "--no-webui",
             "--log-file", str((_BASE_DIR / "logs" / "llama-server-runtime.log").resolve()),
         ]
+        if not (higgs_selecionado and backend != "cpu" and config.LLM_N_GPU_LAYERS < 0):
+            cmd.extend(["--gpu-layers", gpu_layers])
         if config.LLM_CHAT_TEMPLATE:
             cmd.extend(["--chat-template", config.LLM_CHAT_TEMPLATE])
         if self.kv_type:
             cmd.extend(["--cache-type-k", self.kv_type, "--cache-type-v", self.kv_type])
+        # Higgs Q8_0 ocupa cerca de 6-9 GiB. O fit automatico conserva a
+        # qualidade da LLM e ajusta apenas onde suas camadas residem.
+        if higgs_selecionado and backend != "cpu":
+            cmd.extend(["--fit", "on", "--fit-target", "4096"])
         return cmd
 
     @staticmethod
@@ -494,6 +551,11 @@ class LLMCog(commands.Cog, name="LLM"):
             kv_type = config.LLM_KV_TYPE if config.LLM_KV_TYPE in _KV_TYPES else None
             cliente: LlamaCppServerClient | None = None
             try:
+                from cogs.voice_cog import voz_estado
+                if voz_estado.get("tts_model") == "higgs-tts-3-4b":
+                    from services import tts_manager
+
+                    tts_manager.precarregar_e_aquecer(dict(voz_estado), full_warmup=False)
                 if kv_type is None and config.LLM_KV_TYPE:
                     log.warning(
                         "LLM_KV_TYPE=%r nao reconhecido; usando KV padrao do llama.cpp.",
@@ -521,6 +583,20 @@ class LLMCog(commands.Cog, name="LLM"):
                 self.llm = cliente
                 self._definir_estado_modelo("ativo")
                 log.info("Modelo LLM carregado e pronto para uso.")
+                if voz_estado.get("tts_model") == "higgs-tts-3-4b":
+                    voz_cfg = dict(voz_estado)
+
+                    def _reaquecer_higgs() -> None:
+                        try:
+                            tts_manager.precarregar_e_aquecer(voz_cfg, full_warmup=True)
+                        except Exception:
+                            log.exception("Falha ao reaquecer o Higgs apos carregar a LLM.")
+
+                    threading.Thread(
+                        target=_reaquecer_higgs,
+                        name="higgs-post-llm-warmup",
+                        daemon=True,
+                    ).start()
                 return self.estado_modelo()
             except Exception as exc:
                 if cliente is not None:
@@ -692,6 +768,47 @@ class LLMCog(commands.Cog, name="LLM"):
             else:
                 break
         return itens
+
+    @staticmethod
+    def _falas_json_completas(texto: str) -> list[list[str]]:
+        """Le os itens internos completos do array expressivo durante o streaming."""
+        inicio = texto.find("[")
+        if inicio < 0:
+            return []
+        decoder = json.JSONDecoder()
+        posicao = inicio + 1
+        falas: list[list[str]] = []
+        while posicao < len(texto):
+            while posicao < len(texto) and texto[posicao] in " \t\r\n,":
+                posicao += 1
+            if posicao >= len(texto) or texto[posicao] == "]":
+                break
+            try:
+                item, fim = decoder.raw_decode(texto, posicao)
+            except json.JSONDecodeError:
+                break
+            if isinstance(item, list) and len(item) == 5 and all(isinstance(v, str) for v in item):
+                falas.append(item)
+            posicao = fim
+        return falas
+
+    @classmethod
+    def _decodificar_fala_expressiva(
+        cls,
+        item: list[str],
+        system_prompt: str,
+    ) -> tuple[str, dict[str, str]] | None:
+        if len(item) != 5:
+            return None
+        texto = cls._limpar_resposta(item[0])
+        if not texto or cls._mensagem_invalida(texto, system_prompt):
+            return None
+        return texto, {
+            "emotion": item[1],
+            "style": item[2],
+            "effect": item[3],
+            "confidence": item[4],
+        }
 
     # ── Geração de resposta (executada fora do event-loop) ────────────────────
 
@@ -960,6 +1077,57 @@ class LLMCog(commands.Cog, name="LLM"):
                 yield item
         if itens_emitidos == 0:
             raise RuntimeError("A LLM nao produziu nenhuma mensagem estruturada completa.")
+
+    def _stream_falas_expressivas(
+        self,
+        system_prompt: str,
+        historico: list[dict],
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ):
+        """Entrega texto limpo e metadados limitados, sem expor tags geradas pela LLM."""
+        stop = ["<|eot_id|>", "<|start_header_id|>", "<|im_start|>", "<|im_end|>", "\nUsuario:", "\nUser:"]
+        historico = self._limpar_historico_prompt(historico, system_prompt)
+        prompt_tecnico = system_prompt + _FORMATO_FALAS_EXPRESSIVAS
+        messages = [
+            {"role": "system", "content": prompt_tecnico},
+            *historico,
+        ]
+        # O envelope JSON expressivo consome mais tokens do que a mesma resposta
+        # textual. Esta folga evita cortar o item antes do colchete final.
+        limite = max(160, max_tokens or config.LLM_MAX_TOKENS)
+        bruto = ""
+        itens_lidos = 0
+        itens_emitidos = 0
+        with self._llm_lock:
+            stream = self._cliente_llm_ativo().stream_chat_completion(
+                messages=messages,
+                max_tokens=limite,
+                stop=stop,
+                grammar=_GRAMMAR_FALAS_EXPRESSIVAS,
+                **self._sampling_payload(temperature=temperature),
+            )
+            for delta in stream:
+                bruto += delta
+                itens = self._falas_json_completas(bruto)
+                while itens_lidos < len(itens):
+                    fala = self._decodificar_fala_expressiva(itens[itens_lidos], prompt_tecnico)
+                    itens_lidos += 1
+                    if fala is not None:
+                        itens_emitidos += 1
+                        yield fala
+                    else:
+                        log.warning("Item expressivo descartado por estar incompleto ou invalido.")
+
+        finais = self._falas_json_completas(bruto)
+        while itens_lidos < len(finais):
+            fala = self._decodificar_fala_expressiva(finais[itens_lidos], prompt_tecnico)
+            itens_lidos += 1
+            if fala is not None:
+                itens_emitidos += 1
+                yield fala
+        if itens_emitidos == 0:
+            raise RuntimeError("A LLM nao produziu nenhuma fala expressiva estruturada completa.")
 
     def _gerar_resumo(self, mensagens_texto: str, n: int) -> str:
         """Gera um resumo contextual das últimas N mensagens do canal, ignorando ruído."""

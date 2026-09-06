@@ -895,11 +895,17 @@
     .vs-control {
       min-width: 0;
     }
+    [data-tts-only][hidden] { display: none !important; }
     .vs-control .input-name {
       width: 100%; max-width: 260px;
       font-size: .82rem;
       padding: .35rem .6rem;
       font-family: inherit;
+    }
+    .vs-control textarea.input-name {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.45;
     }
 
     .vs-actions {
@@ -1940,9 +1946,11 @@ function renderizarVisaoGeral(cfg) {
   const runtimeEstado = _modeloRuntime?.estado || 'desligado';
   const modelo = nomeArquivo(llm.model_path) || 'Modelo não informado';
   const whisper = _vozConfig.whisper_modelo || 'Modelo não informado';
-  const tts = _vozConfig.tts_model === 'chatterbox-ptbr-v3'
-    ? 'Chatterbox Multilingual V3'
-    : (_vozConfig.tts_model || 'Modelo não informado');
+  const tts = _vozConfig.tts_model === 'higgs-tts-3-4b'
+    ? 'Higgs Audio v3 4B'
+    : _vozConfig.tts_model === 'chatterbox-ptbr-v3'
+      ? 'Chatterbox Multilingual V3'
+      : (_vozConfig.tts_model || 'Modelo não informado');
   const referencia = _vozConfig.voz_referencia_nome || nomeArquivo(_vozConfig.voz_referencia) || 'voz_referencia.wav';
   const micRow = linhaStatus('Microfone', 'Verificando dispositivo...')
     .replace('class="status-value"', 'class="status-value" id="overview-mic-device"');
@@ -2004,13 +2012,18 @@ function organizarConfiguracoesVoz() {
   const acoes = painel.querySelector(':scope > .vs-actions');
   const principais = document.createElement('div');
   principais.className = 'settings-list';
-  [0, 1, 4, 5].forEach(i => itens[i] && principais.appendChild(itens[i]));
+  const indicesPrincipais = new Set([0, 1, 8, 9]);
+  itens.forEach((item, indice) => {
+    if (indicesPrincipais.has(indice)) principais.appendChild(item);
+  });
 
   const avancado = document.createElement('details');
   avancado.className = 'advanced-disclosure';
   avancado.innerHTML = '<summary>Configurações avançadas</summary><div class="advanced-content settings-list"></div>';
   const conteudo = avancado.querySelector('.advanced-content');
-  [2, 3, 6, 7].forEach(i => itens[i] && conteudo.appendChild(itens[i]));
+  itens.forEach((item, indice) => {
+    if (!indicesPrincipais.has(indice)) conteudo.appendChild(item);
+  });
 
   painel.replaceChildren(principais, avancado);
   if (acoes) painel.appendChild(acoes);
@@ -2342,16 +2355,16 @@ function renderizarPrompts(cfg) {
 }
 
 function selecionarPrompt(key) {
-  document.querySelectorAll('.prompt-tab').forEach(btn => {
+  document.querySelectorAll('[data-prompt-tab]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.promptTab === key);
   });
-  document.querySelectorAll('.prompt-editor').forEach(editor => {
+  document.querySelectorAll('[data-prompt-editor]').forEach(editor => {
     editor.classList.toggle('active', editor.dataset.promptEditor === key);
   });
 }
 
 function restaurarPromptAtual() {
-  const active = document.querySelector('.prompt-tab.active')?.dataset.promptTab || 'lou_voz';
+  const active = document.querySelector('[data-prompt-tab].active')?.dataset.promptTab || 'lou_voz';
   const textarea = document.querySelector(`[data-prompt="${active}"]`);
   const valor = _config?._prompt_defaults?.[active] || '';
   if (textarea) textarea.value = valor;
@@ -3435,6 +3448,8 @@ async function atualizarGuildsVoz(guildId) {
 // ── Chat de Voz ──────────────────────────────────────────────────────────────
 let _vozRecording = false;
 let _vozProcessing = false;
+let _vozRequestActive = false;
+let _vozFinalizeTimer = null;
 let _vozAudioCtx = null;
 let _vozMediaStream = null;
 let _vozSourceNode = null;
@@ -3475,11 +3490,24 @@ function renderizarChatVoz() {
       <div class="vs-item">
         <span class="vs-label">Modelo</span>
         <div class="vs-control">
-          <input class="input-name" id="voz-model-input" type="text" value="Chatterbox PT-BR V3" disabled />
+          <select class="voz-select" id="voz-model-input" onchange="atualizarControlesTTS()">
+            <option value="higgs-tts-3-4b">Higgs Audio v3 4B</option>
+            <option value="chatterbox-ptbr-v3">Chatterbox PT-BR V3</option>
+          </select>
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b">
+        <span class="vs-label">Expressividade automática</span>
+        <div class="vs-control">
+          <label class="ui-switch" title="Permitir tons e efeitos validados nas respostas da LLM">
+            <input id="higgs-auto-expression" type="checkbox" role="switch" aria-label="Expressividade automática" />
+            <span class="ui-switch-track" aria-hidden="true"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="vs-item" data-tts-only="chatterbox-ptbr-v3">
         <span class="vs-label">Expressividade</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3491,7 +3519,7 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="chatterbox-ptbr-v3">
         <span class="vs-label">CFG</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3503,7 +3531,7 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b,chatterbox-ptbr-v3">
         <span class="vs-label">Temperatura</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3515,7 +3543,40 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b">
+        <span class="vs-label">Top K</span>
+        <div class="vs-control">
+          <input class="input-name" id="voz-top-k-input" type="number" min="1" max="100" step="1" value="30" />
+        </div>
+      </div>
+
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b">
+        <span class="vs-label">Top P</span>
+        <div class="vs-control">
+          <div class="voz-slider-wrap">
+            <input class="voz-slider" id="voz-top-p-slider" type="range"
+                   min="0.05" max="1" step="0.05" value="0.8"
+                   oninput="document.getElementById('voz-top-p-val').textContent=this.value" />
+            <span class="voz-slider-val" id="voz-top-p-val">0.8</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="advanced-prompts voice-reference-prompt vs-item" data-tts-only="higgs-tts-3-4b">
+        <div class="advanced-prompts-header">
+          <h3>Texto da referência</h3>
+          <p>Transcrição exata do áudio usado para clonar a voz.</p>
+        </div>
+        <div class="prompt-card">
+          <div class="prompt-editor active">
+            <div class="field">
+              <textarea class="prompt-textarea" id="voz-reference-text" spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b,chatterbox-ptbr-v3">
         <span class="vs-label">Velocidade</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3527,7 +3588,7 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b,chatterbox-ptbr-v3">
         <span class="vs-label">Volume</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3539,14 +3600,14 @@ function renderizarChatVoz() {
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b,chatterbox-ptbr-v3">
         <span class="vs-label">Seed</span>
         <div class="vs-control">
           <input class="input-name" id="voz-seed-input" type="number" min="0" step="1" value="42" />
         </div>
       </div>
 
-      <div class="vs-item">
+      <div class="vs-item" data-tts-only="higgs-tts-3-4b,chatterbox-ptbr-v3">
         <span class="vs-label">Pitch pós</span>
         <div class="vs-control">
           <div class="voz-slider-wrap">
@@ -3580,6 +3641,10 @@ function inicializarChatVoz() {
     const cfgVal = document.getElementById('voz-cfg-val');
     const tempSlider = document.getElementById('voz-temperature-slider');
     const tempVal = document.getElementById('voz-temperature-val');
+    const modelInput = document.getElementById('voz-model-input');
+    if (modelInput) modelInput.value = cfg.tts_model || 'higgs-tts-3-4b';
+    const autoExpression = document.getElementById('higgs-auto-expression');
+    if (autoExpression) autoExpression.checked = cfg.higgs_expressividade_automatica === true;
 
     if (exSlider && cfg.voz_exaggeration != null) {
       exSlider.value = cfg.voz_exaggeration;
@@ -3609,8 +3674,29 @@ function inicializarChatVoz() {
       pitchSlider.value = cfg.pitch;
       if (pitchVal) pitchVal.textContent = cfg.pitch;
     }
+    const topK = document.getElementById('voz-top-k-input');
+    if (topK && cfg.voz_top_k != null) topK.value = cfg.voz_top_k;
+    const topP = document.getElementById('voz-top-p-slider');
+    const topPVal = document.getElementById('voz-top-p-val');
+    if (topP && cfg.voz_top_p != null) {
+      topP.value = cfg.voz_top_p;
+      if (topPVal) topPVal.textContent = cfg.voz_top_p;
+    }
+    const referenceText = document.getElementById('voz-reference-text');
+    if (referenceText) referenceText.value = cfg.voz_referencia_texto || '';
+    atualizarControlesTTS();
     ajustarTodosSelects(document.getElementById('voice-chat-card') || document);
   }).catch(() => {});
+}
+
+function atualizarControlesTTS() {
+  const selecionado = document.getElementById('voz-model-input')?.value || 'higgs-tts-3-4b';
+  document.querySelectorAll('[data-tts-only]').forEach(item => {
+    const modelos = (item.dataset.ttsOnly || '').split(',').map(valor => valor.trim());
+    item.hidden = !modelos.includes(selecionado);
+  });
+  const select = document.getElementById('voz-model-input');
+  if (select) atualizarCustomSelect(select);
 }
 
 async function enviarVozReferencia(arquivo) {
@@ -3650,9 +3736,12 @@ async function enviarVozReferencia(arquivo) {
       ..._vozConfig,
       voz_referencia: 'data/voz_referencia.wav',
       voz_referencia_nome: nomeDestino,
+      voz_referencia_texto: res.alterado === false ? (_vozConfig.voz_referencia_texto || '') : '',
     };
     const nomeEl = document.getElementById('voice-reference-name');
     if (nomeEl) nomeEl.textContent = nomeDestino;
+    const referenceText = document.getElementById('voz-reference-text');
+    if (referenceText && res.alterado !== false) referenceText.value = '';
     if (status) status.textContent = '';
     atualizarVisaoGeral();
     toast(
@@ -3708,12 +3797,16 @@ async function enviarMensagemVoz() {
 async function salvarConfigVoz() {
   const btn = document.getElementById('voz-config-save');
   const cfg = {
-    tts_model: 'chatterbox-ptbr-v3',
+    tts_model: document.getElementById('voz-model-input')?.value || 'higgs-tts-3-4b',
+    higgs_expressividade_automatica: document.getElementById('higgs-auto-expression')?.checked === true,
     voz_language: 'pt-BR',
     voz_referencia: 'data/voz_referencia.wav',
     voz_exaggeration: parseFloat(document.getElementById('voz-exaggeration-slider')?.value || '0.5'),
     voz_cfg_weight: parseFloat(document.getElementById('voz-cfg-slider')?.value || '0.5'),
     voz_temperature: parseFloat(document.getElementById('voz-temperature-slider')?.value || '0.8'),
+    voz_top_k: parseInt(document.getElementById('voz-top-k-input')?.value || '30', 10),
+    voz_top_p: parseFloat(document.getElementById('voz-top-p-slider')?.value || '0.8'),
+    voz_referencia_texto: document.getElementById('voz-reference-text')?.value?.trim() || '',
     velocidade: parseFloat(document.getElementById('voz-speed-slider')?.value || '1'),
     volume: parseFloat(document.getElementById('voz-volume-slider')?.value || '1'),
     voz_seed: parseInt(document.getElementById('voz-seed-input')?.value || '42', 10),
@@ -3863,6 +3956,7 @@ async function pararGravacao() {
 
   // Envia ao servidor
   let audioDelayMs = 0;
+  _vozRequestActive = true;
   try {
     setVoiceStatus('Transcrevendo e gerando resposta...');
     const r = await fetch('/api/voz/chat', {
@@ -3882,9 +3976,14 @@ async function pararGravacao() {
   } catch(e) {
     toast('Erro no chat de voz: ' + e.message, 'err');
     setVoiceStatus('');
+  } finally {
+    _vozRequestActive = false;
   }
 
   _finalizarProcessamentoVoz({ delayMs: audioDelayMs });
+  if (_pttPendingStart && _pttEnabled) {
+    setTimeout(() => { _iniciarPTTPressionado(); }, 0);
+  }
   if (btn) btn.classList.remove('processing');
   setTimeout(() => { if (!_vozRecording && !_vozProcessing) setVoiceStatus(''); }, Math.max(3000, audioDelayMs + 500));
 }
@@ -3908,6 +4007,7 @@ async function enviarTextoVoz() {
   if (sendBtn) sendBtn.disabled = true;
 
   let audioDelayMs = 0;
+  _vozRequestActive = true;
   try {
     const r = await fetch('/api/voz/chat-texto', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -3923,9 +4023,14 @@ async function enviarTextoVoz() {
     else setVoiceStatus('');
   } catch(e) {
     toast('Erro: ' + e.message, 'err');
+  } finally {
+    _vozRequestActive = false;
   }
 
   _finalizarProcessamentoVoz({ delayMs: audioDelayMs });
+  if (_pttPendingStart && _pttEnabled) {
+    setTimeout(() => { _iniciarPTTPressionado(); }, 0);
+  }
   if (sendBtn) sendBtn.disabled = false;
   setTimeout(() => { if (!_vozRecording && !_vozProcessing) setVoiceStatus(''); }, Math.max(3000, audioDelayMs + 500));
 }
@@ -3963,7 +4068,12 @@ function calcularAguardoAudioDiscord(res) {
 }
 
 function _finalizarProcessamentoVoz({ retomarPTT = true, delayMs = 0 } = {}) {
+  if (_vozFinalizeTimer) {
+    clearTimeout(_vozFinalizeTimer);
+    _vozFinalizeTimer = null;
+  }
   const finalizar = () => {
+    _vozFinalizeTimer = null;
     _vozProcessing = false;
     _pttGlobalAnterior = false;
     if (retomarPTT) {
@@ -3973,10 +4083,47 @@ function _finalizarProcessamentoVoz({ retomarPTT = true, delayMs = 0 } = {}) {
     }
   };
   if (delayMs > 0) {
-    setTimeout(finalizar, delayMs);
+    _vozFinalizeTimer = setTimeout(finalizar, delayMs);
   } else {
     finalizar();
   }
+}
+
+function _interromperTTSParaPTT() {
+  if (_vozRequestActive) return false;
+  if (_vozFinalizeTimer) {
+    clearTimeout(_vozFinalizeTimer);
+    _vozFinalizeTimer = null;
+  }
+  _vozProcessing = false;
+  document.getElementById('voice-mic-btn')?.classList.remove('processing');
+  const sendBtn = document.getElementById('voice-send-btn');
+  if (sendBtn) sendBtn.disabled = false;
+  fetch('/api/voz/interromper', { method: 'POST' }).catch(() => {});
+  return true;
+}
+
+async function _iniciarPTTPressionado() {
+  if (!_pttEnabled || _vozRecording || _pttKeyHeld) return false;
+  if (_vozProcessing) {
+    if (_vozRequestActive) {
+      _pttPendingStart = true;
+      return false;
+    }
+  }
+  // Sempre invalida uma eventual reproducao real; o contador visual pode ter
+  // terminado alguns instantes antes do audio no Discord.
+  _interromperTTSParaPTT();
+  _pttPendingStart = false;
+  _pttKeyHeld = true;
+  const iniciou = await iniciarGravacao();
+  if (!iniciou) {
+    _pttKeyHeld = false;
+    return false;
+  }
+  // A tecla pode ter sido solta enquanto o navegador abria o microfone.
+  if (!_pttKeyHeld && _vozRecording) pararGravacao();
+  return true;
 }
 
 async function limparChatVoz() {
@@ -4028,13 +4175,8 @@ function _iniciarPollingPTT() {
       const data = await r.json();
       const agora = data.pressionado;
       if (!agora) _pttPendingStart = false;
-      if (agora && _vozProcessing && !_vozRecording) {
-        _pttPendingStart = true;
-      }
-      if (agora && !_pttGlobalAnterior && !_pttKeyHeld && !_vozProcessing) {
-        _pttKeyHeld = true;
-        _pttPendingStart = false;
-        iniciarGravacao();
+      if (agora && !_pttGlobalAnterior && !_pttKeyHeld) {
+        await _iniciarPTTPressionado();
       } else if (!agora && _pttGlobalAnterior && _pttKeyHeld) {
         _pttKeyHeld = false;
         if (_vozRecording) pararGravacao();
@@ -4067,23 +4209,16 @@ async function _retomarPTTSePressionado() {
     return;
   }
 
-  _pttPendingStart = false;
-  _pttKeyHeld = true;
   _pttGlobalAnterior = true;
-  await iniciarGravacao();
+  await _iniciarPTTPressionado();
 }
 
 document.addEventListener('keydown', (e) => {
   if (!_pttEnabled) return;
   if (e.code === 'ShiftRight') {
     e.preventDefault();
-    if (_vozProcessing) {
-      _pttPendingStart = true;
-      return;
-    }
     if (_pttKeyHeld) return;
-    _pttKeyHeld = true;
-    iniciarGravacao();
+    _iniciarPTTPressionado();
   }
 });
 

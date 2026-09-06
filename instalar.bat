@@ -23,6 +23,7 @@ for %%F in (
     ".env.example"
     "scripts\baixar_llama_cpp.ps1"
     "scripts\preparar_chatterbox_ptbr.py"
+    "scripts\preparar_higgs_tts.ps1"
     "scripts\preparar_whisper.py"
     "scripts\validar_instalacao.py"
     "scripts\validar_runtime.py"
@@ -46,6 +47,7 @@ for %%D in (
     "models\texto"
     "models\whisper"
     "models\chatterbox"
+    "models\higgs"
 ) do (
     if not exist "%%~D" mkdir "%%~D"
     if not exist "%%~D" (
@@ -108,6 +110,16 @@ if errorlevel 1 (
     goto FALHA
 )
 
+echo.
+echo Baixando o Higgs Audio v3 TTS 4B Q8_0 e seu runtime nativo...
+echo [AVISO] O Higgs possui licenca propria da Boson AI; consulte o README antes de uso comercial.
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\preparar_higgs_tts.ps1"
+if errorlevel 1 (
+    echo [ERRO] Falha ao preparar o Higgs Audio v3 TTS.
+    echo O download pode ser retomado executando instalar.bat novamente.
+    goto FALHA
+)
+
 if not defined LLAMA_CPP_BACKEND (
     "%PY%" -c "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" >nul 2>&1
     if errorlevel 1 (
@@ -122,6 +134,11 @@ if errorlevel 1 goto FALHA
 
 echo.
 echo Validando a instalacao completa...
+"%PY%" "scripts\validar_runtime.py" --deep
+if errorlevel 1 (
+    echo [ERRO] O runtime foi instalado, mas algum componente nao consegue ser carregado.
+    goto FALHA
+)
 "%PY%" "scripts\validar_instalacao.py"
 if errorlevel 1 (
     echo [ERRO] A validacao tecnica encontrou problemas.
@@ -141,12 +158,12 @@ goto SUCESSO
 
 :VERIFICAR_ESPACO
 echo Verificando espaco livre em disco...
-powershell -NoProfile -Command "$drive=[IO.Path]::GetPathRoot((Get-Location).Path).Substring(0,1); $free=(Get-PSDrive -Name $drive).Free; Write-Host ('Espaco livre: {0:N1} GB' -f ($free/1GB)); if($free -lt 10GB){exit 2}; if($free -lt 18GB){exit 1}; exit 0"
+powershell -NoProfile -Command "$drive=[IO.Path]::GetPathRoot((Get-Location).Path).Substring(0,1); $free=(Get-PSDrive -Name $drive).Free; Write-Host ('Espaco livre: {0:N1} GB' -f ($free/1GB)); if($free -lt 16GB){exit 2}; if($free -lt 25GB){exit 1}; exit 0"
 if errorlevel 2 (
-    echo [ERRO] Menos de 10 GB livres. Libere espaco antes de instalar.
+    echo [ERRO] Menos de 16 GB livres. Libere espaco antes de instalar.
     exit /b 1
 )
-if errorlevel 1 echo [AVISO] Menos de 18 GB livres; um modelo GGUF grande pode nao caber.
+if errorlevel 1 echo [AVISO] Menos de 25 GB livres; um modelo GGUF grande pode nao caber.
 exit /b 0
 
 
@@ -335,6 +352,7 @@ if errorlevel 1 (
     echo [ERRO] Nao foi possivel restaurar o pip no ambiente virtual.
     exit /b 1
 )
+
 "%PY%" -m pip install --upgrade --retries 5 --timeout 90 pip wheel "setuptools<81"
 if errorlevel 1 exit /b 1
 exit /b 0
@@ -452,8 +470,15 @@ if not exist "venv\Scripts\python.exe" (
     echo [ERRO] Ambiente virtual ausente. Execute instalar.bat primeiro.
     goto FALHA
 )
+"venv\Scripts\python.exe" "scripts\validar_runtime.py" --deep
+if errorlevel 1 (
+    echo [ERRO] O runtime possui componentes ausentes ou incompativeis.
+    set "CHECK_RESULT=1"
+    goto CHECK_DONE
+)
 "venv\Scripts\python.exe" "scripts\validar_instalacao.py" --strict
 set "CHECK_RESULT=%ERRORLEVEL%"
+:CHECK_DONE
 echo.
 pause
 exit /b %CHECK_RESULT%

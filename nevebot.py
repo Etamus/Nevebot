@@ -96,16 +96,17 @@ def _preaquecer_pipeline_voz_inicial() -> None:
         return
 
     from cogs.voice_cog import voz_estado
-    from services import stt_whisper, tts_chatterbox
+    from services import stt_whisper, tts_manager
 
     voz_cfg = dict(voz_estado)
     whisper_modelo = str(voz_cfg.get("whisper_modelo") or "large-v3-turbo")
 
-    # Evita a corrida do import lazy do Transformers quando os dois loaders
-    # comecam juntos. Depois disso, os pesos podem ser lidos em paralelo.
+    # Importa apenas o runtime selecionado. Higgs e Chatterbox nao ficam
+    # residentes juntos, preservando VRAM para a LLM.
     try:
-        from chatterbox.models.t3 import T3 as _T3  # noqa: F401
         from faster_whisper import WhisperModel as _WhisperModel  # noqa: F401
+        if tts_manager.modelo(voz_cfg) == tts_manager.CHATTERBOX:
+            from chatterbox.models.t3 import T3 as _T3  # noqa: F401
     except Exception as exc:
         log.warning("Preparacao dos runtimes de voz falhou: %s", exc, exc_info=True)
 
@@ -113,16 +114,16 @@ def _preaquecer_pipeline_voz_inicial() -> None:
         log.info("Pre-aquecimento inicial: carregando Whisper '%s'...", whisper_modelo)
         stt_whisper.precarregar_e_aquecer(whisper_modelo, strict=False)
 
-    def _aquecer_chatterbox() -> None:
-        log.info("Pre-aquecimento inicial: carregando Chatterbox PT-BR...")
-        tts_chatterbox.precarregar_e_aquecer(voz_cfg, full_warmup=True)
+    def _aquecer_tts() -> None:
+        log.info("Pre-aquecimento inicial: carregando TTS '%s'...", voz_cfg.get("tts_model"))
+        tts_manager.precarregar_e_aquecer(voz_cfg, full_warmup=True)
 
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix="voice-loader") as pool:
         tarefas = {
             "Whisper": pool.submit(_aquecer_whisper),
-            "Chatterbox": pool.submit(_aquecer_chatterbox),
+            "TTS": pool.submit(_aquecer_tts),
         }
         for nome, tarefa in tarefas.items():
             try:
@@ -163,7 +164,8 @@ def _iniciar_preaquecimento_voz_background() -> None:
 async def on_ready() -> None:
     log.info("Bot online como %s (ID: %s)", bot.user.name, bot.user.id)
     log.info("Modelo LLM configurado (desligado): %s", config.LLM_MODEL_PATH)
-    log.info("Chatterbox PT-BR: %s", config.CHATTERBOX_PTBR_DIR)
+    from cogs.voice_cog import voz_estado
+    log.info("TTS configurado: %s", voz_estado.get("tts_model"))
     _liberar_interface()
 
 

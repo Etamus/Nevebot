@@ -58,6 +58,7 @@ if DISCORD_TOKEN in {"SEU_TOKEN_AQUI", "SEU_TOKEN_REAL"}:
 MODELS_DIR = BASE_DIR / "models"
 MODELS_TEXTO_DIR = MODELS_DIR / "texto"
 CHATTERBOX_DIR = MODELS_DIR / "chatterbox"
+HIGGS_DIR = MODELS_DIR / "higgs"
 
 def encontrar_modelo(pasta: Path | None = None, *, obrigatorio: bool = True) -> str:
     """
@@ -149,6 +150,24 @@ CHATTERBOX_MIN_SPEECH_TOKENS: int = int(os.getenv("CHATTERBOX_MIN_SPEECH_TOKENS"
 CHATTERBOX_MAX_SPEECH_TOKENS: int = int(os.getenv("CHATTERBOX_MAX_SPEECH_TOKENS", 560))
 CHATTERBOX_SPEECH_TOKENS_PER_CHAR: float = float(os.getenv("CHATTERBOX_SPEECH_TOKENS_PER_CHAR", 2.0))
 CHATTERBOX_SPEECH_TOKEN_BIAS: int = int(os.getenv("CHATTERBOX_SPEECH_TOKEN_BIAS", 24))
+
+# Higgs Audio v3 TTS 4B via audio.cpp. O servidor nativo fica residente para
+# que cada frase nao tenha de recarregar os 4B parametros.
+HIGGS_RUNTIME_DIR: Path = _path_env("HIGGS_RUNTIME_DIR", BASE_DIR / "higgs.cpp")
+HIGGS_SERVER_EXE: Path = _path_env(
+    "HIGGS_SERVER_EXE", HIGGS_RUNTIME_DIR / "audiocpp_server.exe"
+)
+HIGGS_MODEL_PATH: Path = _path_env(
+    "HIGGS_MODEL_PATH", HIGGS_DIR / "higgs-audio-v3-tts-4b-q8_0.gguf"
+)
+HIGGS_SERVER_HOST: str = os.getenv("HIGGS_SERVER_HOST", "127.0.0.1").strip()
+HIGGS_SERVER_PORT: int = int(os.getenv("HIGGS_SERVER_PORT", 8091))
+HIGGS_SERVER_URL: str = os.getenv(
+    "HIGGS_SERVER_URL", f"http://{HIGGS_SERVER_HOST}:{HIGGS_SERVER_PORT}"
+).rstrip("/")
+HIGGS_STARTUP_TIMEOUT: int = int(os.getenv("HIGGS_STARTUP_TIMEOUT", 300))
+HIGGS_REQUEST_TIMEOUT: int = int(os.getenv("HIGGS_REQUEST_TIMEOUT", 180))
+HIGGS_MAX_TOKENS: int = int(os.getenv("HIGGS_MAX_TOKENS", 1024))
 
 # Parâmetros de qualidade / controle de repetição
 LLM_TEMPERATURE: float        = _llm_float("temperature", "LLM_TEMPERATURE", 0.8)

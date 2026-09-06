@@ -34,6 +34,7 @@ WHISPER_ALIASES = {
     "large_v3_turbo": "large-v3-turbo",
     "turbo": "large-v3-turbo",
 }
+HIGGS_MODEL_SIZE = 5_095_354_048
 REQUIRED_MODULES = {
     "discord": "discord.py",
     "discord.ext.voice_recv": "discord-ext-voice-recv",
@@ -192,6 +193,21 @@ def validate_models(report: Report, env: dict, voice_config: dict) -> None:
     else:
         report.ok("Pesos do Chatterbox Multilingual V3 PT-BR completos")
 
+    higgs_runtime = resolve_path(env.get("HIGGS_RUNTIME_DIR"), BASE_DIR / "higgs.cpp")
+    higgs_server = resolve_path(
+        env.get("HIGGS_SERVER_EXE"), higgs_runtime / "audiocpp_server.exe"
+    )
+    higgs_model = resolve_path(
+        env.get("HIGGS_MODEL_PATH"),
+        BASE_DIR / "models" / "higgs" / "higgs-audio-v3-tts-4b-q8_0.gguf",
+    )
+    if not higgs_server.is_file():
+        report.error(f"Runtime audio.cpp do Higgs ausente: {higgs_server}")
+    elif not higgs_model.is_file() or higgs_model.stat().st_size != HIGGS_MODEL_SIZE:
+        report.error(f"Modelo Higgs Audio v3 Q8_0 ausente ou incompleto: {higgs_model}")
+    else:
+        report.ok("Higgs Audio v3 TTS 4B Q8_0 completo")
+
     whisper_name = str(voice_config.get("whisper_modelo", "large-v3-turbo") or "large-v3-turbo").strip()
     whisper_name = WHISPER_ALIASES.get(whisper_name.lower(), whisper_name)
     try:
@@ -259,6 +275,9 @@ def validate_project_files(report: Report) -> None:
         "services/discord_audio_monitor.py",
         "services/discord_transcription.py",
         "services/discord_voice_receive.py",
+        "services/tts_higgs.py",
+        "services/tts_manager.py",
+        "scripts/preparar_higgs_tts.ps1",
         "data/config_ui.json",
         "data/voz_config.json",
         "personality_prompt.json",

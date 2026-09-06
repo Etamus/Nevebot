@@ -931,9 +931,68 @@ select.custom-native-select {
   border-radius: 0 !important;
   background: transparent !important;
 }
+[data-tts-only][hidden] { display: none !important; }
 .vs-label { margin: 0 !important; }
 .vs-control { width: 100%; min-height: 0 !important; }
 .vs-control .input-name { max-width: 260px !important; }
+.ui-switch {
+  position: relative;
+  display: inline-flex;
+  width: 44px;
+  height: 24px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.ui-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-switch-track {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #454545;
+  border-radius: 12px;
+  background: #242424;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.ui-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #a9a9a9;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+.ui-switch:hover .ui-switch-track { border-color: #686868; background: #2c2c2c; }
+.ui-switch input:checked + .ui-switch-track { border-color: #ededed; background: #ededed; }
+.ui-switch input:checked + .ui-switch-track::after { transform: translateX(20px); background: #171717; }
+.ui-switch input:focus-visible + .ui-switch-track { outline: 2px solid #ffffff; outline-offset: 3px; }
+.ui-switch input:disabled + .ui-switch-track { cursor: not-allowed; opacity: .45; }
+.voice-reference-prompt {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  gap: var(--space-3) !important;
+  min-height: 0;
+  padding-top: var(--space-5) !important;
+}
+.voice-reference-prompt .prompt-textarea {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 150px !important;
+  max-height: 280px !important;
+}
+.voice-reference-prompt .advanced-prompts-header h3 {
+  color: #c7c7c7;
+}
 .vs-actions {
   display: flex !important;
   justify-content: flex-end !important;

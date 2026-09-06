@@ -4,6 +4,8 @@ import argparse
 import importlib
 import importlib.util
 import re
+import sys
+import warnings
 from importlib import metadata
 from pathlib import Path
 
@@ -52,6 +54,13 @@ REQUIRED_MODULES = (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API.*",
+    category=UserWarning,
+)
 CHATTERBOX_VERSION = "0.1.7"
 CHATTERBOX_IMPORTS = (
     "chatterbox.models.t3",
@@ -142,6 +151,19 @@ def _deep_check(*, chatterbox_only: bool) -> list[str]:
             importlib.import_module(module)
         except Exception as exc:
             errors.append(f"{module}: {type(exc).__name__}: {exc}")
+    if not chatterbox_only:
+        try:
+            from discord.ext import voice_recv
+            from discord.ext.voice_recv import video
+            from services.discord_voice_receive import aplicar_compatibilidade_voice_recv
+
+            aplicar_compatibilidade_voice_recv()
+            if not getattr(video.VideoStreamInfo.__init__, "_nevebot_compat", False):
+                errors.append("compatibilidade de VideoStreamInfo nao foi aplicada")
+            if not getattr(voice_recv.VoiceRecvClient._remove_ssrc, "_nevebot_compat", False):
+                errors.append("compatibilidade de VoiceRecvClient nao foi aplicada")
+        except Exception as exc:
+            errors.append(f"compatibilidade voice-recv: {type(exc).__name__}: {exc}")
     return errors
 
 

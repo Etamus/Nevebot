@@ -14,6 +14,7 @@ Rota                    Método  Descrição
 /api/voz/conectar       POST    Conecta bot a um canal de voz
 /api/voz/desconectar    POST    Desconecta bot do canal de voz
 /api/voz/chat           POST    Recebe WAV, transcreve, gera resposta LLM, fala no Discord
+/api/voz/interromper    POST    Cancela imediatamente a fala atual sem desconectar
 /api/voz/falar          POST    Recebe texto, gera TTS e fala no Discord
 /api/voz/monitor        GET     Retorna estado do monitor local do canal
 /api/voz/monitor        POST    Inicia, configura ou encerra o monitor local
@@ -302,6 +303,12 @@ def _finalizar_desligamento() -> None:
             obter_monitor().parar()
         except Exception:
             log.exception("Falha ao encerrar o monitor local de voz.")
+        try:
+            from services import tts_manager
+
+            tts_manager.desligar()
+        except Exception:
+            log.exception("Falha ao encerrar o backend TTS.")
         _encerrar_llama_server()
         if _bot_ref is not None and _loop_ref is not None and _loop_ref.is_running():
             try:
@@ -438,13 +445,16 @@ async def _limpar_conexao_voz(guild_id: int, motivo: str = "") -> dict:
 async def _abrir_conexao_voz(channel, guild_id: int):
     """Conecta com uma repeticao controlada quando o handshake UDP expira."""
     from discord.ext import voice_recv
+    from services.discord_voice_receive import aplicar_compatibilidade_voice_recv
+
+    aplicar_compatibilidade_voice_recv()
 
     for tentativa in range(1, _VOICE_CONNECT_ATTEMPTS + 1):
         try:
             return await asyncio.wait_for(
                 channel.connect(
                     timeout=_VOICE_CONNECT_TIMEOUT,
-                    reconnect=False,
+                    reconnect=True,
                     cls=voice_recv.VoiceRecvClient,
                 ),
                 timeout=_VOICE_CONNECT_TIMEOUT + 3,
@@ -462,6 +472,50 @@ async def _abrir_conexao_voz(channel, guild_id: int):
             )
             await _limpar_conexao_voz(guild_id, f"nova tentativa {tentativa}")
             await asyncio.sleep(_VOICE_CONNECT_RETRY_DELAY)
+
+
+async def garantir_conexao_voz_para_reproducao(guild_id: int):
+    """Recupera automaticamente uma conexao cujo WebSocket interno morreu."""
+    if _bot_ref is None:
+        raise RuntimeError("Bot indisponivel")
+    guild = _bot_ref.get_guild(guild_id)
+    if guild is None:
+        raise ValueError("Guild nao encontrada")
+
+    from services.discord_voice_receive import conexao_voz_saudavel, erro_conexao_voz
+
+    vc = guild.voice_client
+    if conexao_voz_saudavel(vc):
+        return vc
+
+    async with _voz_connect_lock(guild_id):
+        vc = guild.voice_client
+        if conexao_voz_saudavel(vc):
+            return vc
+
+        channel = getattr(vc, "channel", None)
+        if channel is None:
+            member_voice = getattr(getattr(guild, "me", None), "voice", None)
+            channel = getattr(member_voice, "channel", None)
+        if channel is None:
+            raise ValueError("Bot nao esta conectado a um canal de voz nesta guild")
+
+        falha = erro_conexao_voz(vc)
+        log.warning(
+            "[WEB] Conexao de voz sem poller ativo; recuperando antes do audio: "
+            "guild=%s canal=%s erro=%r",
+            guild.name,
+            getattr(channel, "name", "?"),
+            falha,
+        )
+        await _limpar_conexao_voz(guild_id, "poller de voz inativo")
+        novo_vc = await _abrir_conexao_voz(channel, guild_id)
+        await asyncio.sleep(0)
+        if not conexao_voz_saudavel(novo_vc):
+            await _limpar_conexao_voz(guild_id, "reconexao sem poller ativo")
+            raise RuntimeError("A conexao de voz foi recriada, mas nao ficou operacional.")
+        log.info("[WEB] Conexao de voz recuperada automaticamente para reproducao.")
+        return novo_vc
 
 
 def _agendar_reproducao_pcm(
@@ -755,6 +809,10 @@ class _Handler(BaseHTTPRequestHandler):
 
         if self.path == "/api/voz/chat":
             self._handle_voz_chat()
+            return
+
+        if self.path == "/api/voz/interromper":
+            self._handle_voz_interromper()
             return
 
         if self.path == "/api/voz/falar":
@@ -1075,13 +1133,17 @@ class _Handler(BaseHTTPRequestHandler):
 
                     member = guild.me
                     perms = channel.permissions_for(member) if member else None
-                    if perms and not (perms.view_channel and perms.connect):
-                        raise PermissionError("Bot sem permissão para conectar neste canal")
+                    if perms and not (perms.view_channel and perms.connect and perms.speak):
+                        raise PermissionError(
+                            "Bot sem permissão para visualizar, conectar ou falar neste canal"
+                        )
 
                     vc = guild.voice_client
                     if vc is not None:
+                        from services.discord_voice_receive import conexao_voz_saudavel
+
                         vc_channel = getattr(vc, "channel", None)
-                        if vc.is_connected():
+                        if conexao_voz_saudavel(vc):
                             if vc_channel and vc_channel.id == channel_id:
                                 return {"ok": True, "status": "ja_conectado", "canal": channel.name}
                             log.info("[WEB] Movendo voz: %s -> %s", getattr(vc_channel, "name", "?"), channel.name)
@@ -1105,7 +1167,9 @@ class _Handler(BaseHTTPRequestHandler):
                     except Exception as exc:
                         atual = guild.voice_client
                         atual_canal = getattr(atual, "channel", None) if atual else None
-                        if atual and atual.is_connected() and atual_canal and atual_canal.id == channel_id:
+                        from services.discord_voice_receive import conexao_voz_saudavel
+
+                        if conexao_voz_saudavel(atual) and atual_canal and atual_canal.id == channel_id:
                             return {"ok": True, "status": "conectado", "canal": channel.name}
                         await _limpar_conexao_voz(guild_id, "falha no handshake")
                         raise RuntimeError(
@@ -1113,8 +1177,10 @@ class _Handler(BaseHTTPRequestHandler):
                             "A sessão incompleta foi removida."
                         ) from exc
 
-                    if not vc.is_connected():
-                        await _limpar_conexao_voz(guild_id, "connect retornou sem is_connected")
+                    from services.discord_voice_receive import conexao_voz_saudavel
+
+                    if not conexao_voz_saudavel(vc):
+                        await _limpar_conexao_voz(guild_id, "connect retornou sem poller ativo")
                         raise RuntimeError("Discord retornou conexão de voz incompleta.")
                     return {"ok": True, "status": "conectado", "canal": channel.name}
                 finally:
@@ -1330,6 +1396,24 @@ class _Handler(BaseHTTPRequestHandler):
         )
 
     # ── Handlers: Chat de Voz (STT → LLM → TTS → Discord) ───────────────────
+
+    def _handle_voz_interromper(self) -> None:
+        """Invalida a fala atual sem desconectar o bot do canal de voz."""
+        guild_id = _encontrar_guild_com_voz()
+        sessao = _iniciar_sessao_tts("/api/voz/interromper", guild_id)
+        log.info(
+            "[WEB] Interrupcao por PTT solicitada: guild=%s nova_sessao=%s",
+            guild_id,
+            sessao,
+        )
+        self._respond(
+            200,
+            "application/json",
+            json.dumps(
+                {"ok": True, "interrompeu": guild_id is not None},
+                ensure_ascii=False,
+            ).encode("utf-8"),
+        )
 
     def _handle_voz_chat(self) -> None:
         """POST /api/voz/chat - recebe audio WAV, transcreve, gera resposta, fala."""
@@ -1841,18 +1925,34 @@ class _Handler(BaseHTTPRequestHandler):
         from cogs.voice_cog import salvar_config_voz, voz_estado
 
         voz_estado["voz_referencia_nome"] = nome_enviado
+        if resultado["alterado"]:
+            voz_estado["voz_referencia_texto"] = ""
         salvar_config_voz()
 
         preparando = False
         if resultado["alterado"]:
-            from services import tts_chatterbox
+            from services import tts_manager
 
             _iniciar_sessao_tts("/api/voz/referencia")
             voz_cfg = dict(voz_estado)
 
             def _preparar_nova_referencia() -> None:
-                tts_chatterbox.limpar_cache_referencia()
-                tts_chatterbox.precarregar_e_aquecer(voz_cfg)
+                from services import stt_whisper
+
+                try:
+                    texto_ref = stt_whisper.transcrever(
+                        _VOICE_REFERENCE_PATH.read_bytes(),
+                        str(voz_cfg.get("whisper_modelo") or "large-v3-turbo"),
+                    )
+                    if texto_ref:
+                        voz_estado["voz_referencia_texto"] = texto_ref
+                        voz_cfg["voz_referencia_texto"] = texto_ref
+                        salvar_config_voz()
+                        log.info("Transcricao da referencia de voz atualizada automaticamente.")
+                except Exception:
+                    log.exception("Falha ao transcrever a referencia; o TTS usara somente o audio.")
+                tts_manager.referencia_alterada(voz_cfg)
+                tts_manager.precarregar_e_aquecer(voz_cfg)
 
             future = _tts_executor.submit(_preparar_nova_referencia)
             preparando = True
@@ -1863,7 +1963,7 @@ class _Handler(BaseHTTPRequestHandler):
                 except Exception:
                     log.exception("Falha ao preparar a nova referencia de voz.")
                 else:
-                    log.info("Nova referencia de voz preparada para o Chatterbox.")
+                    log.info("Nova referencia de voz preparada para %s.", voz_cfg.get("tts_model"))
 
             future.add_done_callback(_registrar_preparo)
 
@@ -1891,70 +1991,83 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         from cogs.voice_cog import voz_estado, salvar_config_voz
-        from services import tts_chatterbox
+        from services import tts_manager
 
         old_exaggeration = voz_estado.get("voz_exaggeration")
+        old_model = voz_estado.get("tts_model")
         for old_key in ("voz_age", "voz_pitch_style", "voz_instruct"):
             data.pop(old_key, None)
-        data["tts_model"] = "chatterbox-ptbr-v3"
+        try:
+            data["tts_model"] = tts_manager.modelo(data)
+        except ValueError as exc:
+            self._respond(
+                400,
+                "application/json",
+                json.dumps({"erro": str(exc)}, ensure_ascii=False).encode("utf-8"),
+            )
+            return
         data["voz_language"] = "pt-BR"
         data["voz_referencia"] = "data/voz_referencia.wav"
+        data["higgs_expressividade_automatica"] = (
+            data.get("higgs_expressividade_automatica") is True
+        )
 
         voz_estado.update(data)
         salvar_config_voz()
         log.info("Config de voz salva via UI web.")
 
         if voz_estado.get("voz_exaggeration") != old_exaggeration:
-            tts_chatterbox.limpar_cache_referencia()
+            tts_manager.referencia_alterada(dict(voz_estado))
 
-        self._respond(200, "application/json", b'{"ok": true}')
+        if voz_estado.get("tts_model") != old_model:
+            voz_cfg = dict(voz_estado)
+
+            def _preparar_backend() -> None:
+                llm_cog = _bot_ref.get_cog("LLM") if _bot_ref is not None else None
+                religar_llm = bool(llm_cog is not None and llm_cog.modelo_ativo())
+                if religar_llm:
+                    log.info("Reiniciando LLM para ajustar a VRAM ao backend TTS.")
+                    llm_cog.desligar_modelo()
+                tts_manager.precarregar_e_aquecer(voz_cfg, full_warmup=True)
+                if religar_llm:
+                    llm_cog.ligar_modelo()
+
+            future = _tts_executor.submit(_preparar_backend)
+
+            def _registrar_backend(fut: Future) -> None:
+                try:
+                    fut.result()
+                except Exception:
+                    log.exception("Falha ao preparar o backend TTS selecionado.")
+
+            future.add_done_callback(_registrar_backend)
+
+        payload = {"ok": True, "preparando": voz_estado.get("tts_model") != old_model}
+        self._respond(200, "application/json", json.dumps(payload).encode("utf-8"))
 
 
 # ── Helpers de chat de voz ─────────────────────────────────────────────────────
 
-def _gerar_pcm_tts(texto: str, voz_cfg: dict, *, stream_chunk: bool = False) -> bytes:
-    """Gera TTS Chatterbox PT-BR e converte para PCM do Discord."""
-    from services import tts_chatterbox
+def _gerar_pcm_tts(
+    texto: str,
+    voz_cfg: dict,
+    *,
+    stream_chunk: bool = False,
+    expressao: dict | None = None,
+) -> bytes:
+    """Gera TTS no backend selecionado e converte para PCM do Discord."""
+    from services import tts_manager
 
     inicio = time.perf_counter()
-    speed = float(voz_cfg.get("velocidade", 1.0))
-    volume = float(voz_cfg.get("volume", 1.0))
-    seed = int(voz_cfg.get("voz_seed", 42))
-    pitch = float(voz_cfg.get("pitch", 0.0))
-    exaggeration = float(voz_cfg.get("voz_exaggeration", 0.5))
-    cfg_weight = float(voz_cfg.get("voz_cfg_weight", 0.5))
-    temperature = float(voz_cfg.get("voz_temperature", 0.8))
-    log.info(
-        "[WEB] TTS Chatterbox PT-BR: speed=%.2f vol=%.2f seed=%d pitch=%.1f exag=%.2f cfg=%.2f temp=%.2f",
-        speed,
-        volume,
-        seed,
-        pitch,
-        exaggeration,
-        cfg_weight,
-        temperature,
-    )
-    audio = tts_chatterbox.gerar(
+    backend = tts_manager.modelo(voz_cfg)
+    log.info("[WEB] TTS %s: texto=%r", backend, texto[:100])
+    pcm = tts_manager.gerar_pcm(
+        voz_cfg,
         texto,
-        speed=speed,
-        seed=seed,
-        exaggeration=exaggeration,
-        cfg_weight=cfg_weight,
-        temperature=temperature,
+        stream_chunk=stream_chunk,
+        expressao=expressao,
     )
-    if stream_chunk:
-        pcm = tts_chatterbox.para_pcm_discord(
-            audio,
-            volume=volume,
-            pitch_semitones=pitch,
-            start_pad_s=0.0,
-            end_pad_s=0.08,
-            tail_frames=2,
-        )
-        log.info("[WEB] TTS chunk completo em %.2fs (%d bytes)", time.perf_counter() - inicio, len(pcm))
-        return pcm
-    pcm = tts_chatterbox.para_pcm_discord(audio, volume=volume, pitch_semitones=pitch)
-    log.info("[WEB] TTS completo em %.2fs (%d bytes)", time.perf_counter() - inicio, len(pcm))
+    log.info("[WEB] TTS %s completo em %.2fs (%d bytes)", backend, time.perf_counter() - inicio, len(pcm))
     return pcm
 
 
@@ -1986,10 +2099,17 @@ def _submeter_frase_tts_async(
     origem: str,
     indice: int,
     sessao: int,
+    expressao: dict | None = None,
 ) -> Future:
     voz_cfg_snapshot = dict(voz_cfg)
     inicio = time.perf_counter()
-    futuro = _tts_executor.submit(_gerar_pcm_tts, frase, voz_cfg_snapshot, stream_chunk=True)
+    futuro = _tts_executor.submit(
+        _gerar_pcm_tts,
+        frase,
+        voz_cfg_snapshot,
+        stream_chunk=True,
+        expressao=dict(expressao) if expressao else None,
+    )
     with _tts_state_lock:
         _tts_futures.add(futuro)
 
@@ -2052,6 +2172,24 @@ def _gerar_resposta_voz_streaming(
     while historico and historico[0].get("role") != "user":
         historico.pop(0)
 
+    contexto_expressivo = texto_usuario
+    fala_normalizada = " ".join(
+        re.findall(r"[a-z0-9]+", _corrigir_mojibake(texto_usuario).casefold())
+    )
+    # Pedidos curtos de continuacao dependem do pedido anterior para manter o
+    # tom da mesma historia ou piada, mas outros assuntos nao herdam emocao velha.
+    if re.fullmatch(
+        r"(?:conte|conta|continue|continua)(?: mais)?|mais|e depois|por qu[eê]|porque",
+        fala_normalizada,
+    ):
+        usuarios_anteriores = [
+            str(item.get("content") or "")
+            for item in historico[:-1]
+            if item.get("role") == "user"
+        ]
+        if usuarios_anteriores:
+            contexto_expressivo = f"{usuarios_anteriores[-1]} {texto_usuario}"
+
     tts_ativo = bool(guild_id and voz_cfg.get("falar_discord", True))
     sessao_tts = _iniciar_sessao_tts(origem, int(guild_id)) if tts_ativo else 0
     mensagens: list[str] = []
@@ -2060,20 +2198,45 @@ def _gerar_resposta_voz_streaming(
     inicio_llm = time.perf_counter()
 
     try:
-        for mensagem in cog._stream_mensagens(
-            system_prompt,
-            historico,
-            max_tokens=config.LLM_VOZ_MAX_TOKENS,
-            temperature=config.LLM_VOZ_TEMPERATURE,
-        ):
+        expressividade = bool(
+            voz_cfg.get("tts_model") == "higgs-tts-3-4b"
+            and voz_cfg.get("higgs_expressividade_automatica") is True
+        )
+        if expressividade:
+            stream_falas = cog._stream_falas_expressivas(
+                system_prompt,
+                historico,
+                max_tokens=config.LLM_VOZ_MAX_TOKENS,
+                temperature=config.LLM_VOZ_TEMPERATURE,
+            )
+        else:
+            stream_falas = (
+                (item, None)
+                for item in cog._stream_mensagens(
+                    system_prompt,
+                    historico,
+                    max_tokens=config.LLM_VOZ_MAX_TOKENS,
+                    temperature=config.LLM_VOZ_TEMPERATURE,
+                )
+            )
+
+        for mensagem, expressao in stream_falas:
             mensagem = _corrigir_mojibake(mensagem).strip()
             if not mensagem:
                 continue
+            if expressao is not None:
+                expressao = {**expressao, "context": contexto_expressivo}
             mensagens.append(mensagem)
             if tts_ativo:
                 indice = len(mensagens)
                 _submeter_frase_tts_async(
-                    mensagem, voz_cfg, int(guild_id), origem, indice, sessao_tts
+                    mensagem,
+                    voz_cfg,
+                    int(guild_id),
+                    origem,
+                    indice,
+                    sessao_tts,
+                    expressao=expressao,
                 )
                 falou = True
                 audio_ms_total += _estimar_audio_tts_ms(mensagem, voz_cfg)
@@ -2082,6 +2245,11 @@ def _gerar_resposta_voz_streaming(
     except Exception as exc:
         log.warning("[LLM-VOZ] Streaming falhou: %s", exc, exc_info=True)
         if not mensagens:
+            if expressividade:
+                log.warning(
+                    "[TTS:Higgs:Expressividade] Geracao estruturada indisponivel; "
+                    "usando resposta neutra nesta interacao."
+                )
             mensagens = cog._gerar_mensagens(
                 system_prompt,
                 historico,

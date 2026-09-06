@@ -21,13 +21,17 @@ _CAMINHO_CONFIG_VOZ = _BASE_DIR / "data" / "voz_config.json"
 # Config padrão de voz
 _VOZ_DEFAULT: dict = {
     "falar_discord": True,
-    "tts_model": "chatterbox-ptbr-v3",
+    "tts_model": "higgs-tts-3-4b",
     "voz_language": "pt-BR",
     "voz_referencia": "data/voz_referencia.wav",
     "voz_referencia_nome": "voz_referencia.wav",
     "voz_exaggeration": 0.5,
     "voz_cfg_weight": 0.5,
     "voz_temperature": 0.8,
+    "voz_top_k": 30,
+    "voz_top_p": 0.8,
+    "voz_referencia_texto": "",
+    "higgs_expressividade_automatica": False,
     "velocidade": 1.0,
     "volume": 1.0,
     "whisper_modelo": "large-v3-turbo",
@@ -53,7 +57,11 @@ def _carregar_config_voz() -> None:
             voz_estado = {**_VOZ_DEFAULT, **loaded}
             for key in _VOZ_OLD_KEYS:
                 voz_estado.pop(key, None)
-            voz_estado["tts_model"] = "chatterbox-ptbr-v3"
+            if voz_estado.get("tts_model") not in {"higgs-tts-3-4b", "chatterbox-ptbr-v3"}:
+                voz_estado["tts_model"] = "higgs-tts-3-4b"
+            voz_estado["higgs_expressividade_automatica"] = (
+                voz_estado.get("higgs_expressividade_automatica") is True
+            )
             voz_estado["voz_language"] = "pt-BR"
             return
         except Exception as exc:
@@ -145,10 +153,9 @@ async def reproduzir_pcm(
             log.error("[VOZ] Guild %s não encontrada!", guild_id)
             raise ValueError("Guild não encontrada")
 
-        vc = guild.voice_client
-        if vc is None or not vc.is_connected():
-            log.error("[VOZ] Bot não está conectado a voz na guild %s (vc=%s)", guild_id, vc)
-            raise ValueError("Bot não está conectado a um canal de voz nesta guild")
+        from web_server import garantir_conexao_voz_para_reproducao
+
+        vc = await garantir_conexao_voz_para_reproducao(guild_id)
 
         log.info("[VOZ] Conectado ao canal: %s (guild: %s)", vc.channel.name, guild.name)
 

@@ -2,12 +2,90 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import select
+import threading
 from typing import Any
 
 
 log = logging.getLogger("discord_voice_receive")
+_compat_lock = threading.Lock()
+_compat_aplicada = False
+
+
+def aplicar_compatibilidade_voice_recv() -> None:
+    """Corrige falhas conhecidas do voice-recv sem alterar o pacote instalado."""
+    global _compat_aplicada
+    if _compat_aplicada:
+        return
+
+    with _compat_lock:
+        if _compat_aplicada:
+            return
+
+        from discord.ext import voice_recv
+        from discord.ext.voice_recv import video
+
+        original_video_init = video.VideoStreamInfo.__init__
+
+        def _video_init_compativel(self: Any, *, data: dict[str, Any]) -> None:
+            seguro = dict(data or {})
+            seguro.setdefault("active", False)
+            seguro.setdefault("max_bitrate", 0)
+            seguro.setdefault("max_framerate", 0)
+            seguro.setdefault("max_resolution", {"width": 0, "height": 0, "type": "unknown"})
+            seguro.setdefault("quality", 0)
+            seguro.setdefault("rid", "")
+            seguro.setdefault("rtx_ssrc", 0)
+            seguro.setdefault("ssrc", 0)
+            original_video_init(self, data=seguro)
+
+        original_remove_ssrc = voice_recv.VoiceRecvClient._remove_ssrc
+
+        def _remove_ssrc_compativel(self: Any, *, user_id: int) -> None:
+            ssrc = self._id_to_ssrc.pop(user_id, None)
+            if ssrc is None:
+                return
+            reader = getattr(self, "_reader", None)
+            timer = getattr(reader, "speaking_timer", None)
+            if timer is not None:
+                timer.drop_ssrc(ssrc)
+            self._ssrc_to_id.pop(ssrc, None)
+
+        # Os marcadores evitam empilhar wrappers em reloads durante desenvolvimento.
+        if not getattr(original_video_init, "_nevebot_compat", False):
+            _video_init_compativel._nevebot_compat = True
+            video.VideoStreamInfo.__init__ = _video_init_compativel
+        if not getattr(original_remove_ssrc, "_nevebot_compat", False):
+            _remove_ssrc_compativel._nevebot_compat = True
+            voice_recv.VoiceRecvClient._remove_ssrc = _remove_ssrc_compativel
+
+        _compat_aplicada = True
+        log.info("Compatibilidade do receptor de voz do Discord aplicada.")
+
+
+def conexao_voz_saudavel(voice_client: Any) -> bool:
+    """Detecta VoiceClient que aparenta estar conectado, mas perdeu o poller."""
+    if voice_client is None or not voice_client.is_connected():
+        return False
+    connection = getattr(voice_client, "_connection", None)
+    runner = getattr(connection, "_runner", None)
+    if runner is None:
+        return False
+    return not runner.done()
+
+
+def erro_conexao_voz(voice_client: Any) -> BaseException | None:
+    """Retorna a falha terminal do poller, quando disponivel."""
+    connection = getattr(voice_client, "_connection", None)
+    runner = getattr(connection, "_runner", None)
+    if runner is None or not runner.done() or runner.cancelled():
+        return None
+    try:
+        return runner.exception()
+    except (RuntimeError, asyncio.CancelledError):
+        return None
 
 
 def preparar_recebimento_dave(voice_client: Any, *, segundos: int = 15) -> None:

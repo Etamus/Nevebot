@@ -629,6 +629,23 @@ def limpar_cache_referencia() -> None:
             _model.conds = None
 
 
+def descarregar() -> None:
+    """Libera o Chatterbox e sua VRAM ao selecionar outro backend."""
+    global _model, _ref_key
+    with _lock:
+        _model = None
+        _ref_key = None
+    try:
+        import gc
+        import torch
+
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        pass
+
+
 def _referencia_key(exaggeration: float) -> tuple[str, int, int, float]:
     if not _REF_AUDIO_PATH.exists():
         raise FileNotFoundError(

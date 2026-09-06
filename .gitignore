@@ -36,6 +36,7 @@ data/nevebot-favicon.ico
 # Modelos, caches e binarios grandes
 models/**
 llama.cpp/
+higgs.cpp/
 .omnivoice/
 omnivoice_cache/
 .cache/

@@ -2,7 +2,7 @@
 
 ---
 
-Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de manter conversas por texto e voz com foco em interações curtas, naturais e responsivas em português brasileiro. A arquitetura utiliza uma LLM em formato GGUF executada via llama.cpp, reconhecimento de fala com faster-whisper e clonagem de voz por meio do Chatterbox Multilingual V3 PT-BR. Todo o processamento e a inferência de IA acontecem diretamente na máquina do usuário, garantindo maior privacidade e independência de APIs externas ou serviços pagos.
+Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de manter conversas por texto e voz com foco em interações curtas, naturais e responsivas em português brasileiro. A arquitetura utiliza uma LLM em formato GGUF executada via llama.cpp, reconhecimento de fala com faster-whisper e dois mecanismos locais de clonagem de voz: Higgs Audio v3 TTS 4B e Chatterbox Multilingual V3 PT-BR. Todo o processamento e a inferência de IA acontecem diretamente na máquina do usuário, garantindo maior privacidade e independência de APIs externas ou serviços pagos.
 
 ---
 
@@ -23,7 +23,7 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Prepara o áudio antes do STT com conversão para mono, resample para 16 kHz, remoção de offset, VAD e normalização de volume.
 - Usa decodificação principal com beam 3 e uma segunda tentativa seletiva com beam 5 quando a transcrição parece instável.
 - Filtra créditos de legenda e outras alucinações conhecidas do Whisper.
-- Sintetiza com Chatterbox Multilingual V3 e o pacote dedicado a PT-BR.
+- Sintetiza com Higgs Audio v3 TTS 4B Q8_0 por padrão ou Chatterbox Multilingual V3 PT-BR como alternativa.
 - Clona automaticamente a voz de `data/voz_referencia.wav` e detecta a troca do arquivo na geração seguinte.
 - Reproduz PCM diretamente no Discord, sem depender de FFmpeg.
 - Recebe e reproduz localmente as pessoas do canal de voz, com seleção de saída e volume, sem gravar ou transcrever.
@@ -38,7 +38,7 @@ As páginas atuais são:
 
 - **Visão geral:** estado do Discord, canal de voz, LLM, reconhecimento, síntese e microfone.
 - **Conversa:** chat por texto, gravação pelo microfone e push-to-talk.
-- **Voz:** entrada, reconhecimento, referência e parâmetros do Chatterbox.
+- **Voz:** referência, escolha entre Higgs e Chatterbox, parâmetros próprios e expressividade automática opcional do Higgs.
 - **Modelo:** seleção do GGUF, parâmetros de execução, sampling e prompts.
 - **Discord:** servidores, conexão, monitor local, envio de mensagens e transcrição SRT do canal.
 - **Comandos:** referência dos comandos disponíveis no bot.
@@ -50,7 +50,7 @@ As páginas atuais são:
 - Uma aplicação de bot criada no Discord Developer Portal.
 - O intent privilegiado **Message Content Intent** habilitado para o bot.
 - Um modelo de texto no formato GGUF compatível com a versão atual do `llama.cpp`.
-- Espaço em disco para o GGUF, Whisper, Chatterbox e dependências do PyTorch.
+- Espaço em disco para a LLM GGUF, Whisper, Chatterbox, Higgs Q8_0 (cerca de 5 GB) e dependências do PyTorch.
 - GPU NVIDIA recomendada para baixa latência. O projeto também possui fallback para CPU, com desempenho menor.
 
 O NVIDIA CUDA Toolkit global não é necessário. O instalador usa o runtime CUDA incluído nos pacotes do PyTorch quando encontra um driver NVIDIA compatível.
@@ -83,6 +83,7 @@ O `instalar.bat`:
 - baixa a versão oficial mais recente do `llama.cpp` para `llama.cpp/`;
 - baixa antecipadamente o modelo configurado do `faster-whisper` para `models/whisper/`;
 - baixa os pesos do Chatterbox PT-BR para `models/chatterbox/`;
+- baixa o Higgs Audio v3 TTS 4B Q8_0 para `models/higgs/` e o runtime CUDA autocontido do audio.cpp para `higgs.cpp/`;
 - executa um diagnóstico final das dependências, binários, pesos e arquivos obrigatórios.
 
 O instalador prepara todos os componentes públicos do projeto. Modelo GGUF e gravação de referência continuam sendo fornecidos pelo usuário; quando algum deles estiver ausente, o diagnóstico final mostra exatamente o que falta. O token do Discord pode ser informado depois pela própria interface.
@@ -115,7 +116,7 @@ O arquivo precisa ter pelo menos um segundo. Para uma clonagem mais estável, us
 iniciar.bat
 ```
 
-O `iniciar.bat` valida rapidamente o runtime Python antes de abrir a aplicação. Se algum pacote obrigatório estiver ausente ou desalinhado, ele executa um reparo automático e só inicia após uma nova validação. Em seguida, começa a carregar o `large-v3-turbo` e o Chatterbox em paralelo e em segundo plano enquanto abre a interface. O Whisper usa diretamente o snapshot local preparado pelo instalador, sem consulta de rede em toda inicialização. Use **Iniciar modelo** na página **Visão geral** para carregar apenas o `llama-server`; o mesmo botão permite liberar a LLM depois. Se uma função de voz for usada antes de o aquecimento terminar, ela aguarda com segurança o carregamento em andamento.
+O `iniciar.bat` valida rapidamente os runtimes Python, llama.cpp e audio.cpp antes de abrir a aplicação. Se o Higgs estiver incompleto, o download é retomado automaticamente. Em seguida, o Whisper e somente o backend TTS selecionado começam a carregar em paralelo e em segundo plano. Use **Iniciar modelo** na página **Visão geral** para carregar o `llama-server`; quando o Higgs está selecionado, o ajuste automático de memória preserva espaço de GPU para os dois modelos.
 
 ## Configuração do Discord
 
@@ -149,7 +150,7 @@ Os receptores do Discord permanecem desligados até **Ouvir canal** ou **Iniciar
 
 ### `.env`
 
-Contém segredos e opções de infraestrutura: token do Discord, caminho inicial do GGUF, endereço do `llama-server`, diretórios do Chatterbox e valores padrão. Consulte `.env.example` para todas as variáveis disponíveis.
+Contém segredos e opções de infraestrutura: token do Discord, caminho inicial do GGUF, endereços dos servidores locais e diretórios do Chatterbox e Higgs. Consulte `.env.example` para todas as variáveis disponíveis.
 
 ### `data/config_ui.json`
 
@@ -159,7 +160,7 @@ Parâmetros de carregamento como modelo, contexto, camadas de GPU, batch, thread
 
 ### `data/voz_config.json`
 
-Persiste modelo do Whisper, referência de voz, expressividade, CFG, temperatura, velocidade, volume, seed, pitch e preferências do fluxo de voz.
+Persiste modelo do Whisper, referência de voz, expressividade, CFG, temperatura, velocidade, volume, seed, pitch e preferências do fluxo de voz. A expressividade automática do Higgs vem desligada por padrão: quando ativada, a LLM produz metadados estruturados, o servidor aceita somente valores permitidos e o adaptador Higgs os converte em controles de voz. O Chatterbox sempre recebe apenas o texto limpo.
 
 ### `personality_prompt.json`
 
@@ -188,6 +189,9 @@ Nevebot/
 |   |-- discord_transcription.py # Áudio do Discord, VAD por pessoa e SRT
 |   |-- discord_voice_receive.py # ativação limpa do receptor do Discord
 |   |-- stt_whisper.py           # STT PT-BR com faster-whisper
+|   |-- tts_manager.py           # seleção exclusiva do backend de voz
+|   |-- tts_expression.py        # validação e compilação segura de controles Higgs
+|   |-- tts_higgs.py             # Higgs Audio v3 via audio.cpp
 |   `-- tts_chatterbox.py        # Chatterbox V3 PT-BR e clonagem
 |-- scripts/
 |   |-- baixar_llama_cpp.ps1
@@ -240,9 +244,14 @@ Nevebot/
 
 - Confira o console e `logs/nevebot_error.log`.
 - Verifique se `data/voz_referencia.wav` existe e contém fala válida.
+- O Higgs usa o runtime CUDA do audio.cpp; o pacote fornecido pelo instalador é voltado a GPUs NVIDIA compatíveis.
 - Em CPU, `large-v3-turbo` e Chatterbox funcionam com latência consideravelmente maior.
 - Confirme no Discord se o bot tem permissão para conectar e falar no canal selecionado.
 - No pywebview, permita o acesso ao microfone quando solicitado pelo Windows/WebView2.
+
+## Licença do Higgs
+
+Higgs TTS 3 / Higgs Audio v3 é uma tecnologia da Boson AI. O modelo é baixado diretamente do pacote público mantido para o audio.cpp e não é redistribuído neste repositório. Consulte a [licença oficial do Higgs TTS 3](https://huggingface.co/bosonai/higgs-tts-3-4b/blob/main/LICENSE) para as exigências de atribuição, usos permitidos e licença comercial; ela não equivale a uma licença permissiva como MIT ou Apache-2.0.
 
 ## Privacidade
 
