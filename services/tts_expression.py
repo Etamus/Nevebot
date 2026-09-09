@@ -9,6 +9,7 @@ from typing import Mapping
 
 
 _TAG_RE = re.compile(r"<\|[^|<>]{1,80}\|>")
+_CONTROL_TAG_RE = re.compile(r"<\|(emotion|style|sfx|prosody):([a-z_]+)\|>", re.IGNORECASE)
 
 # Controles oficiais aceitos pelo Higgs. A gramatica da LLM usa a mesma lista.
 EMOTIONS = {
@@ -41,6 +42,7 @@ EFFECTS = {
     "humming", "sigh", "sniff", "sneeze",
 }
 CONFIDENCES = {"low", "high"}
+PROSODIES = {"expressive_high"}
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,39 @@ class Expression:
 def limpar_tags(texto: str) -> str:
     """Remove qualquer controle Higgs vindo de texto nao confiavel."""
     return " ".join(_TAG_RE.sub("", str(texto or "")).split())
+
+
+def preparar_manual(texto: str) -> tuple[str, tuple[str, ...]]:
+    """Preserva somente controles Higgs oficiais digitados pelo usuario."""
+    original = str(texto or "")
+    controles: dict[str, str] = {}
+    permitidos = {
+        "emotion": EMOTIONS,
+        "style": STYLES,
+        "sfx": EFFECTS,
+        "prosody": PROSODIES,
+    }
+    for match in _CONTROL_TAG_RE.finditer(original):
+        categoria = match.group(1).casefold()
+        valor = match.group(2).casefold()
+        if valor in permitidos[categoria]:
+            controles[categoria] = valor
+
+    limpo = " ".join(_TAG_RE.sub(" ", original).split())
+    if "<|" in limpo or "|>" in limpo:
+        raise ValueError("Tag de expressao incompleta ou invalida.")
+    ordem = ("emotion", "prosody", "style", "sfx")
+    tags = tuple(
+        f"<|{categoria}:{controles[categoria]}|>"
+        for categoria in ordem
+        if categoria in controles
+        and not (
+            (categoria == "emotion" and controles[categoria] == "neutral")
+            or (categoria == "style" and controles[categoria] == "normal")
+            or (categoria == "sfx" and controles[categoria] == "none")
+        )
+    )
+    return ("".join(tags) + limpo) if limpo else "", tags
 
 
 def _normalizar(texto: str) -> str:

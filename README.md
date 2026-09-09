@@ -26,8 +26,12 @@ Nevebot é uma plataforma de IA local integrada a um bot Discord, capaz de mante
 - Sintetiza com Higgs Audio v3 TTS 4B Q8_0 por padrão ou Chatterbox Multilingual V3 PT-BR como alternativa.
 - Clona automaticamente a voz de `data/voz_referencia.wav` e detecta a troca do arquivo na geração seguinte.
 - Reproduz PCM diretamente no Discord, sem depender de FFmpeg.
+- Permite alternar globalmente entre saída **Discord** e **Local** nas páginas Conversa, Voz e Discord.
+- Reproduz a resposta da IA diretamente no computador no modo Local, sem acessar a conexão de voz do Discord.
 - Recebe e reproduz localmente as pessoas do canal de voz, com seleção de saída e volume, sem gravar ou transcrever.
 - Gera legendas SRT em tempo quase real com timestamps e identificação por pessoa a partir do canal do Discord, em um modo separado da LLM.
+- Gera SRT do áudio reproduzido pelo Windows no modo Local usando captura loopback WASAPI, sem capturar o microfone separadamente.
+- Aceita tags manuais validadas de emoção, estilo, ação e prosódia no Higgs; o Chatterbox permanece isolado e recebe somente texto limpo.
 - Pré-carrega Whisper e TTS em paralelo e em segundo plano durante a abertura; **Iniciar modelo** carrega somente a LLM quando ela for necessária.
 
 ### Interface
@@ -37,10 +41,10 @@ A interface principal abre como aplicativo desktop com `pywebview` e Microsoft E
 As páginas atuais são:
 
 - **Visão geral:** estado do Discord, canal de voz, LLM, reconhecimento, síntese e microfone.
-- **Conversa:** chat por texto, gravação pelo microfone e push-to-talk.
-- **Voz:** referência, escolha entre Higgs e Chatterbox, parâmetros próprios e expressividade automática opcional do Higgs.
+- **Conversa:** chat por texto, gravação pelo microfone, push-to-talk e seleção sincronizada de saída Local ou Discord.
+- **Voz:** referência, escolha entre Higgs e Chatterbox, parâmetros próprios, expressividade automática opcional e destino do teste de voz.
 - **Modelo:** seleção do GGUF, parâmetros de execução, sampling e prompts.
-- **Discord:** servidores, conexão, monitor local, envio de mensagens e transcrição SRT do canal.
+- **Discord:** conexão, monitor, fala, envio de mensagens e transcrição SRT; no modo Local, oferece fala no computador e transcrição do áudio do Windows.
 - **Comandos:** referência dos comandos disponíveis no bot.
 
 ## Requisitos
@@ -80,7 +84,8 @@ O `instalar.bat`:
 - instala PyTorch com CUDA `cu128` em máquinas NVIDIA ou usa o pacote para CPU;
 - instala as dependências fixadas em `requirements.txt`;
 - instala e valida separadamente o runtime do Chatterbox, com nova tentativa sem cache quando necessário;
-- baixa a versão oficial mais recente do `llama.cpp` para `llama.cpp/`;
+- consulta releases e pré-releases do `llama.cpp`, ignora publicações sem binários e baixa a mais recente compatível com o backend escolhido para `llama.cpp/`;
+- em placas NVIDIA, detecta pelo driver a versão CUDA suportada e escolhe automaticamente o runtime mais recente compatível disponível na release;
 - baixa antecipadamente o modelo configurado do `faster-whisper` para `models/whisper/`;
 - baixa os pesos do Chatterbox PT-BR para `models/chatterbox/`;
 - baixa o Higgs Audio v3 TTS 4B Q8_0 para `models/higgs/` e o runtime CUDA autocontido do audio.cpp para `higgs.cpp/`;
@@ -144,6 +149,8 @@ O prefixo padrão é `!`. Os nomes podem ser alterados em `data/config_ui.json`.
 
 Fora do modo ativo, a Neve responde quando é mencionada e em mensagens diretas. Na página Conversa, o microfone pode ser acionado pelo botão da interface ou mantendo o **shift direito** pressionado.
 
+O seletor **Local / Discord** é compartilhado pelas páginas Conversa, Voz e Discord. No modo Local, as respostas faladas e os testes de voz saem pelo dispositivo padrão do Windows. A transcrição local registra o áudio reproduzido pelo sistema em `transcricoes/`; ela não depende de o bot estar conectado a um canal de voz.
+
 Os receptores do Discord permanecem desligados até **Ouvir canal** ou **Iniciar transcrição** serem acionados. O modo **Transcrever canal** é independente da conversa por voz; enquanto ele está ativo, o chat de voz e a reprodução local do canal ficam indisponíveis para evitar disputa pelo receptor e pelo Whisper. O SRT é atualizado durante a sessão e finalizado ao parar, desconectar, trocar de canal ou desligar o Nevebot.
 
 ## Configurações
@@ -175,6 +182,7 @@ Nevebot/
 |-- nevebot.py                  # entrada do bot e ciclo de vida
 |-- desktop_ui.py               # janela pywebview e fallback de navegador
 |-- web_server.py               # servidor HTTP local e pipeline voz/Discord
+|-- services/local_transcription.py # captura loopback do Windows e SRT local
 |-- config.py                   # configuração de runtime
 |-- config_loader.py            # persistência das configurações da UI
 |-- personality_prompt.json     # personalidade estruturada

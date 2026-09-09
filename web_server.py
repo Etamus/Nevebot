@@ -30,6 +30,7 @@ Inicie com:  start(bot, host="127.0.0.1", port=5000)
 """
 
 import asyncio
+import base64
 import hashlib
 import io
 import json
@@ -41,6 +42,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import wave
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from collections import deque
 from collections.abc import Awaitable, Callable
@@ -297,6 +299,12 @@ def _finalizar_desligamento() -> None:
             get_transcription_service().stop(wait=True, timeout=20, reason="desligamento")
         except Exception:
             log.exception("Falha ao finalizar a transcricao SRT.")
+        try:
+            from services.local_transcription import get_local_transcription_service
+
+            get_local_transcription_service().stop(wait=True, timeout=20, reason="desligamento")
+        except Exception:
+            log.exception("Falha ao finalizar a transcricao local.")
         try:
             from services.discord_audio_monitor import obter_monitor
 
@@ -597,6 +605,23 @@ def _duracao_pcm_ms(pcm: bytes) -> int:
     return max(0, int((len(pcm) / 192000) * 1000))
 
 
+def _destino_chat(valor: object) -> str:
+    destino = str(valor or "discord").strip().casefold()
+    if destino not in {"discord", "local"}:
+        raise ValueError("Destino de audio invalido.")
+    return destino
+
+
+def _pcm_para_wav_base64(pcm: bytes) -> str:
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav:
+        wav.setnchannels(2)
+        wav.setsampwidth(2)
+        wav.setframerate(48_000)
+        wav.writeframes(pcm)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
 def _corrigir_mojibake(texto: str) -> str:
     if not texto or not any(marcador in texto for marcador in ("Ã", "Â", "â€", "â€œ", "â€™")):
         return texto
@@ -748,6 +773,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._handle_get_voz_monitor()
         elif self.path == "/api/transcricao":
             self._handle_get_transcricao()
+        elif self.path == "/api/transcricao/local":
+            self._handle_get_transcricao(local=True)
         elif self.path == "/api/voz/config":
             self._handle_get_voz_config()
         elif self.path == "/api/voz/ptt-estado":
@@ -1418,12 +1445,13 @@ class _Handler(BaseHTTPRequestHandler):
     def _handle_voz_chat(self) -> None:
         """POST /api/voz/chat - recebe audio WAV, transcreve, gera resposta, fala."""
         from services.discord_transcription import get_transcription_service
+        from services.local_transcription import get_local_transcription_service
 
         if not self._modelo_llm_ativo():
             self._responder_modelo_desligado()
             return
 
-        if get_transcription_service().running:
+        if get_transcription_service().running or get_local_transcription_service().running:
             self._respond(
                 409,
                 "application/json",
@@ -1434,7 +1462,12 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
         inicio_total = time.perf_counter()
-        log.info("[WEB] POST /api/voz/chat recebido")
+        try:
+            destino = _destino_chat(self.headers.get("X-Nevebot-Audio-Destination"))
+        except ValueError as exc:
+            self._respond(400, "application/json", json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
+        log.info("[WEB] POST /api/voz/chat recebido (destino=%s)", destino)
         length = int(self.headers.get("Content-Length", 0))
         wav_bytes = self.rfile.read(length)
         log.info("[WEB] WAV recebido: %d bytes", len(wav_bytes))
@@ -1467,32 +1500,34 @@ class _Handler(BaseHTTPRequestHandler):
 
             # 2. Enviar ao LLM
             log.info("[WEB] Etapa 2: Gerando resposta LLM...")
-            guild_com_voz = _encontrar_guild_com_voz()
+            guild_com_voz = _encontrar_guild_com_voz() if destino == "discord" else None
+            falas_tts_local: list[tuple[str, dict | None]] | None = [] if destino == "local" else None
             inicio_llm = time.perf_counter()
             mensagens_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
                 texto_usuario,
                 voz_estado,
                 guild_com_voz,
                 "/api/voz/chat",
+                falas_tts_local=falas_tts_local,
             )
             resposta_llm = "\n".join(mensagens_llm)
             tempo_llm = time.perf_counter() - inicio_llm
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
-            # 3. Gerar TTS e reproduzir no Discord
-            guild_com_voz = _encontrar_guild_com_voz()
-            log.info("[WEB] Etapa 3: TTS → Discord — guild_com_voz=%s falar_discord=%s",
-                     guild_com_voz, voz_estado.get("falar_discord"))
-            if not guild_com_voz:
-                log.warning("[WEB] Bot NÃO está em nenhum canal de voz!")
-            elif not resposta_llm:
-                log.warning("[WEB] Resposta LLM vazia — sem TTS")
+            audios_locais = _gerar_audios_tts_locais(falas_tts_local, voz_estado)
+            if destino == "discord":
+                log.info("[WEB] Etapa 3: TTS para Discord — guild=%s", guild_com_voz)
+            else:
+                log.info("[WEB] Etapa 3: TTS local — audios=%d", len(audios_locais))
 
             payload = {
                 "transcript": texto_usuario,
                 "resposta": resposta_llm,
                 "mensagens": mensagens_llm,
-                "falou_discord": falou,
+                "destino": destino,
+                "falou_discord": falou if destino == "discord" else False,
+                "falou_local": bool(audios_locais),
+                "audios_local": audios_locais,
                 "audio_ms": audio_ms if falou else 0,
                 "timings": {
                     "stt_s": round(tempo_stt, 3),
@@ -1526,6 +1561,11 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         texto = data.get("texto", "").strip()
+        try:
+            destino = _destino_chat(data.get("destino"))
+        except ValueError as exc:
+            self._respond(400, "application/json", json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
         if not texto:
             self._respond(400, "application/json", b'{"erro": "texto vazio"}')
             return
@@ -1533,16 +1573,25 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             from cogs.voice_cog import voz_estado
 
-            guild_id = _encontrar_guild_com_voz()
-            if not guild_id:
+            guild_id = _encontrar_guild_com_voz() if destino == "discord" else None
+            if destino == "discord" and not guild_id:
                 self._respond(400, "application/json",
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
-            log.info("[WEB] /api/voz/falar texto='%s'", texto[:60])
-            sessao = _iniciar_sessao_tts("/api/voz/falar", guild_id)
-            pcm = _gerar_pcm_tts(texto, voz_estado)
+            log.info("[WEB] /api/voz/falar texto='%s' destino=%s", texto[:60], destino)
+            pcm = _gerar_pcm_tts(texto, voz_estado, permitir_tags_manuais=True)
             audio_ms = _duracao_pcm_ms(pcm)
+            if destino == "local":
+                self._respond(200, "application/json", json.dumps({
+                    "ok": True,
+                    "destino": "local",
+                    "falou_local": True,
+                    "audios_local": [_pcm_para_wav_base64(pcm)],
+                    "audio_ms": audio_ms,
+                }).encode("utf-8"))
+                return
+            sessao = _iniciar_sessao_tts("/api/voz/falar", guild_id)
             log.info("[WEB] /api/voz/falar PCM gerado, %d bytes; agendando no Discord", len(pcm))
             if not _agendar_reproducao_pcm(
                 guild_id, pcm, " em /api/voz/falar", interromper=True, sessao=sessao
@@ -1567,17 +1616,31 @@ class _Handler(BaseHTTPRequestHandler):
             data = {}
         texto = str(data.get("texto") or "Oi, eu sou a Neve. Assim ficou minha voz agora.").strip()
         try:
+            destino = _destino_chat(data.get("destino"))
+        except ValueError as exc:
+            self._respond(400, "application/json", json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
+        try:
             from cogs.voice_cog import voz_estado
 
-            guild_id = _encontrar_guild_com_voz()
-            if not guild_id:
+            guild_id = _encontrar_guild_com_voz() if destino == "discord" else None
+            if destino == "discord" and not guild_id:
                 self._respond(400, "application/json",
                               b'{"erro": "Bot nao esta conectado a um canal de voz"}')
                 return
 
-            sessao = _iniciar_sessao_tts("/api/voz/testar", guild_id)
             pcm = _gerar_pcm_tts(texto, voz_estado)
             audio_ms = _duracao_pcm_ms(pcm)
+            if destino == "local":
+                self._respond(200, "application/json", json.dumps({
+                    "ok": True,
+                    "destino": "local",
+                    "falou_local": True,
+                    "audios_local": [_pcm_para_wav_base64(pcm)],
+                    "audio_ms": audio_ms,
+                }).encode("utf-8"))
+                return
+            sessao = _iniciar_sessao_tts("/api/voz/testar", guild_id)
             if not _agendar_reproducao_pcm(
                 guild_id, pcm, " em /api/voz/testar", interromper=True, sessao=sessao
             ):
@@ -1593,12 +1656,13 @@ class _Handler(BaseHTTPRequestHandler):
     def _handle_voz_chat_texto(self) -> None:
         """POST /api/voz/chat-texto - envia texto ao LLM, gera TTS e fala."""
         from services.discord_transcription import get_transcription_service
+        from services.local_transcription import get_local_transcription_service
 
         if not self._modelo_llm_ativo():
             self._responder_modelo_desligado()
             return
 
-        if get_transcription_service().running:
+        if get_transcription_service().running or get_local_transcription_service().running:
             self._respond(
                 409,
                 "application/json",
@@ -1619,7 +1683,12 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         texto = data.get("texto", "").strip()
-        log.info("[WEB] Texto recebido: %r", texto[:100] if texto else "(vazio)")
+        try:
+            destino = _destino_chat(data.get("destino"))
+        except ValueError as exc:
+            self._respond(400, "application/json", json.dumps({"erro": str(exc)}).encode("utf-8"))
+            return
+        log.info("[WEB] Texto recebido: %r (destino=%s)", texto[:100] if texto else "(vazio)", destino)
         if not texto:
             self._respond(400, "application/json", b'{"erro": "texto vazio"}')
             return
@@ -1629,29 +1698,38 @@ class _Handler(BaseHTTPRequestHandler):
 
             # 1. LLM
             log.info("[WEB] Etapa 1: Gerando resposta LLM...")
-            guild_com_voz = _encontrar_guild_com_voz()
+            guild_com_voz = _encontrar_guild_com_voz() if destino == "discord" else None
+            falas_tts_local: list[tuple[str, dict | None]] | None = [] if destino == "local" else None
             mensagens_llm, falou, audio_ms = _gerar_resposta_voz_streaming(
                 texto,
                 voz_estado,
                 guild_com_voz,
                 "/api/voz/chat-texto",
+                falas_tts_local=falas_tts_local,
             )
             resposta_llm = "\n".join(mensagens_llm)
             log.info("[WEB] Resposta LLM: %r", resposta_llm[:100] if resposta_llm else "(vazio)")
 
-            # 2. TTS + Discord
-            guild_com_voz = _encontrar_guild_com_voz()
-            log.info("[WEB] Etapa 2: TTS → Discord — guild=%s falar_discord=%s",
-                     guild_com_voz, voz_estado.get("falar_discord"))
-            if not guild_com_voz:
-                log.warning("[WEB] Bot NÃO está em nenhum canal de voz!")
-            elif not resposta_llm:
-                log.warning("[WEB] Resposta LLM vazia — sem TTS")
+            audios_locais = _gerar_audios_tts_locais(falas_tts_local, voz_estado)
+
+            if destino == "discord":
+                log.info(
+                    "[WEB] Etapa 2: TTS para Discord — guild=%s falar_discord=%s",
+                    guild_com_voz,
+                    voz_estado.get("falar_discord"),
+                )
+                if not guild_com_voz:
+                    log.warning("[WEB] Bot nao esta em nenhum canal de voz.")
+            else:
+                log.info("[WEB] Etapa 2: TTS local — audios=%d", len(audios_locais))
 
             payload = {
                 "resposta": resposta_llm,
                 "mensagens": mensagens_llm,
-                "falou_discord": falou,
+                "destino": destino,
+                "falou_discord": falou if destino == "discord" else False,
+                "falou_local": bool(audios_locais),
+                "audios_local": audios_locais,
                 "audio_ms": audio_ms if falou else 0,
             }
             self._respond(200, "application/json",
@@ -1717,8 +1795,9 @@ class _Handler(BaseHTTPRequestHandler):
                 estado = monitor.parar()
             else:
                 from services.discord_transcription import get_transcription_service
+                from services.local_transcription import get_local_transcription_service
 
-                if get_transcription_service().running:
+                if get_transcription_service().running or get_local_transcription_service().running:
                     raise RuntimeError("Finalize a transcricao SRT antes de ouvir o canal.")
                 guild_id = int(data.get("guild_id", 0) or 0)
                 if not guild_id or _bot_ref is None:
@@ -1762,14 +1841,21 @@ class _Handler(BaseHTTPRequestHandler):
                 json.dumps({"erro": str(exc) or type(exc).__name__}, ensure_ascii=False).encode("utf-8"),
             )
 
-    def _handle_get_transcricao(self) -> None:
-        from services.discord_transcription import get_transcription_service
+    def _handle_get_transcricao(self, *, local: bool = False) -> None:
+        if local:
+            from services.local_transcription import get_local_transcription_service
+
+            service = get_local_transcription_service()
+        else:
+            from services.discord_transcription import get_transcription_service
+
+            service = get_transcription_service()
 
         self._respond(
             200,
             "application/json",
             json.dumps(
-                get_transcription_service().state(),
+                service.state(),
                 ensure_ascii=False,
             ).encode("utf-8"),
         )
@@ -1779,6 +1865,9 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             guild_id = int(data.get("guild_id", 0) or 0)
+            modo = str(data.get("modo") or "discord").strip().casefold()
+            if modo not in {"discord", "local"}:
+                raise ValueError("Modo de transcricao invalido.")
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             self._respond(
                 400,
@@ -1788,33 +1877,36 @@ class _Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            if not guild_id or _bot_ref is None:
-                raise ValueError("Selecione um servidor conectado a um canal de voz.")
-            guild = _bot_ref.get_guild(guild_id)
-            if guild is None:
-                raise ValueError("Servidor nao encontrado.")
-            voice_client = guild.voice_client
-            if voice_client is None or not voice_client.is_connected():
-                raise ValueError("Conecte a Neve a um canal de voz primeiro.")
-
-            from discord.ext import voice_recv
             from cogs.voice_cog import voz_estado
             from services import stt_whisper
             from services.discord_audio_monitor import obter_monitor
             from services.discord_transcription import get_transcription_service
+            from services.local_transcription import get_local_transcription_service
 
-            if not isinstance(voice_client, voice_recv.VoiceRecvClient):
-                raise RuntimeError(
-                    "Esta conexao foi criada sem recepcao de audio. "
-                    "Desconecte e conecte a Neve novamente."
-                )
             obter_monitor().parar()
             model = str(voz_estado.get("whisper_modelo") or "large-v3-turbo")
             stt_whisper.carregar(model)
-            state = get_transcription_service().start(
-                voice_client,
-                model=model,
-            )
+            discord_service = get_transcription_service()
+            local_service = get_local_transcription_service()
+            if modo == "local":
+                if discord_service.running:
+                    raise RuntimeError("Finalize a transcricao do Discord antes de iniciar a local.")
+                state = local_service.start(model=model)
+            else:
+                if local_service.running:
+                    raise RuntimeError("Finalize a transcricao local antes de iniciar a do Discord.")
+                if not guild_id or _bot_ref is None:
+                    raise ValueError("Selecione um servidor conectado a um canal de voz.")
+                guild = _bot_ref.get_guild(guild_id)
+                if guild is None:
+                    raise ValueError("Servidor nao encontrado.")
+                voice_client = guild.voice_client
+                if voice_client is None or not voice_client.is_connected():
+                    raise ValueError("Conecte a Neve a um canal de voz primeiro.")
+                from discord.ext import voice_recv
+                if not isinstance(voice_client, voice_recv.VoiceRecvClient):
+                    raise RuntimeError("Desconecte e conecte a Neve novamente para receber audio.")
+                state = discord_service.start(voice_client, model=model)
             self._respond(
                 200,
                 "application/json",
@@ -1835,10 +1927,19 @@ class _Handler(BaseHTTPRequestHandler):
             )
 
     def _handle_post_transcricao_parar(self) -> None:
-        from services.discord_transcription import get_transcription_service
-
         try:
-            state = get_transcription_service().stop(
+            length = int(self.headers.get("Content-Length", 0) or 0)
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            modo = str(data.get("modo") or "discord").strip().casefold()
+            if modo == "local":
+                from services.local_transcription import get_local_transcription_service
+                service = get_local_transcription_service()
+            elif modo == "discord":
+                from services.discord_transcription import get_transcription_service
+                service = get_transcription_service()
+            else:
+                raise ValueError("Modo de transcricao invalido.")
+            state = service.stop(
                 wait=True,
                 timeout=35,
                 reason="solicitado pela interface",
@@ -2054,6 +2155,7 @@ def _gerar_pcm_tts(
     *,
     stream_chunk: bool = False,
     expressao: dict | None = None,
+    permitir_tags_manuais: bool = False,
 ) -> bytes:
     """Gera TTS no backend selecionado e converte para PCM do Discord."""
     from services import tts_manager
@@ -2066,9 +2168,34 @@ def _gerar_pcm_tts(
         texto,
         stream_chunk=stream_chunk,
         expressao=expressao,
+        permitir_tags_manuais=permitir_tags_manuais,
     )
     log.info("[WEB] TTS %s completo em %.2fs (%d bytes)", backend, time.perf_counter() - inicio, len(pcm))
     return pcm
+
+
+def _gerar_audios_tts_locais(
+    falas: list[tuple[str, dict | None]] | None,
+    voz_cfg: dict,
+) -> list[str]:
+    """Gera WAVs para a interface sem acessar a conexao de voz do Discord."""
+    if not falas:
+        return []
+    audios: list[str] = []
+    for indice, (frase, expressao) in enumerate(falas, start=1):
+        futuro = _tts_executor.submit(
+            _gerar_pcm_tts,
+            frase,
+            dict(voz_cfg),
+            stream_chunk=True,
+            expressao=dict(expressao) if expressao else None,
+        )
+        pcm = futuro.result()
+        if not pcm:
+            continue
+        audios.append(_pcm_para_wav_base64(pcm))
+        log.info("[WEB] Frase TTS local %d pronta: %r", indice, frase[:120])
+    return audios
 
 
 def _agendar_frase_tts(
@@ -2157,6 +2284,7 @@ def _gerar_resposta_voz_streaming(
     voz_cfg: dict,
     guild_id: int | None,
     origem: str,
+    falas_tts_local: list[tuple[str, dict | None]] | None = None,
 ) -> tuple[list[str], bool, int]:
     """Recebe balões estruturados e agenda o TTS assim que cada item termina."""
     log.info("[LLM-VOZ] Gerando resposta streaming para: %r", texto_usuario[:80])
@@ -2227,6 +2355,8 @@ def _gerar_resposta_voz_streaming(
             if expressao is not None:
                 expressao = {**expressao, "context": contexto_expressivo}
             mensagens.append(mensagem)
+            if falas_tts_local is not None:
+                falas_tts_local.append((mensagem, expressao))
             if tts_ativo:
                 indice = len(mensagens)
                 _submeter_frase_tts_async(
@@ -2258,6 +2388,8 @@ def _gerar_resposta_voz_streaming(
                 temperature=config.LLM_VOZ_TEMPERATURE,
             )
             mensagens = [_corrigir_mojibake(item).strip() for item in mensagens if item.strip()]
+            if falas_tts_local is not None:
+                falas_tts_local.extend((mensagem, None) for mensagem in mensagens)
             if tts_ativo:
                 for indice, mensagem in enumerate(mensagens, start=1):
                     _submeter_frase_tts_async(

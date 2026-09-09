@@ -112,7 +112,6 @@ if errorlevel 1 (
 
 echo.
 echo Baixando o Higgs Audio v3 TTS 4B Q8_0 e seu runtime nativo...
-echo [AVISO] O Higgs possui licenca propria da Boson AI; consulte o README antes de uso comercial.
 powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\preparar_higgs_tts.ps1"
 if errorlevel 1 (
     echo [ERRO] Falha ao preparar o Higgs Audio v3 TTS.
@@ -168,35 +167,35 @@ exit /b 0
 
 
 :LOCALIZAR_PYTHON
-set "PY_BOOT="
-set "PY_BOOT_ARGS="
+set "PY_BOOT_EXE="
 
 py -3.11 -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
 if not errorlevel 1 (
-    set "PY_BOOT=py"
-    set "PY_BOOT_ARGS=-3.11"
-    exit /b 0
+    for /f "delims=" %%P in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do set "PY_BOOT_EXE=%%~fP"
+    call :VALIDAR_PYTHON_LOCALIZADO
+    if not errorlevel 1 exit /b 0
 )
 
 if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
     "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
     if not errorlevel 1 (
-        set "PY_BOOT=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+        set "PY_BOOT_EXE=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
         exit /b 0
     )
 )
 
 python -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
 if not errorlevel 1 (
-    set "PY_BOOT=python"
-    exit /b 0
+    for /f "delims=" %%P in ('python -c "import sys; print(sys.executable)" 2^>nul') do set "PY_BOOT_EXE=%%~fP"
+    call :VALIDAR_PYTHON_LOCALIZADO
+    if not errorlevel 1 exit /b 0
 )
 
 py -3 -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
 if not errorlevel 1 (
-    set "PY_BOOT=py"
-    set "PY_BOOT_ARGS=-3"
-    exit /b 0
+    for /f "delims=" %%P in ('py -3 -c "import sys; print(sys.executable)" 2^>nul') do set "PY_BOOT_EXE=%%~fP"
+    call :VALIDAR_PYTHON_LOCALIZADO
+    if not errorlevel 1 exit /b 0
 )
 
 where winget >nul 2>&1
@@ -214,20 +213,27 @@ if errorlevel 1 (
 )
 
 if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" (
-    set "PY_BOOT=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
+    set "PY_BOOT_EXE=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
     exit /b 0
 )
 
 py -3.11 -c "import struct; raise SystemExit(0 if struct.calcsize('P')*8==64 else 1)" >nul 2>&1
 if not errorlevel 1 (
-    set "PY_BOOT=py"
-    set "PY_BOOT_ARGS=-3.11"
-    exit /b 0
+    for /f "delims=" %%P in ('py -3.11 -c "import sys; print(sys.executable)" 2^>nul') do set "PY_BOOT_EXE=%%~fP"
+    call :VALIDAR_PYTHON_LOCALIZADO
+    if not errorlevel 1 exit /b 0
 )
 
 echo [ERRO] Python foi instalado, mas nao ficou acessivel nesta sessao.
 echo Feche este console, abra instalar.bat novamente e tente de novo.
 exit /b 1
+
+
+:VALIDAR_PYTHON_LOCALIZADO
+if not defined PY_BOOT_EXE exit /b 1
+if not exist "%PY_BOOT_EXE%" exit /b 1
+"%PY_BOOT_EXE%" -c "import struct,sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) and struct.calcsize('P')*8==64 else 1)" >nul 2>&1
+exit /b %ERRORLEVEL%
 
 
 :PREPARAR_VENV
@@ -241,7 +247,16 @@ if exist "venv\Scripts\python.exe" (
 
 if not exist "venv\Scripts\python.exe" (
     echo Criando ambiente virtual em venv...
-    "%PY_BOOT%" %PY_BOOT_ARGS% -m venv "venv"
+    if not defined PY_BOOT_EXE (
+        echo [ERRO] O executavel do Python nao foi localizado.
+        exit /b 1
+    )
+    "%PY_BOOT_EXE%" -m venv "%CD%\venv"
+    if errorlevel 1 (
+        echo [AVISO] Primeira tentativa de criar o venv falhou. Tentando com virtualenv...
+        "%PY_BOOT_EXE%" -m pip install --user --retries 3 --timeout 90 virtualenv >nul 2>&1
+        "%PY_BOOT_EXE%" -m virtualenv "%CD%\venv"
+    )
 )
 
 if not exist "venv\Scripts\python.exe" (

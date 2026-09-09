@@ -23,6 +23,7 @@ REQUIRED_MODULES = (
     "scipy",
     "soundfile",
     "sounddevice",
+    "soundcard",
     "librosa",
     "faster_whisper",
     "ctranslate2",

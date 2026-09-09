@@ -47,6 +47,7 @@ REQUIRED_MODULES = {
     "scipy": "scipy",
     "soundfile": "soundfile",
     "sounddevice": "sounddevice",
+    "soundcard": "SoundCard",
     "librosa": "librosa",
     "faster_whisper": "faster-whisper",
     "ctranslate2": "ctranslate2",

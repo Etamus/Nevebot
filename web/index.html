@@ -805,6 +805,7 @@
       padding: .2rem .7rem;
       border-radius: 999px;
       white-space: nowrap;
+      margin-right: 12px;
     }
     .voice-status-pill:empty { display: none; }
 
@@ -1502,8 +1503,8 @@
       backdrop-filter: blur(16px);
       box-shadow: 0 18px 50px rgba(0,0,0,.35);
     }
-    #toast.ok { background: rgba(52,211,153,.18); color: #d1fae5; }
-    #toast.err { background: rgba(251,113,133,.18); color: #ffe4e6; }
+    #toast.ok { background: rgba(52,211,153,.18); color: #d1fae5; border-left: 1px solid rgba(255,255,255,.12); }
+    #toast.err { background: rgba(251,113,133,.18); color: #ffe4e6; border-left: 1px solid rgba(255,255,255,.12); }
 
     header { border-radius: 16px; }
     .hero { border-radius: 18px; }
@@ -1601,11 +1602,25 @@
       <div class="page-heading"><h1 id="page-title">Visão geral</h1><p id="page-subtitle">Estado atual do Nevebot e serviços configurados.</p></div>
       <div class="workspace-header-actions" id="conversation-header-actions" hidden>
         <span class="voice-status-pill" id="voice-status"></span>
+        <div class="conversation-output-picker" role="radiogroup" aria-label="Saída da conversa">
+          <button class="conversation-output-option" data-output-destination="local" type="button" role="radio" aria-checked="false" onclick="definirDestinoConversa('local')"><span class="icon-slot" data-icon="speaker"></span><span>Local</span></button>
+          <button class="conversation-output-option active" data-output-destination="discord" type="button" role="radio" aria-checked="true" onclick="definirDestinoConversa('discord')"><span class="icon-slot" data-icon="discord"></span><span>Discord</span></button>
+        </div>
         <button class="header-icon-button" type="button" onclick="limparChatVoz()" title="Limpar chat" aria-label="Limpar conversa">
           <span class="icon-slot" data-icon="trash"></span>
         </button>
       </div>
+      <div class="workspace-header-actions" id="voice-header-actions" hidden>
+        <div class="conversation-output-picker" role="radiogroup" aria-label="Destino do teste de voz">
+          <button class="conversation-output-option" data-output-destination="local" type="button" role="radio" aria-checked="false" onclick="definirDestinoConversa('local')"><span class="icon-slot" data-icon="speaker"></span><span>Local</span></button>
+          <button class="conversation-output-option active" data-output-destination="discord" type="button" role="radio" aria-checked="true" onclick="definirDestinoConversa('discord')"><span class="icon-slot" data-icon="discord"></span><span>Discord</span></button>
+        </div>
+      </div>
       <div class="workspace-header-actions" id="discord-header-actions" hidden>
+        <div class="conversation-output-picker" role="radiogroup" aria-label="Modo da página Discord">
+          <button class="conversation-output-option" data-output-destination="local" type="button" role="radio" aria-checked="false" onclick="definirDestinoConversa('local')"><span class="icon-slot" data-icon="speaker"></span><span>Local</span></button>
+          <button class="conversation-output-option active" data-output-destination="discord" type="button" role="radio" aria-checked="true" onclick="definirDestinoConversa('discord')"><span class="icon-slot" data-icon="discord"></span><span>Discord</span></button>
+        </div>
         <button class="header-icon-button" type="button" onclick="abrirConfiguracoesDiscord()" title="Configurações" aria-label="Abrir configurações do Discord">
           <span class="icon-slot" data-icon="settings"></span>
         </button>
@@ -1687,6 +1702,7 @@ let _discordTokenValue = '';
 let _discordTokenSalvando = false;
 let _guildMonitor = null;
 let _vozConfig = {};
+let _modeloTTSSelecionadoUI = null;
 let _modeloRuntime = { estado: 'desligado', ativo: false, carregando: false, erro: null };
 let _modeloRuntimePoll = null;
 let _modeloRuntimeCarregando = false;
@@ -1698,6 +1714,109 @@ let _transcricaoEstado = { ativo: false, finalizando: false, legendas: 0, partic
 let _transcricaoPoll = null;
 let _transcricaoCarregando = false;
 let _paginaAtiva = localStorage.getItem('nevebot-page') || 'overview';
+let _destinoConversa = localStorage.getItem('nevebot-audio-destination') === 'local' ? 'local' : 'discord';
+let _audioLocalContext = null;
+let _audioLocalSource = null;
+let _audioLocalGeneration = 0;
+let _expressionCategory = 'emotion';
+
+const HIGGS_MANUAL_TAGS = {
+  emotion: [
+    ['neutral', 'Neutro'], ['elation', 'Euforia'], ['amusement', 'Diversao'],
+    ['enthusiasm', 'Entusiasmo'], ['determination', 'Determinacao'], ['pride', 'Orgulho'],
+    ['affection', 'Carinho'], ['contentment', 'Contentamento'], ['relief', 'Alivio'],
+    ['contemplation', 'Reflexao'], ['confusion', 'Confusao'], ['surprise', 'Surpresa'],
+    ['awe', 'Encantamento'], ['longing', 'Saudade'], ['arousal', 'Excitacao'],
+    ['anger', 'Raiva'], ['fear', 'Medo'], ['disgust', 'Nojo'], ['bitterness', 'Amargura'],
+    ['sadness', 'Tristeza'], ['shame', 'Vergonha'], ['helplessness', 'Desamparo'],
+  ],
+  style: [['normal', 'Normal'], ['singing', 'Canto'], ['shouting', 'Grito'], ['whispering', 'Sussurro']],
+  sfx: [
+    ['none', 'Sem efeito'], ['cough', 'Tosse'], ['laughter', 'Risada'], ['crying', 'Choro'],
+    ['screaming', 'Grito (efeito)'], ['burping', 'Arroto'], ['humming', 'Cantarolar'],
+    ['sigh', 'Suspiro'], ['sniff', 'Fungada'], ['sneeze', 'Espirro'],
+  ],
+  prosody: [['expressive_high', 'Expressiva']],
+};
+
+function aplicarDestinoConversa() {
+  document.querySelectorAll('[data-output-destination]').forEach(button => {
+    const ativo = button.dataset.outputDestination === _destinoConversa;
+    button.classList.toggle('active', ativo);
+    button.setAttribute('aria-checked', String(ativo));
+  });
+}
+
+async function prepararAudioLocal() {
+  if (!_audioLocalContext || _audioLocalContext.state === 'closed') {
+    _audioLocalContext = new AudioContext();
+  }
+  if (_audioLocalContext.state === 'suspended') await _audioLocalContext.resume();
+  return _audioLocalContext;
+}
+
+function pararAudioLocal() {
+  _audioLocalGeneration += 1;
+  if (_audioLocalSource) {
+    try { _audioLocalSource.stop(); } catch (_) {}
+    try { _audioLocalSource.disconnect(); } catch (_) {}
+    _audioLocalSource = null;
+  }
+}
+
+function base64ParaArrayBuffer(base64) {
+  const binario = atob(base64 || '');
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i += 1) bytes[i] = binario.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function reproduzirAudiosLocais(audios) {
+  if (_destinoConversa !== 'local' || !Array.isArray(audios) || !audios.length) return;
+  const context = await prepararAudioLocal();
+  pararAudioLocal();
+  const generation = _audioLocalGeneration;
+  for (const wavBase64 of audios) {
+    if (_destinoConversa !== 'local' || generation !== _audioLocalGeneration) break;
+    const buffer = await context.decodeAudioData(base64ParaArrayBuffer(wavBase64).slice(0));
+    await new Promise(resolve => {
+      if (generation !== _audioLocalGeneration) return resolve();
+      const source = context.createBufferSource();
+      _audioLocalSource = source;
+      source.buffer = buffer;
+      source.connect(context.destination);
+      source.onended = () => {
+        if (_audioLocalSource === source) _audioLocalSource = null;
+        resolve();
+      };
+      source.start();
+    });
+  }
+}
+
+async function definirDestinoConversa(destino) {
+  const novo = destino === 'local' ? 'local' : 'discord';
+  if (novo === _destinoConversa) return;
+  if (_vozRecording || _vozRequestActive || _transcricaoEstado.ativo || _transcricaoEstado.finalizando) {
+    toast('Finalize a gravacao ou transcricao atual antes de trocar a saida.', 'err');
+    return;
+  }
+  if (novo === 'local') {
+    try { await prepararAudioLocal(); } catch (e) {
+      toast('Nao foi possivel preparar o audio local: ' + e.message, 'err');
+      return;
+    }
+    if (_monitorVozEstado.ativo) await enviarConfigMonitorVoz(false, false);
+    fetch('/api/voz/interromper', { method: 'POST' }).catch(() => {});
+  } else {
+    pararAudioLocal();
+  }
+  _destinoConversa = novo;
+  localStorage.setItem('nevebot-audio-destination', novo);
+  aplicarDestinoConversa();
+  aplicarModoDiscord();
+  await carregarEstadoTranscricao();
+}
 
 const PAGE_META = {
   overview: {
@@ -1738,6 +1857,7 @@ const ICONS = {
   trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6M14 11v6"/>',
   lock: '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3M8 22h8"/>',
+  'mic-vocal': '<path d="m11 7.601-5.994 8.19a1 1 0 0 0 .1 1.298l.817.818a1 1 0 0 0 1.314.087L15.09 12"/><path d="M16.5 21.174C15.5 20.5 14.372 20 13 20c-2.058 0-3.928 2.356-6 2-2.072-.356-2.775-3.369-1.5-4.5"/><circle cx="16" cy="7" r="5"/>',
   headphones: '<path d="M4 14a8 8 0 0 1 16 0"/><path d="M18 19v-5a2 2 0 0 1 2-2h1v7h-3z"/><path d="M6 19v-5a2 2 0 0 0-2-2H3v7h3z"/>',
   captions: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 11h2M13 11h4M7 15h4M15 15h2"/>',
   folder: '<path d="M3 6a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
@@ -1784,13 +1904,15 @@ function navegar(pagina, persistir = true) {
   if (subtitulo) subtitulo.textContent = meta.subtitle;
   const acoesConversa = document.getElementById('conversation-header-actions');
   if (acoesConversa) acoesConversa.hidden = pagina !== 'conversation';
+  const acoesVoz = document.getElementById('voice-header-actions');
+  if (acoesVoz) acoesVoz.hidden = pagina !== 'voice';
   const acoesDiscord = document.getElementById('discord-header-actions');
   if (acoesDiscord) acoesDiscord.hidden = pagina !== 'discord';
   if (persistir) localStorage.setItem('nevebot-page', pagina);
   document.querySelector('.workspace-main')?.scrollTo({ top: 0, behavior: 'auto' });
   const ativa = document.querySelector(`.app-page[data-page="${pagina}"]`);
   if (ativa) setTimeout(() => ajustarTodosSelects(ativa), 0);
-  if (pagina === 'discord') iniciarPollingMonitorVoz();
+  if (pagina === 'discord' && _destinoConversa === 'discord') iniciarPollingMonitorVoz();
   else pararPollingMonitorVoz();
   if (pagina === 'discord' || _transcricaoEstado.ativo || _transcricaoEstado.finalizando) {
     iniciarPollingTranscricao();
@@ -2130,19 +2252,19 @@ function renderizar(cfg) {
 
     <section class="app-page" data-page="discord" hidden>
       <div class="page-stack">
-        <section class="product-section">
+        <section class="product-section" id="discord-voice-connection-section">
           <header class="section-header"><div><h2>Conexão de voz</h2><p>Canal em que a Neve deve falar.</p></div></header>
           ${renderizarVoz()}
         </section>
-        <section class="product-section">
-          <header class="section-header"><div><h2>Transcrever canal</h2><p>Realize transcrições do canal de voz em formato SRT.</p></div></header>
+        <section class="product-section" id="discord-transcription-section">
+          <header class="section-header"><div><h2 id="discord-transcription-title">Transcrever canal</h2><p id="discord-transcription-description">Realize transcrições do canal de voz em formato SRT.</p></div></header>
           ${renderizarTranscricaoCanal()}
         </section>
-        <section class="product-section">
-          <header class="section-header"><div><h2>Interagir no canal</h2><p>Escute o canal de voz e envie uma fala usando a Neve.</p></div></header>
+        <section class="product-section" id="discord-interaction-section">
+          <header class="section-header"><div><h2 id="discord-interaction-title">Interagir no canal</h2><p id="discord-interaction-description">Escute o canal de voz e envie uma fala usando a Neve.</p></div></header>
           ${renderizarInteracaoCanal()}
         </section>
-        <section class="product-section">
+        <section class="product-section" id="discord-message-section">
           <header class="section-header"><div><h2>Enviar mensagem</h2><p>Publique uma mensagem como o bot em um canal de texto.</p></div></header>
           ${renderizarEnvioTexto()}
         </section>
@@ -2167,6 +2289,8 @@ function renderizar(cfg) {
   selecionarPrompt('lou_voz');
   inicializarChatVoz();
   atualizarStatusMicrofone();
+  aplicarDestinoConversa();
+  aplicarModoDiscord();
   if (_guilds?.length) {
     carregarCanaisVoz();
     carregarCanaisTexto();
@@ -2783,6 +2907,7 @@ function guildVozConectada() {
 
 function renderizarInteracaoCanal() {
   const conectado = Boolean(guildVozConectada());
+  const disponivel = _destinoConversa === 'local' || conectado;
   const volume = Number(_monitorVozEstado.volume ?? 1);
   return `
   <div class="voice-interaction-panel discord-form">
@@ -2790,20 +2915,37 @@ function renderizarInteracaoCanal() {
       <span class="voz-label">Mensagem</span>
       <div class="input-action-wrap">
         <input class="text-dispatch-input" id="voz-msg-input" maxlength="2000"
-               placeholder="${conectado ? 'Digite a mensagem que a Neve vai falar...' : 'Conecte a Neve a um canal de voz'}"
-               onkeydown="if(event.key==='Enter')enviarMensagemVoz()" ${conectado ? '' : 'disabled'} />
-        <button class="text-dispatch-send" id="voz-msg-send-btn" onclick="enviarMensagemVoz()" title="Enviar voz" aria-label="Enviar mensagem por voz" ${conectado ? '' : 'disabled'}>
+               placeholder="${disponivel ? 'Digite a mensagem que a Neve vai falar...' : 'Conecte a Neve a um canal de voz'}"
+               onkeydown="if(event.key==='Enter')enviarMensagemVoz()" ${disponivel ? '' : 'disabled'} />
+        <button class="text-dispatch-send" id="voz-msg-send-btn" onclick="enviarMensagemVoz()" title="Enviar voz" aria-label="Enviar mensagem por voz" ${disponivel ? '' : 'disabled'}>
           ${icone('arrow-up', 18)}
         </button>
       </div>
     </div>
-    <div class="discord-form-row">
+    <div class="discord-form-row" id="discord-expression-row">
+      <span class="voz-label">Tags</span>
+      <div class="discord-expression-shortcuts">
+        <div class="expression-category-tabs" role="tablist" aria-label="Categoria de tags">
+          ${[['emotion','Emoções'],['style','Estilos'],['sfx','Ações'],['prosody','Prosódia']].map(([key, label]) => `
+            <button class="expression-category-tab ${_expressionCategory === key ? 'active' : ''}" type="button"
+                    data-expression-category="${key}" role="tab" aria-selected="${_expressionCategory === key}"
+                    onclick="selecionarCategoriaExpressao('${key}')">${label}</button>`).join('')}
+        </div>
+        <div class="expression-value-control">
+          <select class="voz-select" id="discord-expression-value">
+            ${(HIGGS_MANUAL_TAGS[_expressionCategory] || []).map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('')}
+          </select>
+          <button class="voz-save-btn expression-insert-button" type="button" onclick="inserirTagExpressao()">${icone('plus', 16)}Inserir</button>
+        </div>
+      </div>
+    </div>
+    <div class="discord-form-row" data-discord-only>
       <span class="voz-label">Dispositivo de saída</span>
       <select class="voz-select" id="voice-monitor-device" onchange="atualizarConfigMonitorVoz()" disabled>
         <option value="">Carregando...</option>
       </select>
     </div>
-    <div class="discord-form-row">
+    <div class="discord-form-row" data-discord-only>
       <span class="voz-label">Volume</span>
       <div class="voz-slider-wrap">
         <input class="voz-slider" id="voice-monitor-volume" type="range" min="0" max="1.5" step="0.05" value="${esc(volume)}"
@@ -2812,7 +2954,7 @@ function renderizarInteracaoCanal() {
         <span class="voz-slider-val" id="voice-monitor-volume-value">${volume.toFixed(2)}</span>
       </div>
     </div>
-    <div class="voice-monitor-actions">
+    <div class="voice-monitor-actions" data-discord-only>
       <button class="voz-save-btn" id="voice-monitor-toggle" type="button" onclick="alternarMonitorVoz()" disabled>
         ${icone('headphones')}Ouvir canal
       </button>
@@ -2820,17 +2962,83 @@ function renderizarInteracaoCanal() {
   </div>`;
 }
 
+function selecionarCategoriaExpressao(categoria) {
+  if (!HIGGS_MANUAL_TAGS[categoria]) return;
+  _expressionCategory = categoria;
+  document.querySelectorAll('#discord-expression-row .expression-category-tab').forEach(button => {
+    const ativo = button.dataset.expressionCategory === categoria;
+    button.classList.toggle('active', ativo);
+    button.setAttribute('aria-selected', String(ativo));
+  });
+  const select = document.getElementById('discord-expression-value');
+  if (select) {
+    select.innerHTML = HIGGS_MANUAL_TAGS[categoria]
+      .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
+      .join('');
+    atualizarCustomSelect(select);
+    ajustarSelectLargura(select);
+  }
+}
+
+function inserirTagExpressao() {
+  const input = document.getElementById('voz-msg-input');
+  const select = document.getElementById('discord-expression-value');
+  const valor = select?.value;
+  if (!input || !valor || !HIGGS_MANUAL_TAGS[_expressionCategory]?.some(([item]) => item === valor)) return;
+  const tag = `<|${_expressionCategory}:${valor}|>`;
+  const inicio = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+  const fim = Number.isInteger(input.selectionEnd) ? input.selectionEnd : inicio;
+  input.setRangeText(tag, inicio, fim, 'end');
+  input.focus();
+}
+
+function atualizarAtalhosEmocaoDiscord() {
+  const row = document.getElementById('discord-expression-row');
+  if (!row) return;
+  const modelo = _modeloTTSSelecionadoUI || _vozConfig.tts_model || 'higgs-tts-3-4b';
+  row.hidden = modelo !== 'higgs-tts-3-4b';
+}
+
 function atualizarDisponibilidadeEnvioVoz() {
   const conectado = Boolean(guildVozConectada());
+  const disponivel = _destinoConversa === 'local' || conectado;
   const input = document.getElementById('voz-msg-input');
   const btn = document.getElementById('voz-msg-send-btn');
   if (input) {
-    input.disabled = !conectado;
-    input.placeholder = conectado
+    input.disabled = !disponivel;
+    input.placeholder = disponivel
       ? 'Digite a mensagem que a Neve vai falar...'
       : 'Conecte a Neve a um canal de voz';
   }
-  if (btn) btn.disabled = !conectado;
+  if (btn) btn.disabled = !disponivel;
+}
+
+function aplicarModoDiscord() {
+  const local = _destinoConversa === 'local';
+  const connection = document.getElementById('discord-voice-connection-section');
+  const message = document.getElementById('discord-message-section');
+  if (connection) connection.hidden = local;
+  if (message) message.hidden = local;
+  document.querySelectorAll('#discord-interaction-section [data-discord-only]').forEach(item => {
+    item.hidden = local;
+  });
+  const transcriptionTitle = document.getElementById('discord-transcription-title');
+  const transcriptionDescription = document.getElementById('discord-transcription-description');
+  const interactionTitle = document.getElementById('discord-interaction-title');
+  const interactionDescription = document.getElementById('discord-interaction-description');
+  if (transcriptionTitle) transcriptionTitle.textContent = local ? 'Transcrever localmente' : 'Transcrever canal';
+  if (transcriptionDescription) transcriptionDescription.textContent = local
+    ? 'Realize transcrições localmente em formato SRT.'
+    : 'Realize transcrições do canal de voz em formato SRT.';
+  if (interactionTitle) interactionTitle.textContent = local ? 'Interagir localmente' : 'Interagir no canal';
+  if (interactionDescription) interactionDescription.textContent = local
+    ? 'Envie uma fala localmente usando a Neve.'
+    : 'Escute o canal de voz e envie uma fala usando a Neve.';
+  if (local) pararPollingMonitorVoz();
+  else if (_paginaAtiva === 'discord') iniciarPollingMonitorVoz();
+  atualizarDisponibilidadeEnvioVoz();
+  atualizarAtalhosEmocaoDiscord();
+  aplicarEstadoTranscricao();
 }
 
 function renderizarTranscricaoCanal() {
@@ -2862,9 +3070,12 @@ function pararPollingTranscricao() {
 
 async function carregarEstadoTranscricao() {
   try {
-    const r = await fetch('/api/transcricao', { cache: 'no-store' });
+    const modoConsultado = _destinoConversa;
+    const endpoint = modoConsultado === 'local' ? '/api/transcricao/local' : '/api/transcricao';
+    const r = await fetch(endpoint, { cache: 'no-store' });
     const estado = await r.json();
     if (!r.ok || !estado.ok) throw new Error(estado.erro || 'Transcrição indisponível.');
+    if (modoConsultado !== _destinoConversa) return;
     _transcricaoEstado = estado;
     aplicarEstadoTranscricao();
 
@@ -2879,13 +3090,17 @@ function aplicarEstadoTranscricao() {
   const ativo = Boolean(estado.ativo);
   const finalizando = Boolean(estado.finalizando);
   const conectado = Boolean(guildVozConectada());
+  const local = _destinoConversa === 'local';
   const participants = document.getElementById('transcription-participants');
   const toggle = document.getElementById('transcription-toggle');
 
   const participantCount = ativo && Array.isArray(estado.participantes)
     ? estado.participantes.length
     : 0;
-  if (participants) participants.textContent = `${participantCount} ${participantCount === 1 ? 'participante' : 'participantes'}`;
+  if (participants) {
+    const nome = local ? (participantCount === 1 ? 'fonte' : 'fontes') : (participantCount === 1 ? 'participante' : 'participantes');
+    participants.textContent = `${participantCount} ${nome}`;
+  }
   if (toggle) {
     toggle.innerHTML = ativo
       ? `${icone('square')}Parar e salvar`
@@ -2893,7 +3108,7 @@ function aplicarEstadoTranscricao() {
         ? `${icone('captions')}Finalizando`
         : `${icone('captions')}Iniciar transcrição`;
     toggle.classList.toggle('primary', !ativo && !finalizando);
-    toggle.disabled = _transcricaoCarregando || finalizando || (!ativo && !conectado);
+    toggle.disabled = _transcricaoCarregando || finalizando || (!ativo && !local && !conectado);
   }
   aplicarEstadoMonitorVoz();
 }
@@ -2910,7 +3125,8 @@ async function abrirPastaTranscricao() {
 
 async function iniciarTranscricaoCanal() {
   const guild = guildVozConectada();
-  if (!guild) {
+  const local = _destinoConversa === 'local';
+  if (!local && !guild) {
     toast('Conecte a Neve a um canal de voz primeiro.', 'err');
     return;
   }
@@ -2927,7 +3143,7 @@ async function iniciarTranscricaoCanal() {
     const r = await fetch('/api/transcricao/iniciar', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ guild_id: guild.id }),
+      body: JSON.stringify({ modo: _destinoConversa, guild_id: guild?.id || null }),
     });
     const estado = await r.json();
     if (!r.ok || !estado.ok) throw new Error(estado.erro || 'Não foi possível iniciar.');
@@ -2967,7 +3183,11 @@ async function finalizarTranscricaoCanal() {
   aplicarEstadoTranscricao();
   definirBotaoOcupado(button, true);
   try {
-    const r = await fetch('/api/transcricao/parar', { method: 'POST' });
+    const r = await fetch('/api/transcricao/parar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ modo: _destinoConversa }),
+    });
     const estado = await r.json();
     if (!r.ok || !estado.ok) throw new Error(estado.erro || 'Não foi possível finalizar.');
     _transcricaoEstado = {...estado, participantes: []};
@@ -3621,7 +3841,7 @@ function renderizarChatVoz() {
       </div>
 
       <div class="vs-actions">
-        <button class="voz-save-btn" id="voz-test-btn" onclick="testarVoz()">Testar voz</button>
+        <button class="voz-save-btn" id="voz-test-btn" onclick="testarVoz()">${icone('mic-vocal')}Testar voz</button>
         <button class="voz-save-btn primary" id="voz-config-save" onclick="salvarConfigVoz()">${icone('save')}Salvar</button>
       </div>
     </div>
@@ -3691,12 +3911,14 @@ function inicializarChatVoz() {
 
 function atualizarControlesTTS() {
   const selecionado = document.getElementById('voz-model-input')?.value || 'higgs-tts-3-4b';
+  _modeloTTSSelecionadoUI = selecionado;
   document.querySelectorAll('[data-tts-only]').forEach(item => {
     const modelos = (item.dataset.ttsOnly || '').split(',').map(valor => valor.trim());
     item.hidden = !modelos.includes(selecionado);
   });
   const select = document.getElementById('voz-model-input');
   if (select) atualizarCustomSelect(select);
+  atualizarAtalhosEmocaoDiscord();
 }
 
 async function enviarVozReferencia(arquivo) {
@@ -3765,7 +3987,7 @@ async function enviarMensagemVoz() {
   const input = document.getElementById('voz-msg-input');
   const btn = document.getElementById('voz-msg-send-btn');
   const texto = input?.value?.trim();
-  if (!guildVozConectada()) {
+  if (_destinoConversa === 'discord' && !guildVozConectada()) {
     atualizarDisponibilidadeEnvioVoz();
     toast('Conecte o bot a um canal de voz primeiro.', 'err');
     return;
@@ -3777,15 +3999,22 @@ async function enviarMensagemVoz() {
 
   definirBotaoOcupado(btn, true);
   try {
+    if (_destinoConversa === 'local') await prepararAudioLocal();
     const r = await fetch('/api/voz/falar', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ texto }),
+      body: JSON.stringify({ texto, destino: _destinoConversa }),
     });
     const res = await r.json();
     if (!r.ok || !res.ok) throw new Error(res.erro || 'Não foi possível enviar a voz.');
     if (input) input.value = '';
-    toast('Mensagem enviada ao canal de voz.', 'ok');
+    if (_destinoConversa === 'local') {
+      toast('Fala reproduzida localmente.', 'ok');
+      definirBotaoOcupado(btn, false);
+      await reproduzirAudiosLocais(res.audios_local);
+    } else {
+      toast('Mensagem enviada ao canal de voz.', 'ok');
+    }
   } catch (e) {
     toast('Falha ao enviar voz: ' + (e.message || 'erro desconhecido'), 'err');
   } finally {
@@ -3821,6 +4050,8 @@ async function salvarConfigVoz() {
     const res = await r.json();
     if (res.ok) {
       _vozConfig = { ..._vozConfig, ...cfg };
+      _modeloTTSSelecionadoUI = cfg.tts_model;
+      atualizarAtalhosEmocaoDiscord();
       atualizarVisaoGeral();
       toast('Config de voz salva!', 'ok');
     }
@@ -3835,15 +4066,26 @@ async function salvarConfigVoz() {
 async function testarVoz() {
   const btn = document.getElementById('voz-test-btn');
   definirBotaoOcupado(btn, true);
+  if (_destinoConversa === 'local') {
+    try { await prepararAudioLocal(); } catch (e) {
+      definirBotaoOcupado(btn, false);
+      toast('Falha ao preparar o áudio local.', 'err');
+      return;
+    }
+  }
   await salvarConfigVoz();
   setVoiceStatus('Testando voz...');
   try {
     const r = await fetch('/api/voz/testar', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ texto: 'Oi, eu sou a Neve. Assim ficou minha voz agora.' }),
+      body: JSON.stringify({ texto: 'Oi, eu sou a Neve. Assim ficou minha voz agora.', destino: _destinoConversa }),
     });
     const res = await r.json();
-    if (res.ok) toast('Teste de voz enviado ao Discord.', 'ok');
+    if (res.ok && _destinoConversa === 'local') {
+      toast('Teste de voz reproduzido localmente.', 'ok');
+      await reproduzirAudiosLocais(res.audios_local);
+    }
+    else if (res.ok) toast('Teste de voz enviado ao Discord.', 'ok');
     else toast('Erro: ' + (res.erro || '?'), 'err');
   } catch(e) {
     toast('Falha ao testar voz.', 'err');
@@ -3870,6 +4112,7 @@ async function iniciarGravacao() {
     return false;
   }
   try {
+    if (_destinoConversa === 'local') await prepararAudioLocal();
     _vozMediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
@@ -3961,7 +4204,10 @@ async function pararGravacao() {
     setVoiceStatus('Transcrevendo e gerando resposta...');
     const r = await fetch('/api/voz/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'audio/wav' },
+      headers: {
+        'Content-Type': 'audio/wav',
+        'X-Nevebot-Audio-Destination': _destinoConversa,
+      },
       body: wavBlob,
     });
     const res = await r.json();
@@ -3971,6 +4217,11 @@ async function pararGravacao() {
     if (res.falou_discord) {
       audioDelayMs = calcularAguardoAudioDiscord(res);
       setVoiceStatus('Falando no Discord...');
+    }
+    else if (res.falou_local) {
+      setVoiceStatus('Falando localmente...');
+      _vozRequestActive = false;
+      await reproduzirAudiosLocais(res.audios_local);
     }
     else setVoiceStatus('');
   } catch(e) {
@@ -4009,15 +4260,21 @@ async function enviarTextoVoz() {
   let audioDelayMs = 0;
   _vozRequestActive = true;
   try {
+    if (_destinoConversa === 'local') await prepararAudioLocal();
     const r = await fetch('/api/voz/chat-texto', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ texto }),
+      body: JSON.stringify({ texto, destino: _destinoConversa }),
     });
     const res = await r.json();
     adicionarRespostaLLMChat(res);
     if (res.falou_discord) {
       audioDelayMs = calcularAguardoAudioDiscord(res);
       setVoiceStatus('Falando no Discord...');
+    }
+    else if (res.falou_local) {
+      setVoiceStatus('Falando localmente...');
+      _vozRequestActive = false;
+      await reproduzirAudiosLocais(res.audios_local);
     }
     else if (res.erro) toast('Erro: ' + res.erro, 'err');
     else setVoiceStatus('');
@@ -4099,7 +4356,8 @@ function _interromperTTSParaPTT() {
   document.getElementById('voice-mic-btn')?.classList.remove('processing');
   const sendBtn = document.getElementById('voice-send-btn');
   if (sendBtn) sendBtn.disabled = false;
-  fetch('/api/voz/interromper', { method: 'POST' }).catch(() => {});
+  if (_destinoConversa === 'local') pararAudioLocal();
+  else fetch('/api/voz/interromper', { method: 'POST' }).catch(() => {});
   return true;
 }
 

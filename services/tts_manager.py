@@ -52,6 +52,7 @@ def gerar_pcm(
     *,
     stream_chunk: bool = False,
     expressao: dict | None = None,
+    permitir_tags_manuais: bool = False,
 ) -> bytes:
     with _switch_lock:
         escolhido = ativar(voz_cfg)
@@ -63,8 +64,20 @@ def gerar_pcm(
         if escolhido == HIGGS:
             from services import tts_higgs
 
-            texto_higgs, tags, aprovada = tts_expression.preparar(texto, expressao)
-            if expressao is not None:
+            if permitir_tags_manuais:
+                texto_higgs, tags = tts_expression.preparar_manual(texto)
+                if not texto_higgs:
+                    raise ValueError("Digite uma mensagem alem das tags de expressao.")
+                aprovada = tts_expression.Expression()
+                tags_console = " ".join(tags) if tags else "nenhuma (fala neutra)"
+                log.info(
+                    "[TTS:Higgs:Manual] tags aplicadas=%s | entrada=%r",
+                    tags_console,
+                    texto_higgs,
+                )
+            else:
+                texto_higgs, tags, aprovada = tts_expression.preparar(texto, expressao)
+            if expressao is not None and not permitir_tags_manuais:
                 proposta = (
                     f"emotion={expressao.get('emotion', 'neutral')}, "
                     f"style={expressao.get('style', 'normal')}, "

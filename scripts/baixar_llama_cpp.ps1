@@ -28,15 +28,15 @@ if ($installPath.TrimEnd("\") -eq $root.TrimEnd("\")) {
     throw "Diretorio de instalacao nao pode ser a raiz do projeto."
 }
 
-$headers = @{ "User-Agent" = "Nevebot-installer" }
-$releaseUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
-
-Write-Host "Consultando ultima release em $releaseUrl ..."
-$release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers
-$assets = @($release.assets | Where-Object { $_.name -like "*.zip" })
-if (-not $assets) {
-    throw "Nenhum asset .zip encontrado na release $($release.tag_name)."
+$headers = @{
+    "User-Agent" = "Nevebot-installer"
+    "Accept" = "application/vnd.github+json"
+    "X-GitHub-Api-Version" = "2022-11-28"
 }
+if ($env:GITHUB_TOKEN) {
+    $headers["Authorization"] = "Bearer $($env:GITHUB_TOKEN)"
+}
+$releaseListBaseUrl = "https://api.github.com/repos/ggml-org/llama.cpp/releases"
 
 function Get-CudaVersion {
     param([string] $Name)
@@ -49,16 +49,60 @@ function Get-CudaVersion {
     return ""
 }
 
-function Select-PreferredCudaAsset {
-    param([array] $Candidates)
-    $preferred = @("12.4", "12.5", "12.6", "12.8", "13.1", "13.0")
-    foreach ($version in $preferred) {
-        $found = @($Candidates | Where-Object { (Get-CudaVersion $_.name).StartsWith($version) }) | Select-Object -First 1
-        if ($found) {
-            return $found
+function Get-NvidiaCudaVersion {
+    $nvidiaSmi = Get-Command "nvidia-smi.exe" -ErrorAction SilentlyContinue
+    $nvidiaSmiPath = if ($nvidiaSmi) { $nvidiaSmi.Source } else { $null }
+    if (-not $nvidiaSmi) {
+        $systemSmi = Join-Path $env:WINDIR "System32\nvidia-smi.exe"
+        if (Test-Path -LiteralPath $systemSmi) {
+            $nvidiaSmiPath = $systemSmi
         }
     }
-    return @($Candidates | Sort-Object name -Descending) | Select-Object -First 1
+    if (-not $nvidiaSmiPath) {
+        return $null
+    }
+
+    try {
+        $output = (& $nvidiaSmiPath 2>$null | Out-String)
+        if ($output -match "CUDA(?:\s+UMD)?\s+Version:\s*([0-9]+(?:\.[0-9]+)?)") {
+            return [Version]$Matches[1]
+        }
+    } catch {
+        Write-Warning "Nao foi possivel consultar a versao CUDA suportada pelo driver NVIDIA."
+    }
+    return $null
+}
+
+function Select-PreferredCudaAsset {
+    param([array] $Candidates)
+
+    $supported = Get-NvidiaCudaVersion
+    $versioned = @(
+        $Candidates | ForEach-Object {
+            $rawVersion = Get-CudaVersion $_.name
+            if ($rawVersion) {
+                [pscustomobject]@{ Asset = $_; Version = [Version]$rawVersion }
+            }
+        }
+    )
+    if ($supported -and $versioned) {
+        $compatible = @(
+            $versioned |
+            Where-Object { $_.Version -le $supported } |
+            Sort-Object Version -Descending
+        ) | Select-Object -First 1
+        if ($compatible) {
+            Write-Host "Driver NVIDIA suporta CUDA $supported; selecionando runtime CUDA $($compatible.Version)."
+            return $compatible.Asset
+        }
+    }
+
+    $conservative = @($versioned | Where-Object { $_.Version -eq [Version]"12.4" }) | Select-Object -First 1
+    if ($conservative) {
+        Write-Warning "Versao CUDA do driver nao detectada; usando runtime compativel 12.4."
+        return $conservative.Asset
+    }
+    return @($versioned | Sort-Object Version | Select-Object -First 1).Asset
 }
 
 function Test-NvidiaAvailable {
@@ -90,8 +134,10 @@ function Stop-LlamaProcessesInInstallDir {
 }
 
 function Get-CudaBundle {
+    param([array] $ReleaseAssets)
+
     $mainCandidates = @(
-        $assets | Where-Object {
+        $ReleaseAssets | Where-Object {
             $_.name -match "^llama-.*-bin-win-cuda.*-x64\.zip$" -and
             $_.name -notmatch "^cudart-"
         }
@@ -104,7 +150,7 @@ function Get-CudaBundle {
     $version = Get-CudaVersion $main.name
 
     $runtimeCandidates = @(
-        $assets | Where-Object {
+        $ReleaseAssets | Where-Object {
             $_.name -match "^cudart-llama-bin-win-cuda.*-x64\.zip$"
         }
     )
@@ -120,8 +166,10 @@ function Get-CudaBundle {
 }
 
 function Get-VulkanBundle {
+    param([array] $ReleaseAssets)
+
     $main = @(
-        $assets | Where-Object { $_.name -match "^llama-.*-bin-win-vulkan-x64\.zip$" }
+        $ReleaseAssets | Where-Object { $_.name -match "^llama-.*-bin-win-vulkan-x64\.zip$" }
     ) | Sort-Object name -Descending | Select-Object -First 1
     if (-not $main) {
         throw "Asset Vulkan do llama.cpp para Windows x64 nao encontrado."
@@ -133,8 +181,10 @@ function Get-VulkanBundle {
 }
 
 function Get-CpuBundle {
+    param([array] $ReleaseAssets)
+
     $main = @(
-        $assets | Where-Object { $_.name -match "^llama-.*-bin-win-(cpu|avx2|avx)-x64\.zip$" }
+        $ReleaseAssets | Where-Object { $_.name -match "^llama-.*-bin-win-(cpu|avx2|avx)-x64\.zip$" }
     ) | Sort-Object @{ Expression = { if ($_.name -match "cpu") { 0 } elseif ($_.name -match "avx2") { 1 } else { 2 } } }, name | Select-Object -First 1
     if (-not $main) {
         throw "Asset CPU do llama.cpp para Windows x64 nao encontrado."
@@ -142,6 +192,22 @@ function Get-CpuBundle {
     return @{
         Backend = "cpu"
         Assets = @($main)
+    }
+}
+
+function Get-GitHubReleasesPage {
+    param([string] $Uri)
+
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            return (Invoke-RestMethod -Uri $Uri -Headers $headers -TimeoutSec 45)
+        } catch {
+            if ($attempt -eq 3) {
+                throw "Falha ao consultar releases do llama.cpp apos 3 tentativas: $($_.Exception.Message)"
+            }
+            Write-Warning "Consulta ao GitHub falhou (tentativa $attempt/3). Tentando novamente..."
+            Start-Sleep -Seconds (2 * $attempt)
+        }
     }
 }
 
@@ -154,22 +220,80 @@ if ($wanted -eq "auto") {
     }
 }
 
-try {
-    if ($wanted -eq "cuda") {
-        $bundle = Get-CudaBundle
-    } elseif ($wanted -eq "vulkan") {
-        $bundle = Get-VulkanBundle
-    } else {
-        $bundle = Get-CpuBundle
+function Find-LatestCompatibleRelease {
+    param([string] $DesiredBackend)
+
+    for ($page = 1; $page -le 5; $page++) {
+        $releaseUrl = "$releaseListBaseUrl`?per_page=100&page=$page"
+        Write-Host "Consultando releases publicadas em $releaseUrl ..."
+        $releases = @(Get-GitHubReleasesPage $releaseUrl)
+        if (-not $releases) {
+            break
+        }
+
+        $ordered = @(
+            $releases |
+            Where-Object { -not $_.draft } |
+            Sort-Object @{ Expression = {
+                if ($_.published_at) { [DateTimeOffset]$_.published_at }
+                elseif ($_.created_at) { [DateTimeOffset]$_.created_at }
+                else { [DateTimeOffset]::MinValue }
+            } } -Descending
+        )
+        foreach ($candidate in $ordered) {
+            $candidateAssets = @($candidate.assets | Where-Object { $_.name -like "*.zip" })
+            if (-not $candidateAssets) {
+                Write-Host "Ignorando $($candidate.tag_name): nenhum binario ZIP publicado."
+                continue
+            }
+            try {
+                if ($DesiredBackend -eq "cuda") {
+                    $candidateBundle = Get-CudaBundle -ReleaseAssets $candidateAssets
+                } elseif ($DesiredBackend -eq "vulkan") {
+                    $candidateBundle = Get-VulkanBundle -ReleaseAssets $candidateAssets
+                } else {
+                    $candidateBundle = Get-CpuBundle -ReleaseAssets $candidateAssets
+                }
+                return [pscustomobject]@{
+                    Release = $candidate
+                    Bundle = $candidateBundle
+                    Assets = @($candidateAssets)
+                    Source = $releaseUrl
+                }
+            } catch {
+                Write-Host "Ignorando $($candidate.tag_name): $($_.Exception.Message)"
+            }
+        }
+        if ($releases.Count -lt 100) {
+            break
+        }
     }
-} catch {
+
+    return $null
+}
+
+$selection = Find-LatestCompatibleRelease $wanted
+if (-not $selection -and $Backend.ToLowerInvariant() -eq "auto" -and $wanted -eq "cuda") {
+    Write-Warning "Nenhuma release publicada possui o pacote CUDA completo. Procurando pacote CPU."
+    $selection = Find-LatestCompatibleRelease "cpu"
+}
+if (-not $selection) {
+    throw "Nenhuma release publicada do llama.cpp possui um pacote $wanted compativel com Windows x64."
+}
+
+$release = $selection.Release
+$bundle = $selection.Bundle
+$assets = @($selection.Assets)
+$selectedReleaseSource = $selection.Source
+if ($bundle.Backend -ne $wanted) {
     if ($Backend.ToLowerInvariant() -eq "auto" -and $wanted -eq "cuda") {
-        Write-Warning "$($_.Exception.Message) Usando asset CPU como fallback."
-        $bundle = Get-CpuBundle
+        Write-Warning "Usando asset CPU como fallback."
     } else {
-        throw
+        throw "O backend selecionado nao corresponde ao pacote encontrado."
     }
 }
+
+Write-Host "Release compativel mais recente: $($release.tag_name) [$($bundle.Backend)] prerelease=$($release.prerelease)"
 
 $serverPath = Join-Path $installPath "llama-server.exe"
 $metadataPath = Join-Path $installPath "release.json"
@@ -236,8 +360,10 @@ if (-not (Test-Path -LiteralPath $finalServer)) {
 }
 
 $metadataOut = [ordered]@{
-    source = "https://github.com/ggml-org/llama.cpp/releases/latest"
+    source = $selectedReleaseSource
     tag = $release.tag_name
+    prerelease = [bool]$release.prerelease
+    published_at = $release.published_at
     backend = $bundle.Backend
     assets = $assetNames
     installed_at = (Get-Date).ToString("s")

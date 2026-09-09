@@ -9,7 +9,7 @@
   "voz_temperature": 0.8,
   "voz_top_k": 30,
   "voz_top_p": 0.8,
-  "voz_referencia_texto": "Mas, mano, eu tiro foto e vejo que a minha testa fica imensa. Pra você ter uma noção, eu nunca tiro... não, não tiro mais. Eu não consigo mais tirar foto com o celular de frente. Eu tiro com o celular de lado, porque aí dá pra cortar metade da minha testa. Cara, não é possível que só eu veja que eu tenho um metro de testa.",
+  "voz_referencia_texto": "Mas, mano, eu tiro foto e vejo que minha testa fica imensa. Pra você, mano, eu não tiro mais, eu não consigo mais tirar foto com o celular de frente. Eu tiro com o celular de lado, porque aí deve me cortar metade da minha testa. Cara, não é possível que só eu veja que eu tenho um metro de testa.",
   "higgs_expressividade_automatica": true,
   "velocidade": 1,
   "volume": 1,

@@ -14,10 +14,11 @@ scipy==1.17.0
 # torch/torchaudio usam runtime CUDA proprio; o CUDA Toolkit nao e necessario.
 faster-whisper==1.2.1
 ctranslate2==4.7.1
-onnxruntime-gpu==1.24.3
+onnxruntime-gpu==1.24.4
 librosa==0.11.0
 soundfile==0.13.1
 sounddevice==0.5.5
+SoundCard==0.4.6
 safetensors==0.7.0
 huggingface_hub==1.4.1
 

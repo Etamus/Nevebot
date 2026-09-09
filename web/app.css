@@ -204,6 +204,36 @@ button { color: inherit; }
 
 .page-heading { min-width: 0; }
 .workspace-header-actions { display: flex; align-items: center; gap: var(--space-2); }
+.conversation-output-picker {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.conversation-output-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 86px;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .82rem;
+  transition: background-color .14s ease, color .14s ease;
+}
+.conversation-output-option:hover { background: var(--surface-hover); color: var(--text-secondary); }
+.conversation-output-option.active { background: var(--surface-3); color: var(--text); }
+.conversation-output-option:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.conversation-output-option .icon-slot,
+.conversation-output-option .ui-icon { width: 15px; height: 15px; flex-basis: 15px; }
 .header-icon-button {
   display: inline-flex;
   align-items: center;
@@ -625,6 +655,49 @@ select.custom-native-select {
 .app-page[data-page="discord"] { width: min(900px, 100%); }
 .voice-interaction-panel { display: grid; gap: var(--space-3); }
 .voice-interaction-panel .voz-slider-wrap { grid-template-columns: minmax(100px, 1fr) 44px; }
+#discord-expression-row { align-items: start; }
+#discord-expression-row > .voz-label { padding-top: 11px; }
+.discord-expression-shortcuts {
+  display: grid;
+  grid-template-columns: auto minmax(190px, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+.expression-category-tabs {
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-height);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+.expression-category-tab {
+  height: 32px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: .78rem;
+  white-space: nowrap;
+  transition: background-color .14s ease, color .14s ease;
+}
+.expression-category-tab:hover { background: var(--surface-hover); color: var(--text-secondary); }
+.expression-category-tab.active { background: var(--surface-3); color: var(--text); }
+.expression-category-tab:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.expression-value-control {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.expression-value-control > .custom-select { grid-column: 1; }
+.expression-insert-button { grid-column: 2; min-width: 76px; white-space: nowrap; }
 .voice-monitor-actions {
   display: flex;
   justify-content: flex-end;
@@ -826,7 +899,11 @@ select.custom-native-select {
   height: calc(100vh - var(--topbar-height) - var(--space-5) - 64px);
   min-height: 440px;
 }
-.voice-status-pill { color: var(--text-muted); font-size: .8rem; }
+.voice-status-pill {
+  margin-right: var(--space-5);
+  color: var(--text-muted);
+  font-size: .8rem;
+}
 .voice-chat-messages {
   min-height: 0 !important;
   max-height: none !important;
@@ -1196,8 +1273,8 @@ select.custom-native-select {
   transition: opacity .16s ease, transform .16s ease;
 }
 #toast.show { opacity: 1; transform: translateY(0); }
-#toast.ok { border-left: 3px solid var(--success) !important; }
-#toast.err { border-left: 3px solid var(--danger) !important; }
+#toast.ok,
+#toast.err { border-left: 1px solid var(--border-strong) !important; }
 
 .dialog-backdrop {
   position: fixed;
@@ -1275,6 +1352,10 @@ select.custom-native-select {
   .workspace-header { padding: 0 var(--space-4) !important; }
   .page-heading p { display: none; }
   .header-status { padding-inline: var(--space-2); }
+  .conversation-output-option { min-width: 0; padding-inline: var(--space-2); }
+  .discord-expression-shortcuts { grid-template-columns: 1fr; }
+  .expression-category-tabs { width: 100%; overflow-x: auto; }
+  .expression-category-tab { flex: 1 0 auto; }
   #content { padding: var(--space-4) var(--space-4) 48px; }
   .page-intro { display: block; }
   .page-intro .section-actions { margin-top: var(--space-3); justify-content: flex-start; }
